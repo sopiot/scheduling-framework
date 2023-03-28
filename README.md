@@ -381,7 +381,7 @@ Users can configure a custom `Middleware` layer structure to perform simulations
 
 ### Scheduling Algorithm Customization
 
-Refer `schedule-policy` directory
+Refer to `schedule_algorithm` directory
 
 ### Simulation Data file
 
