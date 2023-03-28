@@ -47,7 +47,7 @@ pip3 install .
 You can run a simple simulation on your local machine by using the following command:
 
 ```bash
-python3 run.py -e sim_env_samples/simple_home_local -p schedule-algorithm/samples
+python3 run.py -e sim_env_samples/simple_home_local -p schedule_algorithm/samples
 ```
 
 If you run the command for the first time, you will be prompted to enter the password information for the current user on `localhost`. Upon entering the password, the device information for `localhost` will be automatically saved in the `device_pool_path` specified in the **Simulation Environment file** (default: `${ROOT}/device_pool.yml`), as follows:
@@ -60,7 +60,7 @@ localhost:
   password: "PaSsWoRD"
 ```
 
-Using the `-e` option, the user can specify a directory or a list of directories containing **Simulation Environment file**, while the `-p` option is used to specify a directory or a list of directories containing **Scheduling Algorithm file**. Users can either use the predefined **Simulation Environment file** and **Scheduling Algorithm file** located in the repository's `sim_env_sample` and `schedule-algorithm/samples` directories or define their own **Simulation Environment file** and **Scheduling Algorithm file**. **Simulation Environment file** must be `yaml` file starting with the `config` string. More detailed information about **Simulation Environment file** can be found [here](#simulation-environment-file).
+Using the `-e` option, the user can specify a directory or a list of directories containing **Simulation Environment file**, while the `-p` option is used to specify a directory or a list of directories containing **Scheduling Algorithm file**. Users can either use the predefined **Simulation Environment file** and **Scheduling Algorithm file** located in the repository's `sim_env_sample` and `schedule_algorithm/samples` directories or define their own **Simulation Environment file** and **Scheduling Algorithm file**. **Simulation Environment file** must be `yaml` file starting with the `config` string. More detailed information about **Simulation Environment file** can be found [here](#simulation-environment-file).
 
 The simulator runs simulations with every combinations of Simulation Environment and **Scheduling Algorithm**. After each simulation is completed, the results for each simulation are displayed, and once all simulations have been completed, the ranking results for all simulations are output. The ranking results rank simulations based on QoS, energy, and stability and output a table format of the ranking table on the terminal. Each table entry displays the corresponding data for each ranking item and which **Simulation Environment file** was used for the simulation.
 
@@ -75,13 +75,13 @@ If the `Middleware` and `Thing` are distributed to remote devices instead of run
 Users can perform simulations directly from **Simulation Data file** by using the `-s` option. In this case, the simulator loads the simulation environment that has already been generated, rather than creating a new simulation environment. Users can still specify which **scheduling algorithm** to use for the simulation by using the `-p` option.
 
 ```bash
-python3 run.py -s sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -p schedule-algorithm/samples
+python3 run.py -s sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -p schedule_algorithm/samples
 ```
 
 The `-o` option can be used to specify the name of the result file. If the `-o` option is not specified, the name of the simulation specified in the **Simulation Environment file** will be used as the default name. In addition, users can download logs from a remote device for debugging purposes using the `-dl` option.
 
 ```bash
-python3 run.py -s sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -p schedule-algorithm/samples -o test_result -dl
+python3 run.py -s sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -p schedule_algorithm/samples -o test_result -dl
 ```
 
 The `-e` and `-p` options allow users to specify a list of **Simulation Environment file** (`config*.yml`) and **Scheduling Algorithm file** (`*.cc`). These options can be used as shown in the following command:
@@ -89,9 +89,9 @@ The `-e` and `-p` options allow users to specify a list of **Simulation Environm
 ```bash
 python3 run.py -e sim_env_samples/simple_home_local_multi_env/config_period5_10.yml \
                   sim_env_samples/simple_home_local_multi_env/config_period10_20.yml \
-               -p schedule-algorithm/samples/default.cc \
-                  schedule-algorithm/samples/energy_saving.cc \
-                  schedule-algorithm/samples/merge_execution.cc
+               -p schedule_algorithm/samples/default.cc \
+                  schedule_algorithm/samples/energy_saving.cc \
+                  schedule_algorithm/samples/merge_execution.cc
 ```
 
 ## Terminology

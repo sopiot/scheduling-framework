@@ -25,7 +25,7 @@
         "-e",
         "./sim_env_samples/paper_experiments/wide_type_W9_sub4/config.yml",
         "-p",
-        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+        "./schedule_algorithm/samples/my_schedule_algorithm_A.cc"
       ]
     },
     {
@@ -40,7 +40,7 @@
         "-e",
         "./sim_env_samples/paper_experiments/wide_type_H10_sub4/config.yml",
         "-p",
-        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+        "./schedule_algorithm/samples/my_schedule_algorithm_A.cc"
       ]
     },
     {
@@ -55,7 +55,7 @@
         "-e",
         "./sim_env_samples/paper_experiments/only_bottom_binary_type_A/config_sub16.yml",
         "-p",
-        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+        "./schedule_algorithm/samples/my_schedule_algorithm_A.cc"
       ]
     },
     {
@@ -70,7 +70,7 @@
         "-e",
         "./sim_env_samples/paper_experiments/binary_type_A_period/config_period10_20.yml",
         "-p",
-        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+        "./schedule_algorithm/samples/my_schedule_algorithm_A.cc"
       ]
     },
     {
@@ -85,7 +85,7 @@
         "-e",
         "./sim_env_samples/paper_experiments/binary_type_A_sub4_super32/config.yml",
         "-p",
-        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+        "./schedule_algorithm/samples/my_schedule_algorithm_A.cc"
       ]
     },
     {
@@ -100,7 +100,7 @@
         "-e",
         "./sim_env_samples/simple_home_local",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     },
     {
@@ -115,7 +115,7 @@
         "-e",
         "./sim_env_samples/simple_home_local_multi_env",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     },
     {
@@ -130,7 +130,7 @@
         "-e",
         "./sim_env_samples/simple_home_remote",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     },
     {
@@ -145,7 +145,7 @@
         "-e",
         "./sim_env_samples/simple_building_local",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     },
     {
@@ -160,7 +160,7 @@
         "-e",
         "./sim_env_samples/simple_building_remote",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     },
     {
@@ -175,7 +175,7 @@
         "-e",
         "./sim_env_samples/simple_campus_local",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     },
     {
@@ -190,7 +190,7 @@
         "-e",
         "./sim_env_samples/simple_campus_local_random",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     },
     {
@@ -205,7 +205,7 @@
         "-e",
         "./sim_env_samples/simple_campus_remote",
         "-p",
-        "./schedule-algorithm/samples"
+        "./schedule_algorithm/samples"
       ]
     }
   ]

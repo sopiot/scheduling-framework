@@ -84,7 +84,7 @@ class SoPSchedulingFramework:
                 result = ssh_client.send_command(
                     f'rm -rf {home_dir_append(middleware_path, user)}')
                 result = ssh_client.send_dir(
-                    f'{get_project_root()}/schedule-algorithm', home_dir_append(middleware_path, user))
+                    f'{get_project_root()}/schedule_algorithm', home_dir_append(middleware_path, user))
                 if 'Ubuntu 20.04' in remote_device_os:
                     result = ssh_client.send_file(
                         f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
