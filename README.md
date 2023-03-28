@@ -32,7 +32,7 @@ sudo apt install git python3 python3-pip openssh-server build-essential -y
 First, clone the repository using the following command:
 
 ```bash
-git clone ssh://git@iotdev.snu.ac.kr:122/sopiot/scheduling-framework.git
+git clone https://github.com/sopiot/scheduling-framework.git
 ```
 
 Then, install the `scheduling-framework` Python package using the following command:
