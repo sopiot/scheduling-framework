@@ -2,7 +2,7 @@ simulation:
   name: sim_simple_home_remote
   running_time: 60
 
-device_pool_path: ${ROOT}/device_pool_remote.yml
+device_pool_path: ${ROOT}/device_pool.yml
 
 middleware:
   manual: manual_mw_tree.yml

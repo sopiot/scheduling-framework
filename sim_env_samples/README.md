@@ -18,4 +18,4 @@ This simulation runs seven `Middleware`, with one `Middleware` at level 3, two `
 
 ## Case 4: paper experiments
 
-This simulation environment can reproduce the experiments performed in the paper. It runs one `Middleware` on a remote device and runs all `Normal Things` on the local machine by default, except for the `Super Thing`, which runs on the same device as the `Middleware`.
+This simulation environment can reproduce the experiments performed in the paper. It runs one `Middleware` on a remote device and runs all `Normal Things` on the local machine by default, except for the `Super Thing`, which runs on the same device as the `Middleware`. Devices specified in the **Device Pool file** in the `device_pool_path` path must be specified as information on the local network and at least 11 Raspberry Pi devices are required.
