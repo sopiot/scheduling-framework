@@ -124,7 +124,7 @@ def exception_wrapper(func: Callable = None,
             if self.__class__.__name__ == 'SoPSimulatorExecutor':
                 self.event_handler.kill_all_simulation_instance()
                 user_input = input(
-                    'Select exit mode\n1. Just exit\n2. Download remote logs\n') or '1'
+                    'Select exit mode[1].\n1. Just exit\n2. Download remote logs\n') or '1'
                 if user_input == '1':
                     cprint(f'Exit whole simulation...', 'red')
                     exit(0)
