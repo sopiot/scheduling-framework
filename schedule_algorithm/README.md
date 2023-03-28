@@ -2,8 +2,8 @@
 
 ## Scheduling Policies
 
-In this IoT Platform, the `Scheduler` of the middleware updates the mapping table when a new `Application` or `Super Service`'s service scheduling request comes in, and responds according to the scheduling policies below:
-This document outlines the scheduling policy for a scheduling algorithm. The system handles scheduling requests, device status changes, and execution requests, and responds to events triggered by users, `Super Things`, schedulers, and other `Middleware`.
+In this IoT Platform, the `Scheduler` responds according to the scheduling policies when a new `Application` or `Super Service`'s service scheduling request comes in.
+This document outlines the scheduling policies which determine the scheduling algorithm. The system handles scheduling requests, device status changes, and execution requests, and responds to events triggered by users, `Super Things`, schedulers, and other `Middleware`.
 
 ### Scheduling Request
 
