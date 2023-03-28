@@ -379,9 +379,9 @@ Users can configure a custom `Middleware` layer structure to perform simulations
 
   A list of sub `Middlware`. Specify `null` to not create a child `Middlware`.
 
-### Scheduling Algorithm file
+### Scheduling Algorithm Customization
 
-(WIP)
+Refer `schedule-policy` directory
 
 ### Simulation Data file
 
