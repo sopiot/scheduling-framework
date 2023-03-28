@@ -55,20 +55,20 @@ cap_result MySchedulePolicy::OnMapService(cap_string strServiceName, cap_handle 
     result = ServiceTable_Get(this->hServiceTable_, strThingName, strServiceName, &pstServiceInfo);
     ERRIFGOTO(result, _EXIT);
 
-    // if (pstServiceInfo->llEnergyJ < llMin) {
-    //   llMin = pstServiceInfo->llEnergyJ;
-    //   result = CAPString_Set(strBestThingName, strThingName);
-    //   ERRIFGOTO(result, _EXIT);
-
-    //   SOPLOG_DEBUG("Update the Best Energy! Best Thing: %s", CAPString_LowPtr(strThingName, NULL));
-    // }
-    if (pstServiceInfo->llExecTimeMs < llMin) {
-      llMin = pstServiceInfo->llExecTimeMs;
+    if (pstServiceInfo->llEnergyJ < llMin) {
+      llMin = pstServiceInfo->llEnergyJ;
       result = CAPString_Set(strBestThingName, strThingName);
       ERRIFGOTO(result, _EXIT);
 
-      SOPLOG_DEBUG("Update the Best Speed! Best Thing: %s", CAPString_LowPtr(strThingName, NULL));
+      SOPLOG_DEBUG("Update the Best Energy! Best Thing: %s", CAPString_LowPtr(strThingName, NULL));
     }
+//     if (pstServiceInfo->llExecTimeMs < llMin) {
+//       llMin = pstServiceInfo->llExecTimeMs;
+//       result = CAPString_Set(strBestThingName, strThingName);
+//       ERRIFGOTO(result, _EXIT);
+
+//       SOPLOG_DEBUG("Update the Best Speed! Best Thing: %s", CAPString_LowPtr(strThingName, NULL));
+//     }
   }
 
   *pstrMappedThingName = strBestThingName;
