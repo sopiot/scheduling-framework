@@ -6,7 +6,7 @@
 
 This is a framework that is designed to fine-tune the **scheduling algorithm** of the middleware based on an IoT environment simulator. Using this simulator, users can implement their own **scheduling algorithm** and simulate the IoT system. The framework automates running multiple simulations with multiple environments and **scheduling algorithm**, and provides not only the results of each simulation but also the rankings of each objective to pick the best one. If you want to learn more about the **Terminology** used in this repository, please refer to [here](#terminology).
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+<!-- [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) -->
 
 ## Getting Started
 
