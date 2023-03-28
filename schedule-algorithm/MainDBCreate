@@ -1,0 +1,104 @@
+create table middlewares(
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL UNIQUE,
+		alive_cycle INTEGER,
+		latest_time INTEGER, 
+		is_alive INTEGER,
+		hierarchy TEXT NOT NULL
+);
+
+create table things(
+		id INTEGER PRIMARY KEY, 
+		name TEXT NOT NULL, 
+		alive_cycle INTEGER, 
+		latest_time INTEGER, 
+		is_alive INTEGER,
+		is_small INTEGER,
+		is_super INTEGER,
+		is_parallel INTEGER,
+		middleware_id INTEGER,
+		foreign key(middleware_id) references middlewares(id)
+);
+
+create table thing_values(
+		id INTEGER PRIMARY KEY, 
+		name TEXT NOT NULL, 
+		type TINYINT, 
+		min DOUBLE, 
+		max DOUBLE, 
+		format TEXT,
+		description TEXT,
+		is_private INTEGER,
+		thing_id INTEGER,
+		foreign key(thing_id) references things(id)
+);
+
+create table value_tags(
+		id INTEGER PRIMARY KEY, 
+		name TEXT NOT NULL, 
+		thing_value_id INTEGER, 
+		unique (name, thing_value_id),
+		foreign key(thing_value_id) references thing_values(id)
+);
+
+create table thing_functions(
+		id INTEGER PRIMARY KEY, 
+		name TEXT NOT NULL,
+		description TEXT,
+		use_arg BOOLEAN,
+		return_type TINYINT,
+		is_private INTEGER,
+		is_available INTEGER,
+		exec_time INTEGER,
+		energy INTEGER,
+		thing_id INTEGER,
+		foreign key(thing_id) references things(id)
+);
+
+create table function_arguments(
+		id INTEGER PRIMARY KEY, 
+		name TEXT, 
+		type TINYINT, 
+		min DOUBLE, 
+		max DOUBLE,
+		arg_order TINYINT,
+		thing_function_id INTEGER, 
+		foreign key(thing_function_id) references thing_functions(id)
+);
+
+create table function_tags(
+		id INTEGER PRIMARY KEY, 
+		name TEXT NOT NULL, 
+		thing_function_id INTEGER,
+		unique (name, thing_function_id)
+		foreign key(thing_function_id) references thing_functions(id)
+);
+
+CREATE TRIGGER middleware_delete BEFORE DELETE ON middlewares
+FOR EACH ROW BEGIN 
+delete from things where middleware_id=OLD.id;
+END;
+
+CREATE TRIGGER thing_delete BEFORE DELETE ON things 
+FOR EACH ROW BEGIN 
+delete from thing_values where thing_id=OLD.id;
+delete from thing_functions where thing_id=OLD.id;
+END;
+
+CREATE TRIGGER value_delete BEFORE DELETE ON thing_values
+FOR EACH ROW BEGIN 
+delete from value_tags where thing_value_id=OLD.id;
+END;
+
+CREATE TRIGGER function_delete BEFORE DELETE ON thing_functions 
+FOR EACH ROW BEGIN 
+delete from function_arguments where thing_function_id=OLD.id;
+delete from function_tags where thing_function_id=OLD.id;
+END;
+ 
+create table scenarios(
+		id INTEGER PRIMARY KEY, 
+		name TEXT NOT NULL UNIQUE, 
+		script TEXT NOT NULL,
+		priority INTEGER
+);

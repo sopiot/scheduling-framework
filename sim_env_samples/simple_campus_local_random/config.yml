@@ -1,0 +1,51 @@
+simulation:
+  name: sim_simple_campus_local_random
+  running_time: 60
+
+device_pool_path: ${ROOT}/device_pool.yml
+
+middleware:
+  random:
+    height: [3, 3]
+    width: [2, 2]
+    normal:
+      thing_per_middleware: [10, 10]
+      application_per_middleware: [10, 10]
+    super:
+      thing_per_middleware: [1, 1]
+      application_per_middleware: [2, 2]
+
+  device: [localhost]
+
+service:
+  normal:
+    service_type_num: 20
+    energy: [1000, 2000]
+    execute_time: [0.1, 1.0]
+  super:
+    service_type_num: 10
+    service_per_super_service: [4, 4]
+
+thing:
+  normal:
+    service_per_thing: [3, 3]
+    fail_error_rate: 0
+    broken_rate: 0
+    unregister_rate: 0
+
+  super:
+    service_per_thing: [3, 3]
+    fail_error_rate: 0
+    broken_rate: 0
+    unregister_rate: 0
+
+  device: [localhost]
+
+application:
+  normal:
+    service_per_application: [3, 3]
+    period: [5, 10]
+
+  super:
+    service_per_application: [1, 1]
+    period: [5, 10]

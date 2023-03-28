@@ -1,0 +1,65 @@
+aiop1:
+  host: 192.168.50.128
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+aiop2:
+  host: 192.168.50.152
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+mid0:
+  host: 192.168.50.226
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+mid2:
+  host: 192.168.50.16
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi12:
+  host: 192.168.50.135
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi14:
+  host: 192.168.50.197
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi15:
+  host: 192.168.50.195
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi16:
+  host: 192.168.50.220
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi17:
+  host: 192.168.50.245
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi3:
+  host: 192.168.50.184
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi4:
+  host: 192.168.50.144
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi5:
+  host: 192.168.50.34
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi
+pi9:
+  host: 192.168.50.246
+  password: /PeaCE/
+  ssh_port: 22
+  user: pi

@@ -1,0 +1,212 @@
+{
+  // IntelliSense를 사용하여 가능한 특성에 대해 알아보세요.
+  // 기존 특성에 대한 설명을 보려면 가리킵니다.
+  // 자세한 내용을 보려면 https://go.microsoft.com/fwlink/?linkid=830387을(를) 방문하세요.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: 현재 파일",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "run experiment simulation(wide_type_W9_sub4)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/paper_experiments/wide_type_W9_sub4/config.yml",
+        "-p",
+        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+      ]
+    },
+    {
+      "name": "run experiment simulation(wide_type_H10_sub4)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/paper_experiments/wide_type_H10_sub4/config.yml",
+        "-p",
+        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+      ]
+    },
+    {
+      "name": "run experiment simulation(only_bottom_binary_type_A_sub16)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/paper_experiments/only_bottom_binary_type_A/config_sub16.yml",
+        "-p",
+        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+      ]
+    },
+    {
+      "name": "run experiment simulation(binary_type_A_period5_10)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/paper_experiments/binary_type_A_period/config_period10_20.yml",
+        "-p",
+        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+      ]
+    },
+    {
+      "name": "run experiment simulation(binary_type_A_sub4_super32)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/paper_experiments/binary_type_A_sub4_super32/config.yml",
+        "-p",
+        "./schedule-algorithm/samples/my_schedule_algorithm_A.cc"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_home_local)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_home_local",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_home_local_multi_env)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_home_local_multi_env",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_home_remote)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_home_remote",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_building_local)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_building_local",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_building_remote)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_building_remote",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_campus_local)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_campus_local",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_campus_local_random)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_campus_local_random",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    },
+    {
+      "name": "run sample simulation(simple_campus_remote)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-e",
+        "./sim_env_samples/simple_campus_remote",
+        "-p",
+        "./schedule-algorithm/samples"
+      ]
+    }
+  ]
+}

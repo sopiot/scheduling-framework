@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.pytest_cache
+*.egg-info
+*.log
+*.egg
+log
+build
+dist
+# *.png
+# *.jpg
+*.wav
+*.mp3
+*.mp4
+.DS_store
+simulation_*_*
+thing
+middleware_config
+
+res
+result
+remote_logs
+
+# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
+# should NOT be excluded as they contain compiler settings and other important
+# information for Eclipse / Flash Builder.

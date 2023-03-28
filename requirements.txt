@@ -1,0 +1,5 @@
+big-thing-py
+pyyaml
+paramiko
+termcolor
+tabulate

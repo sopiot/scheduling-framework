@@ -1,0 +1,7 @@
+create table value_log(id INTEGER PRIMARY KEY, 
+            thing_name TEXT NOT NULL, 
+            value_name TEXT NOT NULL, 
+			type TEXT NOT NULL,
+            latest_val DOUBLE,
+            latest_string_val TEXT,
+            updated_on TEXT);
