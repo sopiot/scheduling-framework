@@ -48,7 +48,27 @@ OnServiceResult | `Thing` | Success: proceed, Error: update
 OnSuperServiceResult | `Thing` | Success: reply, Error: update
 OnServiceTimeout | `Scheduler` | Retry or update
 
-### Tips
+## How to customize
+
+1. Customize 'my_schedule_policy.cc' file.
+2. Build 'libschedule-policy.so' with the policy source code.
+3. Run the provided middleware with the shared library ('libschedule-policy.so')
+  - We provide middleware executable for Ubuntu and Raspberry Pi now.
+
+### Note
+
+* Currently this customization is for developer who are familiar with C language.
+* For everyone, a simple GUI for algorithm source code generation is being prepared now.
+
+### Brief explanation and some tips
+
+Changes in the state of devices can affect the `Scheduler`, and the policies includes events such as adding or removing a `Thing`, connecting or disconnecting a `Middleware`, and remapping to include new possibilities or maintaining existing mappings.
+
+When executing requests, the `Scheduler` requests `Services` from the device based on the needs of the `Application` and `Super Service` in the RunQueue. The OnExecuteRequest event is fired when a running local `Application` needs to request a local or `Super Service`, and checks the current state to see if the device is available before making the request.
+
+If the `Service` is available, the request can be made one by one or a RunQueue can be created with the target `Service` in the same order as the requests were received.
+
+Overall, the `Scheduler` plays a crucial role in managing the allocation and utilization of resources in a system. It uses various events and algorithms to map `Services` to devices and respond to changes in device state, ensuring optimal performance and efficient resource allocation.
 
 - **OnScheduleScenario**: When an `Application` is added, it maps the services specified in the `Application` to the device using a mapping algorithm that determines the underlying service-to-device mapping efficiency.
 
@@ -61,11 +81,3 @@ OnServiceTimeout | `Scheduler` | Retry or update
 - **OnSuperScheduleRequest**: When a `Service` scheduling request comes from the `Super Service`, it communicates with the `Super Service` in two phases: Check and Confirm. In the Check phase, the mapping algorithm answers whether additional scheduling is currently possible, and when the `Super Service` sends a Confirm request, it actually adds the mapping.
 
 - **OnSuperCancelRequest**: When a service scheduling cancellation request comes from the `Super Service`, local `Applications` can immediately create new mappings for the `Services` that were mapped or simply keep the existing mappings.
-
-Changes in the state of devices can affect the `Scheduler`, and the policy includes events such as adding or removing a `Thing`, connecting or disconnecting a `Middleware`, and remapping to include new possibilities or maintaining existing mappings.
-
-When executing requests, the `Scheduler` requests `Services` from the device based on the needs of the `Application` and `Super Service` in the RunQueue. The OnExecuteRequest event is fired when a running local `Application` needs to request a local or `Super Service`, and checks the current state to see if the device is available before making the request.
-
-If the `Service` is available, the request can be made one by one or a RunQueue can be created with the target `Service` in the same order as the requests were received.
-
-Overall, the `Scheduler` plays a crucial role in managing the allocation and utilization of resources in a system. It uses various events and algorithms to map `Services` to devices and respond to changes in device state, ensuring optimal performance and efficient resource allocation.
