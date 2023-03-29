@@ -184,7 +184,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
         simulation_info_list = []
 
         for config_path in self.config_path_list:
-            device_pool_path = SoPPath(root_path=get_project_root(),
+            device_pool_path = SoPPath(project_root_path=get_project_root(),
                                        config_path=config_path,
                                        path=load_yaml(config_path)['device_pool_path'])
             device_list: List[dict] = load_yaml(
@@ -303,7 +303,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                         simulation_env, event_log, simulation_duration, simulation_start_time)
                     simulation_result = simulation_evaluator.evaluate_simulation()
                     simulation_result.config = os.path.basename(
-                        self.simulation_generator.simulation_config.config_path).split('.')[0]
+                        self.simulation_generator.simulation_config.path).split('.')[0]
                     simulation_result.policy = os.path.basename(
                         policy_file_path).split('.')[0]
                     simulation_result_list.append(simulation_result)

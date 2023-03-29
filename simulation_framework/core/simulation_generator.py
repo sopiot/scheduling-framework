@@ -113,7 +113,7 @@ class SoPSimulationGenerator:
     def generate_simulation(self, simulation_ID: str = None, config_path: str = None, is_parallel: bool = False):
         self.load_config(config_path)
 
-        simulation_folder_path = f'{os.path.dirname(self.simulation_config.config_path)}/simulation_{self.simulation_config.name}_{get_current_time(TimeFormat.DATETIME2)}'
+        simulation_folder_path = f'{os.path.dirname(self.simulation_config.path)}/simulation_{self.simulation_config.name}_{get_current_time(TimeFormat.DATETIME2)}'
         SOPTEST_LOG_DEBUG(
             f'Generate simulation: {simulation_folder_path}', SoPTestLogLevel.INFO)
 
@@ -403,7 +403,7 @@ class SoPMiddlewareGenerator(SoPElementGenerator):
                             thing_num: List[int] = None, super_thing_num: List[int] = None, scenario_num: List[int] = None, super_scenario_num: List[int] = None,
                             mqtt_port: int = None) -> dict:
 
-        def get_unselected_device(target_device_pool: List[SoPDeviceElement]) -> List[SoPDeviceElement]:
+        def get_unselected_device(target_device_pool: List[SoPDeviceElement]) -> SoPDeviceElement:
             while True:
                 device: SoPDeviceElement = random.choice(target_device_pool)
                 if device not in self.used_device_list:

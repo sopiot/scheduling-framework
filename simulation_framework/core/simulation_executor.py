@@ -154,79 +154,70 @@ class SoPSimulatorExecutor:
 
     def send_middleware_file(self, simulation_env: SoPMiddlewareElement):
 
-        def task(middleware: SoPMiddlewareElement, remote_home_dir: str):
-            # self.send_middleware_file_thread_queue.put(None)
-
+        def ssh_task(middleware: SoPMiddlewareElement):
             ssh_client = self.event_handler.find_ssh_client(middleware)
+            user = middleware.device.user
+            ssh_client.send_command(
+                f'mkdir -p {home_dir_append(middleware.remote_middleware_config_path, user)}')
+
+            return True
+
+        def send_task(middleware: SoPMiddlewareElement):
+            ssh_client = self.event_handler.find_ssh_client(middleware)
+            user = middleware.device.user
+            ssh_client.send_command(
+                f'mkdir -p {home_dir_append(middleware.remote_middleware_config_path, user)}')
             ssh_client.send_file(
-                os.path.abspath(middleware.middleware_cfg_file_path), middleware.remote_middleware_cfg_file_path.replace("~", remote_home_dir))
+                os.path.abspath(middleware.middleware_cfg_file_path), home_dir_append(middleware.remote_middleware_cfg_file_path, user))
             ssh_client.send_file(
-                os.path.abspath(middleware.mosquitto_conf_file_path), middleware.remote_mosquitto_conf_file_path.replace("~", remote_home_dir))
+                os.path.abspath(middleware.mosquitto_conf_file_path), home_dir_append(middleware.remote_mosquitto_conf_file_path, user))
             ssh_client.send_file(
-                os.path.abspath(middleware.init_script_file_path), middleware.remote_init_script_file_path.replace("~", remote_home_dir))
+                os.path.abspath(middleware.init_script_file_path), home_dir_append(middleware.remote_init_script_file_path, user))
             SOPTEST_LOG_DEBUG(
                 f'Send middleware config folder {middleware.name}', SoPTestLogLevel.PASS)
-
-            # self.send_middleware_file_thread_queue.get()
-            # while not self.send_middleware_file_thread_queue.empty():
-            #     time.sleep(THREAD_TIME_OUT)
-            # ssh_client.close_sftp()
 
             return True
 
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
             simulation_env)
 
-        args = []
-        for middleware in middleware_list:
-            ssh_client = self.event_handler.find_ssh_client(middleware)
-            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            ssh_client.send_command(
-                [f'mkdir -p {middleware.remote_middleware_config_path.replace("~", remote_home_dir)}'])
-            args.append((middleware, remote_home_dir))
-
-        pool_map(task, args)
+        pool_map(ssh_task, middleware_list)
+        pool_map(send_task, middleware_list)
 
         return True
 
     def send_thing_file(self, simulation_env: SoPMiddlewareElement):
 
-        # FIXME: 왜 요거는 병렬화가 왜 안되는 걸까.
-        # paramiko.sftp.SFTPError: Garbage packet received 에러 때문인 것 같다.
-        def task(thing: SoPThingElement, remote_home_dir: str):
-            # self.send_thing_file_thread_queue.put(None)
-
+        def ssh_task(thing: SoPThingElement):
             ssh_client = self.event_handler.find_ssh_client(thing)
+            user = thing.device.user
+            ssh_client.send_command(
+                f'mkdir -p {home_dir_append(os.path.dirname(thing.remote_thing_file_path), user)}')
+
+            return True
+
+        def send_task(thing: SoPThingElement):
+            ssh_client = self.event_handler.find_ssh_client(thing)
+            user = thing.device.user
+            ssh_client.send_command(
+                f'mkdir -p {home_dir_append(os.path.dirname(thing.remote_thing_file_path), user)}')
             try:
                 ssh_client.send_file(
-                    os.path.abspath(thing.thing_file_path), thing.remote_thing_file_path.replace("~", remote_home_dir))
+                    os.path.abspath(thing.thing_file_path), home_dir_append(thing.remote_thing_file_path, thing.device.user))
             except OSError:
-                # NOTE: 왜 OSError 발생하는 경우가 생기는지 이유 밝혀내지 못함
                 os.system(
                     f'sshpass -p "{ssh_client.device.password}" scp -o StrictHostKeyChecking=no -P {ssh_client.device.ssh_port} {os.path.abspath(thing.thing_file_path)} {ssh_client.device.user}@{ssh_client.device.host}:{thing.remote_thing_file_path} > /dev/null 2>&1 &')
 
             SOPTEST_LOG_DEBUG(
                 f'Send thing file {os.path.basename(thing.thing_file_path)}', SoPTestLogLevel.PASS)
 
-            # self.send_thing_file_thread_queue.get()
-            # while not self.send_thing_file_thread_queue.empty():
-            #     time.sleep(THREAD_TIME_OUT)
-            # ssh_client.close_sftp()
-
             return True
 
         thing_list: List[SoPThingElement] = get_thing_list_recursive(
             simulation_env)
-        # args = []
-        for thing in thing_list:
-            ssh_client = self.event_handler.find_ssh_client(thing)
-            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            ssh_client.send_command(
-                [f'mkdir -p {os.path.dirname(thing.remote_thing_file_path).replace("~", remote_home_dir)}'])
-            # args.append((thing, remote_home_dir))
-            task(thing=thing, remote_home_dir=remote_home_dir)
 
-        # pool_map(task, args, proc=10)
+        pool_map(ssh_task, thing_list)
+        pool_map(send_task, thing_list, proc=1)
 
         return True
 

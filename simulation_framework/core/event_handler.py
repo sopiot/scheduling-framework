@@ -190,8 +190,6 @@ class SoPEventHandler:
     def download_log_file(self):
 
         def task(middleware: SoPMiddlewareElement):
-            # self.download_log_file_thread_queue.put(None)
-
             ssh_client = self.find_ssh_client(middleware)
             ssh_client.open_sftp()
 
@@ -233,14 +231,6 @@ class SoPEventHandler:
                         continue
                     thing_ssh_client.get_file(remote_path=os.path.join(thing_log_path, fileattr.filename),
                                               local_path=os.path.join(target_middleware_log_path, 'thing', target_thing_log_file_name), ext_filter='log')
-            # for thing in middleware.thing_list:
-            #     thing_ssh_client = self.find_ssh_client(thing)
-            #     thing_ssh_client.close_sftp()
-
-            # self.download_log_file_thread_queue.get()
-            # while not self.download_log_file_thread_queue.empty():
-            #     time.sleep(THREAD_TIME_OUT)
-            # ssh_client.close_sftp()
 
             return True
 
@@ -319,12 +309,6 @@ class SoPEventHandler:
             elif event.event_type == SoPEventType.SCENARIO_ADD:
                 SoPThread(name=f'{event.event_type.value}_{event.element.name}',
                           target=self.add_scenario, args=(target_element, self.timeout, )).start()
-                # target_element: SoPScenarioElement
-                # if target_element.is_super():
-                #     while not target_element.schedule_success:
-                #         time.sleep(THREAD_TIME_OUT)
-                # else:
-                #     time.sleep(0.1)
             elif event.event_type == SoPEventType.SCENARIO_RUN:
                 SoPThread(name=f'{event.event_type.value}_{event.element.name}',
                           target=self.run_scenario, args=(target_element, self.timeout, )).start()
@@ -350,12 +334,12 @@ class SoPEventHandler:
                 raise SOPTEST_LOG_DEBUG(
                     f'Event type is {event.event_type}, but not implemented yet', SoPTestLogLevel.FAIL)
 
-            if event.event_type in [SoPEventType.MIDDLEWARE_RUN,
-                                    SoPEventType.MIDDLEWARE_KILL,
-                                    SoPEventType.THING_RUN,
-                                    SoPEventType.THING_KILL,
-                                    SoPEventType.THING_UNREGISTER]:
-                time.sleep(0.1)
+            # if event.event_type in [SoPEventType.MIDDLEWARE_RUN,
+            #                         SoPEventType.MIDDLEWARE_KILL,
+            #                         SoPEventType.THING_RUN,
+            #                         SoPEventType.THING_KILL,
+            #                         SoPEventType.THING_UNREGISTER]:
+            #     time.sleep(0.1)
 
     def event_listener(self, stop_event: Event):
         recv_msg = None
@@ -378,51 +362,16 @@ class SoPEventHandler:
     ####  middleware   #############################################################################################################
 
     def run_mosquitto(self, middleware: SoPMiddlewareElement, ssh_client: SoPSSHClient, remote_home_dir: str):
-        # cur_time = 0
-
-        # while True:
-        #     target_mosquitto_pid_list = ssh_client.send_command(
-        #         f'netstat -lpn | grep :{middleware.mqtt_port}')
-        #     if len(target_mosquitto_pid_list) > 0:
-        #         break
-        #     else:
-        #         if get_current_time() - cur_time > 1:
-        #             # SOPTEST_LOG_DEBUG(
-        #             #     f'retry to run mosquitto on {middleware.name}-{middleware.device.host}:{middleware.mqtt_port} - websocket: {middleware.web_socket_port} ... check it', 1)
-        #             ssh_client.send_command(
-        #                 f'/sbin/mosquitto -c {middleware.remote_mosquitto_conf_file_path.replace("~", remote_home_dir)} -v 2> {middleware.remote_middleware_config_path.replace("~", remote_home_dir)}/{middleware.name}_mosquitto.log &', ignore_result=True)
-        #             cur_time = get_current_time()
-        #         else:
-        #             time.sleep(0.1)
         ssh_client.send_command(
             f'/sbin/mosquitto -c {middleware.remote_mosquitto_conf_file_path.replace("~", remote_home_dir)} -v 2> {middleware.remote_middleware_config_path.replace("~", remote_home_dir)}/{middleware.name}_mosquitto.log &', ignore_result=True)
         target_mosquitto_pid_list = ssh_client.send_command(
             f'netstat -lpn | grep :{middleware.mqtt_port}')
-        time.sleep(0.1)
         if len(target_mosquitto_pid_list) > 0:
             return True
 
     def init_middleware(self, middleware: SoPMiddlewareElement, ssh_client: SoPSSHClient, remote_home_dir: str):
-        # cur_time = 0
-
         ssh_client.send_command(
             f'chmod +x {middleware.remote_init_script_file_path.replace("~",remote_home_dir)}; bash {middleware.remote_init_script_file_path.replace("~",remote_home_dir)}')
-        # ssh_client.send_command(
-        #     f'bash {middleware.remote_init_script_file_path.replace("~",remote_home_dir)}')
-
-        # while True:
-        #     file_list: List[str] = ssh_client.send_command(
-        #         f'ls {middleware.remote_middleware_config_path}')
-        #     time.sleep(0.1)
-        #     if f'{middleware.name}_Main.db' in file_list:
-        #         break
-        #     else:
-        #         if get_current_time() - cur_time > 1:
-        #             SOPTEST_LOG_DEBUG(
-        #                 'db file was not created... check it', SoPTestLogLevel.WARN)
-        #             cur_time = get_current_time()
-        #         else:
-        #             time.sleep(0.1)
 
     def subscribe_scenario_finish_topic(self, middleware: SoPMiddlewareElement):
         mqtt_client = self.find_mqtt_client(middleware)

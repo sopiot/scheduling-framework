@@ -10,7 +10,8 @@ def print_progress_status(transferred, toBeTransferred):
 
 class SoPSSHClient:
     COMMAND_SENDING = 0
-    FILE_SENDING = 0
+    FILE_UPLOADING = 0
+    FILE_DOWNLOADING = 0
 
     def __init__(self, device: SoPDeviceElement, connect_timeout: float = 10) -> None:
         self._ssh_client = paramiko.SSHClient()
@@ -131,7 +132,7 @@ class SoPSSHClient:
         return target_pid_list
 
     def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False) -> Union[bool, List[str]]:
-        while not SoPSSHClient.COMMAND_SENDING < 5:
+        while not SoPSSHClient.COMMAND_SENDING < 2:
             time.sleep(THREAD_TIME_OUT)
 
         SoPSSHClient.COMMAND_SENDING += 1
@@ -187,10 +188,10 @@ class SoPSSHClient:
             SoPSSHClient.COMMAND_SENDING -= 1
 
     def send_file(self, local_path: str, remote_path: str):
-        while not SoPSSHClient.FILE_SENDING < 10:
+        while not SoPSSHClient.FILE_UPLOADING < 10:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.FILE_SENDING += 1
+        SoPSSHClient.FILE_UPLOADING += 1
 
         if not self.sftp_opened:
             self.open_sftp()
@@ -206,7 +207,7 @@ class SoPSSHClient:
         except Exception as e:
             print_error(e)
         finally:
-            SoPSSHClient.FILE_SENDING -= 1
+            SoPSSHClient.FILE_UPLOADING -= 1
 
     # local_path와 remote_path를 받아서 재귀적으로 폴더를 전송하는 함수
     def send_dir(self, local_path: str, remote_path: str):
@@ -231,6 +232,11 @@ class SoPSSHClient:
                     pass
 
     def get_file(self, remote_path: str, local_path: str, ext_filter: str = ''):
+        while not SoPSSHClient.FILE_DOWNLOADING < 20:
+            time.sleep(THREAD_TIME_OUT)
+
+        SoPSSHClient.FILE_DOWNLOADING += 1
+
         if not self.sftp_opened:
             self.open_sftp()
 
@@ -246,6 +252,8 @@ class SoPSSHClient:
                 return False
             except Exception as e:
                 print_error(e)
+            finally:
+                SoPSSHClient.FILE_DOWNLOADING -= 1
         else:
             SOPTEST_LOG_DEBUG(
                 f'{remote_path} is not {ext_filter} file. Skip download...', SoPTestLogLevel.WARN)

@@ -2,8 +2,8 @@ from simulation_framework.utils import *
 
 
 class SoPPath:
-    def __init__(self, root_path: str, config_path: str, path: str) -> None:
-        self.root_path = root_path
+    def __init__(self, project_root_path: str, config_path: str, path: str) -> None:
+        self.project_root_path = project_root_path
         self.config_path = config_path
         self.path = path
 
@@ -16,7 +16,7 @@ class SoPPath:
             return None
         elif '${ROOT}' in self.path:
             path = self.path.replace(
-                '${ROOT}', str(self.root_path))
+                '${ROOT}', str(self.project_root_path))
         elif './' in self.path:
             path = self.path.replace(
                 './', f'{os.path.dirname(self.config_path)}/')
@@ -30,27 +30,27 @@ class SoPPath:
 
 class SoPSimulationConfig:
     def __init__(self, config_path: str = None, config: dict = None) -> None:
-        self.config_path = config_path
-        if not config and self.config_path:
-            data = load_yaml(self.config_path)
-        elif config and not self.config_path:
+        self.path = config_path
+        if not config and self.path:
+            data = load_yaml(self.path)
+        elif config and not self.path:
             data = config
         else:
             raise Exception('config_path and config are both None.')
 
         self.name: str = data['simulation'].get(
-            'name', os.path.basename(self.config_path).split('.')[0])
+            'name', os.path.basename(self.path).split('.')[0])
         self.running_time: float = data['simulation'].get(
             'running_time', 120.0)
         self.event_timeout: float = data['simulation'].get(
             'event_timeout', 15.0)
 
-        self.device_pool_path = SoPPath(root_path=get_project_root(),
+        self.device_pool_path = SoPPath(project_root_path=get_project_root(),
                                         config_path=os.path.abspath(
-                                            self.config_path),
+                                            self.path),
                                         path=data.get('device_pool_path', 'device_pool.yml'))
         self.middleware_config = SoPMiddlewareConfig(
-            data['middleware'], self.config_path)
+            data['middleware'], self.path)
         self.service_config = SoPServiceConfig(data['service'])
         self.thing_config = SoPThingConfig(data['thing'])
         self.application_config = SoPApplicationConfig(data['application'])
@@ -81,7 +81,7 @@ class SoPMiddlewareConfig:
         self.remote_middleware_config_path: str = data.get(
             'remote_middleware_config_path', '/mnt/ramdisk/middleware_config')
 
-        self.manual = SoPPath(root_path=get_project_root(),
+        self.manual = SoPPath(project_root_path=get_project_root(),
                               config_path=os.path.abspath(config_path),
                               path=data.get('manual', ''))
         self.random = SoPMiddlewareConfig.RandomConfig(
