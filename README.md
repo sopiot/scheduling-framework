@@ -12,7 +12,7 @@ This is a framework that is designed to fine-tune the **scheduling algorithm** o
 
 ### Prerequisites
 
-The simulator requires the following prerequisites:
+The framework requires the following prerequisites:
 
 - Ubuntu 20.04 or later
 - Git
