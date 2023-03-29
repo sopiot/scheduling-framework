@@ -382,3 +382,13 @@ Users can configure a custom `Middleware` layer structure to perform simulations
 ### Scheduling Algorithm file
 
 Refer to [`schedule_algorithm`](schedule_algorithm/README.md) directory.
+
+## Troubleshooting
+
+### SSH daemon is not running on WSL2
+
+- If you are running a simulation with local settings on WSL2 and unable to establish an SSH connection using localhost, you can resolve this issue by generating a new key with the following command and restarting the service.
+
+  ```bash
+  sudo ssh-keygen -A
+  ```
