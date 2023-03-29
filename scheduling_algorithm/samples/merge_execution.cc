@@ -1,13 +1,13 @@
-// Algorithm B
-// success - no merge
-
-#include "my_schedule_policy.h"
+// Merge Execution Policy
+// - map services to the fastest things
+// - merge exeuction
 
 #include <CAPQueue.h>
 
 #include "db_handler.h"
 #include "jsonc_utils.h"
 #include "mqtt_message_handler.h"
+#include "my_scheduling_policies.h"
 #include "scenario_table.h"
 #include "schedule_table.h"
 #include "schedule_utils.h"
@@ -31,7 +31,7 @@ static CALLBACK cap_result PrintStringList(IN int nOffset, IN void *pData, IN vo
 // Member Methods
 //----------------------------------------
 
-cap_result MySchedulePolicy::OnMapService(cap_string strServiceName, cap_handle hCandidateList,
+cap_result MySchedulingPolicies::OnMapService(cap_string strServiceName, cap_handle hCandidateList,
                                           OUT cap_string *pstrMappedThingName) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_string strThingName = NULL;
@@ -78,7 +78,7 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnScheduleScenarioCheck(cap_string strScenarioName, cap_bool *pbScheduled) {
+cap_result MySchedulingPolicies::OnScheduleScenarioCheck(cap_string strScenarioName, cap_bool *pbScheduled) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_bool bAllScheduled = TRUE;
 
@@ -104,7 +104,7 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnScheduleScenarioConfirm(cap_string strScenarioName) {
+cap_result MySchedulingPolicies::OnScheduleScenarioConfirm(cap_string strScenarioName) {
   cap_result result = ERR_CAP_UNKNOWN;
   SScenarioInfo *pstScenarioInfo = NULL;
   cap_bool bScheduled = FALSE;
@@ -163,13 +163,13 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnUpdateScenario(cap_string strScenarioName, cap_bool *pbScheduled) {
+cap_result MySchedulingPolicies::OnUpdateScenario(cap_string strScenarioName, cap_bool *pbScheduled) {
   cap_result result = ERR_CAP_UNKNOWN;
   SScenarioInfo *pstScenarioInfo = NULL;
   cap_bool bScheduled = FALSE;
   cap_bool bAllScheduled = FALSE;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnUpdateScenario %s", CAPString_LowPtr(strScenarioName, NULL));
+  SOPLOG_DEBUG("[SchedulingPolicies] OnUpdateScenario %s", CAPString_LowPtr(strScenarioName, NULL));
 
   result = ScheduleUtils_UpdateScenario(this, strScenarioName, &bScheduled);
   if (!bScheduled) {
@@ -204,13 +204,10 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnCancelScenario(cap_string strScenarioName) {
+cap_result MySchedulingPolicies::OnCancelScenario(cap_string strScenarioName) {
   cap_result result = ERR_CAP_UNKNOWN;
-  SScenarioInfo *pstScenarioInfo = NULL;
-  cap_bool bScheduled = FALSE;
-  cap_bool bAllScheduled = FALSE;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnCancelScenario %s", CAPString_LowPtr(strScenarioName, NULL));
+  SOPLOG_DEBUG("[SchedulingPolicies] OnCancelScenario %s", CAPString_LowPtr(strScenarioName, NULL));
 
   // pass
 
@@ -219,17 +216,17 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnGlobalUpdate(int i) {
+cap_result MySchedulingPolicies::OnGlobalUpdate(int i) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnGlobalUpdate");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnGlobalUpdate");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnScheduleSuperRequest(SScheduleTask *pstScheduleTask, cap_bool *pbScheduled) {
+cap_result MySchedulingPolicies::OnSuperScheduleRequest(SScheduleTask *pstScheduleTask, cap_bool *pbScheduled) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_bool bSchedulable = FALSE;
   cap_handle hMappedThingNameList = NULL;
@@ -243,7 +240,7 @@ cap_result MySchedulePolicy::OnScheduleSuperRequest(SScheduleTask *pstScheduleTa
   long long llExecTimeMs = -1;
   cap_bool bIsSuper = -1;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnScheduleSuperRequest");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperScheduleRequest");
 
   result = CAPLinkedList_Create(&hMappedThingNameList);
   ERRIFGOTO(result, _EXIT);
@@ -304,7 +301,7 @@ cap_result MySchedulePolicy::OnScheduleSuperRequest(SScheduleTask *pstScheduleTa
       if (bIsSuper) {
         bSchedulable = TRUE;  // Assume Super Service is always available
       } else {
-        SOPLOG_DEBUG("OnScheduleSuperRequest - CheckSchedulability %s", CAPString_LowPtr(strTempThingName, NULL));
+        SOPLOG_DEBUG("OnSuperScheduleRequest - CheckSchedulability %s", CAPString_LowPtr(strTempThingName, NULL));
 
         result = ScheduleUtils_CheckSchedulability(this->hScheduleTable_, this->hScenarioTable_, this->hServiceTable_,
                                                    strTempThingName, pstScheduleTask->strFunctionName, llExecTimeMs,
@@ -362,7 +359,7 @@ cap_result MySchedulePolicy::OnScheduleSuperRequest(SScheduleTask *pstScheduleTa
     }
     ERRIFGOTO(result, _EXIT);
 
-    SOPLOG_DEBUG("[SchedulePolicy] OnScheduleSuperRequest CAPHash_AddKey %s", pstScheduleTask->strRequestKey->pszStr);
+    SOPLOG_DEBUG("[SchedulingPolicies] OnSuperScheduleRequest CAPHash_AddKey %s", pstScheduleTask->strRequestKey->pszStr);
 
     result = ScheduleTable_SetState(this->hScheduleTable_, CAPSTR_SUPER_THING_REQUEST, pstScheduleTask->strRequestKey,
                                     pstScheduleTask->strFunctionName, SCHEDULE_STATE_DONE);
@@ -390,11 +387,23 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnThingRegister(cap_string strThingName) {
+cap_result MySchedulingPolicies::OnSuperCancelRequest(cap_string strRequestKey) {
+  cap_result result = ERR_CAP_UNKNOWN;
+
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperCancelRequest %s", CAPString_LowPtr(strRequestKey, NULL));
+
+  // pass
+
+  result = ERR_CAP_NOERROR;
+_EXIT:
+  return result;
+}
+
+cap_result MySchedulingPolicies::OnThingRegister(cap_string strThingName) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_bool bIsAlive = FALSE;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnThingRegister");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnThingRegister");
 
   result = DBHandler_GetThingAliveness(strThingName, &bIsAlive);
   if (result == ERR_CAP_NOT_FOUND) {
@@ -408,14 +417,14 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnThingUnregister(cap_string strThingName) {
+cap_result MySchedulingPolicies::OnThingUnregister(cap_string strThingName) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_string strScenarioName = NULL;
   cap_handle hAffectedScenarioList = NULL;
   cap_bool bScheduled = FALSE;
   int nLen = 0;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnThingUnregister");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnThingUnregister");
 
   result = ScheduleUtils_GetAffectedScenarioOnUnreg(this, strThingName, &hAffectedScenarioList);
   ERRIFGOTO(result, _EXIT);
@@ -463,110 +472,48 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnMiddlewareRegister(int i) {
+cap_result MySchedulingPolicies::OnMiddlewareRegister(cap_string strMiddlewareName) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnMiddlewareRegister");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnMiddlewareRegister");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnMiddlewareUnregister(int i) {
+cap_result MySchedulingPolicies::OnMiddlewareUnregister(cap_string strMiddlewareName) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnMiddlewareUnregister");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnMiddlewareUnregister");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnSuperScheduleResult(SScheduleResult *pstScheduleResult) {
+cap_result MySchedulingPolicies::OnServiceReady(SRunTask *pstRunTask) {
   cap_result result = ERR_CAP_UNKNOWN;
-  SScenarioInfo *pstScenarioInfo = NULL;
-  cap_bool bAllScheduled = TRUE;
-  cap_string strScenarioName = pstScheduleResult->strScenarioName;
-  cap_handle hTargetScenarioTable = NULL;
-  cap_handle hTargetScheduleTable = NULL;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnSuperScheduleResult");
-
-  // FIXME: on update the scenario is already in Scenario Table.
-  result = ScenarioTable_Get(this->hTempScenarioTable_, strScenarioName, &pstScenarioInfo);
-  if (result == ERR_CAP_NOT_FOUND) {
-    result = ScenarioTable_Get(this->hScenarioTable_, strScenarioName, &pstScenarioInfo);
-    if (result == ERR_CAP_NOERROR) {
-      hTargetScenarioTable = this->hScenarioTable_;
-      hTargetScheduleTable = this->hScheduleTable_;
-    } else {
-      // ERRASSIGNGOTO(result, ERR_CAP_INVALID_ACCESS, _EXIT);
-      // toss to child or parent
-      ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT);
-    }
-  } else if (result == ERR_CAP_NOERROR) {
-    hTargetScenarioTable = this->hTempScenarioTable_;
-    hTargetScheduleTable = this->hTempScheduleTable_;
-  }
-
-  // if (pstScenarioInfo->enState != SCENARIO_STATE_SCHEDULING) {
-  //   ERRASSIGNGOTO(result, ERR_CAP_INVALID_DATA, _EXIT);
-  // } else
-  if (pstScheduleResult->nErrorCode != ERR_CAP_NOERROR) {
-    SOPLOG_DEBUG("Scenario %s - Super Schedule Error: %d", CAPString_LowPtr(strScenarioName, NULL),
-                 pstScheduleResult->nErrorCode);
-    result = ScenarioTable_SetState(hTargetScenarioTable, strScenarioName, SCENARIO_STATE_STUCKED);
-
-    ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT);
-  }
-
-  result = ScheduleUtils_ApplySuperScheduleResult(hTargetScheduleTable, strScenarioName, pstScheduleResult);
-  ERRIFGOTO(result, _EXIT);
-
-  // Check again if this scenario is fully scheduled.
-  result = ScheduleUtils_CheckScenarioScheduled(hTargetScheduleTable, strScenarioName, &bAllScheduled);
-  ERRIFGOTO(result, _EXIT);
-
-  if (bAllScheduled == TRUE) {
-    result = ScheduleUtils_IntializeScenario(hTargetScheduleTable, strScenarioName, this);
-    ERRIFGOTO(result, _EXIT);
-
-    if (hTargetScenarioTable == this->hScenarioTable_) {
-      result = ScenarioTable_SetState(hTargetScenarioTable, strScenarioName, SCENARIO_STATE_INITIALIZED);
-      ERRIFGOTO(result, _EXIT);
-    } else if (hTargetScenarioTable == this->hTempScenarioTable_) {
-      result = this->OnScheduleScenarioConfirm(strScenarioName);
-      ERRIFGOTO(result, _EXIT);
-    }
-  }
+  SOPLOG_DEBUG("[SchedulingPolicies] OnServiceReady");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnServiceReady(int i) {
+cap_result MySchedulingPolicies::OnServiceBusy(SRunTask *pstRunTask) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnServiceReady");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnServiceBusy");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnServiceBusy(int i) {
-  cap_result result = ERR_CAP_UNKNOWN;
-
-  SOPLOG_DEBUG("[SchedulePolicy] OnServiceBusy");
-
-  result = ERR_CAP_NOERROR;
-_EXIT:
-  return result;
-}
-
-cap_result MySchedulePolicy::OnServiceSuccess(SExecutionResult *pstExecutionResult) {
+// merge execution
+cap_result MySchedulingPolicies::OnServiceSuccess(SExecutionResult *pstExecutionResult) {
   cap_result result = ERR_CAP_UNKNOWN;
   SServiceInfo *pstServiceInfo = NULL;
   SScenarioInfo *pstScenarioInfo = NULL;
@@ -578,7 +525,7 @@ cap_result MySchedulePolicy::OnServiceSuccess(SExecutionResult *pstExecutionResu
   int nLen = -1;
   cap_string strScenarioName = NULL;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnServiceSuccess %s / %s / %s",
+  SOPLOG_DEBUG("[SchedulingPolicies] OnServiceSuccess %s / %s / %s",
                CAPString_LowPtr(pstExecutionResult->strScenarioName, NULL),
                CAPString_LowPtr(pstExecutionResult->strThingName, NULL),
                CAPString_LowPtr(pstExecutionResult->strServiceName, NULL));
@@ -690,6 +637,135 @@ cap_result MySchedulePolicy::OnServiceSuccess(SExecutionResult *pstExecutionResu
     }
   }
 
+  ScenarioTable_Unlock(this->hScenarioTable_);
+
+  //////////
+  result = ScheduleUtils_GetWaitingScenarioList(this->hWaitQueue_, pstExecutionResult->strThingName,
+                                                pstExecutionResult->strServiceName, &hScenarioList);
+  ERRIFGOTO(result, _EXIT);
+
+  result = CAPLinkedList_GetLength(hScenarioList, &nLen);
+  ERRIFGOTO(result, _EXIT);
+
+  SOPLOG_DEBUG("Waiting Scenario: %d", nLen);
+
+  for (int i = 0; i < nLen; i++) {
+    result = CAPLinkedList_Get(hScenarioList, LINKED_LIST_OFFSET_FIRST, i, (void **)&strScenarioName);
+    ERRIFGOTO(result, _EXIT);
+    SOPLOG_DEBUG("Waiting Scenario Name: %s", CAPString_LowPtr(strScenarioName, NULL));
+
+    result = ScenarioTable_Get(this->hScenarioTable_, strScenarioName, &pstScenarioInfo);
+    // Exception Case 1. Not from my local Scenario --> Toss to child
+    if (result == ERR_CAP_NOT_FOUND) {
+      SOPLOG_WARN("The result has unknown scenario name!, toss to the child...");
+
+      ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT);
+    }
+
+    SOPLOG_DEBUG("Waiting Scenario Name: %s", CAPString_LowPtr(strScenarioName, NULL));
+
+    if (pstScenarioInfo->enState != SCENARIO_STATE_EXECUTING) {
+      SOPLOG_WARN("Scheduler_HandleExecutionResult: invalid state %d. make it stucked...", pstScenarioInfo->enState);
+
+      pstScenarioInfo->enState = SCENARIO_STATE_STUCKED;
+
+      ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT);
+    }
+
+    result = ScenarioTable_Lock(this->hScenarioTable_);
+    ERRIFGOTO(result, _EXIT);
+
+    // 1. Check if the current statement is action statement
+    result = AppScriptModeler_GetCurrent(pstScenarioInfo->hScenarioModel, &pstExecutionNode);
+    ERRIFGOTO(result, _EXIT_LOCK);
+
+    if (pstExecutionNode->enType != ACTION_STATEMENT) {
+      SOPLOG_WARN("The target scenario is not in executing state!, skip this result...");
+      ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT_LOCK);
+    }
+
+    pstExecStatement = (SExecutionStatement *)pstExecutionNode->pstStatementData;
+
+    // Exception Case 2. From my local Scenario but, it is the result from a sub
+    // service of a super service....
+    if (CAPString_IsEqual(pstExecStatement->strSubIdentifier, pstExecutionResult->strServiceName) == FALSE) {
+      SOPLOG_DEBUG(
+          "it is the result from a sub service of a super service... skip "
+          "assignment");
+      ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT_LOCK);
+    }
+
+    // 2. Init
+    result = AppScriptModeler_GetVariableHash(pstScenarioInfo->hScenarioModel, &hVariableHash);
+    ERRIFGOTO(result, _EXIT_LOCK);
+
+    // 3. Keep the result to a variable if the statement has an assignment.
+    if (pstExecStatement->hOutputList != NULL) {
+      result = ScheduleUtils_AssignExecutionResult(hVariableHash, pstExecStatement->hOutputList, pstExecutionResult);
+      ERRIFGOTO(result, _EXIT_LOCK);
+    }
+
+    // 4. Set State of the Service, Scenario according to the result.
+    if (pstExecutionResult->nErrorCode != ERR_CAP_NOERROR) {
+      result = ServiceTable_SetState(this->hServiceTable_, pstExecutionResult->strThingName,
+                                     pstExecutionResult->strServiceName, SERVICE_STATE_ERROR);
+      ERRIFGOTO(result, _EXIT_LOCK);
+
+      pstScenarioInfo->enState = SCENARIO_STATE_STUCKED;
+      ERRIFGOTO(result, _EXIT_LOCK);
+
+      bDirection = NO_MOVE;
+    } else {
+      result = ServiceTable_SetState(this->hServiceTable_, pstExecutionResult->strThingName,
+                                     pstExecutionResult->strServiceName, SERVICE_STATE_READY);
+
+      pstExecStatement->nWaitingResultNum--;
+
+      if (pstExecStatement->nWaitingResultNum == 0) {
+        pstScenarioInfo->enState = SCENARIO_STATE_RUNNING;
+
+        bDirection = TRUE;
+      }
+    }
+
+    SOPLOG_DEBUG(
+        "[Scheduler] %s HandleExecutionResult] Direction: %d, "
+        "pstExecStmt->nWaitingResultNum: %d",
+        CAPString_LowPtr(pstExecutionResult->strScenarioName, NULL), bDirection, pstExecStatement->nWaitingResultNum);
+
+    // 5. Move the scenario.
+    if (bDirection != NO_MOVE) {
+      result = AppScriptModeler_MoveToNext(pstScenarioInfo->hScenarioModel, bDirection, &pstExecutionNode);
+      ERRIFGOTO(result, _EXIT_LOCK);
+
+      if (pstExecutionNode->enType == FINISH_STATEMENT) {
+        pstScenarioInfo->enState = SCENARIO_STATE_COMPLETED;
+        SOPLOG_DEBUG("[Scheduler] %s HandleExecutionResult] FINISH_STATEMENT",
+                     CAPString_LowPtr(pstExecutionResult->strScenarioName, NULL));
+      }
+
+      if (pstExecutionNode->enType == LOOP_STATEMENT) {
+        // temp codce for simulation
+        json_object *pJsonObject = json_object_new_object();
+        cap_string strPayload = CAPString_New();
+        json_object_object_add(pJsonObject, "scenario",
+                               json_object_new_string(CAPString_LowPtr(pstExecutionResult->strScenarioName, NULL)));
+
+        result = CAPString_SetLow(strPayload, json_object_to_json_string(pJsonObject), CAPSTRING_MAX);
+        ERRIFGOTO(result, _EXIT);
+
+        result = MqttMessageHandler_Publish(this->hChildMQTTHandler_, CAPSTR_TO_SIMULATOR_FINISH,
+                                            CAPString_LowPtr(strPayload, NULL), CAPString_Length(strPayload));
+        ERRIFGOTO(result, _EXIT);
+
+        SAFE_CAPSTRING_DELETE(strPayload);
+        SAFEJSONFREE(pJsonObject);
+      }
+    }
+
+    ScenarioTable_Unlock(this->hScenarioTable_);
+  }
+
   result = ERR_CAP_NOERROR;
 _EXIT_LOCK:
   ScenarioTable_Unlock(this->hScenarioTable_);
@@ -697,11 +773,11 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnServiceError(SExecutionResult *pstExecutionResult) {
+cap_result MySchedulingPolicies::OnServiceError(SExecutionResult *pstExecutionResult) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_bool bScheduled = FALSE;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnServiceError");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnServiceError");
 
   result = ScenarioTable_SetState(this->hScenarioTable_, pstExecutionResult->strScenarioName, SCENARIO_STATE_STUCKED);
   ERRIFGOTO(result, _EXIT);
@@ -737,11 +813,11 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnServiceTimeout(cap_string strScenarioName, int nTry) {
+cap_result MySchedulingPolicies::OnServiceTimeout(cap_string strScenarioName, int nTry) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_bool bScheduled = FALSE;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnServiceTimeout");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnServiceTimeout");
 
   // result = ScenarioTable_SetState(this->hScenarioTable_, strScenarioName, SCENARIO_STATE_STUCKED);
   // ERRIFGOTO(result, _EXIT);
@@ -772,99 +848,162 @@ _EXIT:
   return result;
 }
 
-cap_result MySchedulePolicy::OnSuperServiceReady(int i) {
+cap_result MySchedulingPolicies::OnSuperServiceReady(SRunTask *pstRunTask) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnSuperServiceReady");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperServiceReady");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
-cap_result MySchedulePolicy::OnSuperServiceBusy(int i) {
+cap_result MySchedulingPolicies::OnSuperServiceBusy(SRunTask *pstRunTask) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnSuperServiceBusy");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperServiceBusy");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
-cap_result MySchedulePolicy::OnSuperServiceSuccess(int i) {
+cap_result MySchedulingPolicies::OnSuperServiceSuccess(SExecutionResult *pstExecutionResult) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnSuperServiceSuccess");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperServiceSuccess");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
-cap_result MySchedulePolicy::OnSuperServiceError(int i) {
+cap_result MySchedulingPolicies::OnSuperServiceError(SExecutionResult *pstExecutionResult) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnSuperServiceError");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperServiceError");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
-cap_result MySchedulePolicy::OnSuperServiceTimeout(int i) {
+cap_result MySchedulingPolicies::OnSuperServiceTimeout(cap_string strRequestKey, int nTry) {
   cap_result result = ERR_CAP_UNKNOWN;
 
-  SOPLOG_DEBUG("[SchedulePolicy] OnSuperServiceTimeout");
-
-  result = ERR_CAP_NOERROR;
-_EXIT:
-  return result;
-}
-
-cap_result MySchedulePolicy::OnSubServiceReady(int i) {
-  cap_result result = ERR_CAP_UNKNOWN;
-
-  SOPLOG_DEBUG("[SchedulePolicy] OnSubServiceReady");
-
-  result = ERR_CAP_NOERROR;
-_EXIT:
-  return result;
-}
-cap_result MySchedulePolicy::OnSubServiceBusy(int i) {
-  cap_result result = ERR_CAP_UNKNOWN;
-
-  SOPLOG_DEBUG("[SchedulePolicy] OnSubServiceBusy");
-
-  result = ERR_CAP_NOERROR;
-_EXIT:
-  return result;
-}
-cap_result MySchedulePolicy::OnSubServiceSuccess(int i) {
-  cap_result result = ERR_CAP_UNKNOWN;
-
-  SOPLOG_DEBUG("[SchedulePolicy] OnSubServiceSuccess");
-
-  result = ERR_CAP_NOERROR;
-_EXIT:
-  return result;
-}
-cap_result MySchedulePolicy::OnSubServiceError(int i) {
-  cap_result result = ERR_CAP_UNKNOWN;
-
-  SOPLOG_DEBUG("[SchedulePolicy] OnSubServiceError");
-
-  result = ERR_CAP_NOERROR;
-_EXIT:
-  return result;
-}
-cap_result MySchedulePolicy::OnSubServiceTimeout(int i) {
-  cap_result result = ERR_CAP_UNKNOWN;
-
-  SOPLOG_DEBUG("[SchedulePolicy] OnSubServiceTimeout");
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperServiceTimeout");
 
   result = ERR_CAP_NOERROR;
 _EXIT:
   return result;
 }
 
-MySchedulePolicy::MySchedulePolicy(void *middleware_name, void *service_table, void *scenario_table,
+cap_result MySchedulingPolicies::OnSubServiceReady(SRunTask *pstRunTask) {
+  cap_result result = ERR_CAP_UNKNOWN;
+
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSubServiceReady");
+
+  result = ERR_CAP_NOERROR;
+_EXIT:
+  return result;
+}
+cap_result MySchedulingPolicies::OnSubServiceBusy(SRunTask *pstRunTask) {
+  cap_result result = ERR_CAP_UNKNOWN;
+
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSubServiceBusy");
+
+  result = ERR_CAP_NOERROR;
+_EXIT:
+  return result;
+}
+cap_result MySchedulingPolicies::OnSubServiceSuccess(SExecutionResult *pstExecutionResult) {
+  cap_result result = ERR_CAP_UNKNOWN;
+
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSubServiceSuccess");
+
+  result = ERR_CAP_NOERROR;
+_EXIT:
+  return result;
+}
+cap_result MySchedulingPolicies::OnSubServiceError(SExecutionResult *pstExecutionResult) {
+  cap_result result = ERR_CAP_UNKNOWN;
+
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSubServiceError");
+
+  result = ERR_CAP_NOERROR;
+_EXIT:
+  return result;
+}
+cap_result MySchedulingPolicies::OnSubServiceTimeout(cap_string strRequestKey, int nTry) {
+  cap_result result = ERR_CAP_UNKNOWN;
+
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSubServiceTimeout");
+
+  result = ERR_CAP_NOERROR;
+_EXIT:
+  return result;
+}
+
+cap_result MySchedulingPolicies::OnSuperScheduleResult(SScheduleResult *pstScheduleResult) {
+  cap_result result = ERR_CAP_UNKNOWN;
+  SScenarioInfo *pstScenarioInfo = NULL;
+  cap_bool bAllScheduled = TRUE;
+  cap_string strScenarioName = pstScheduleResult->strScenarioName;
+  cap_handle hTargetScenarioTable = NULL;
+  cap_handle hTargetScheduleTable = NULL;
+
+  SOPLOG_DEBUG("[SchedulingPolicies] OnSuperScheduleResult");
+
+  // FIXME: on update the scenario is already in Scenario Table.
+  result = ScenarioTable_Get(this->hTempScenarioTable_, strScenarioName, &pstScenarioInfo);
+  if (result == ERR_CAP_NOT_FOUND) {
+    result = ScenarioTable_Get(this->hScenarioTable_, strScenarioName, &pstScenarioInfo);
+    if (result == ERR_CAP_NOERROR) {
+      hTargetScenarioTable = this->hScenarioTable_;
+      hTargetScheduleTable = this->hScheduleTable_;
+    } else {
+      // ERRASSIGNGOTO(result, ERR_CAP_INVALID_ACCESS, _EXIT);
+      // toss to child or parent
+      ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT);
+    }
+  } else if (result == ERR_CAP_NOERROR) {
+    hTargetScenarioTable = this->hTempScenarioTable_;
+    hTargetScheduleTable = this->hTempScheduleTable_;
+  }
+
+  // if (pstScenarioInfo->enState != SCENARIO_STATE_SCHEDULING) {
+  //   ERRASSIGNGOTO(result, ERR_CAP_INVALID_DATA, _EXIT);
+  // } else
+  if (pstScheduleResult->nErrorCode != ERR_CAP_NOERROR) {
+    SOPLOG_DEBUG("Scenario %s - Super Schedule Error: %d", CAPString_LowPtr(strScenarioName, NULL),
+                 pstScheduleResult->nErrorCode);
+    result = ScenarioTable_SetState(hTargetScenarioTable, strScenarioName, SCENARIO_STATE_STUCKED);
+
+    ERRASSIGNGOTO(result, ERR_CAP_NOERROR, _EXIT);
+  }
+
+  result = ScheduleUtils_ApplySuperScheduleResult(hTargetScheduleTable, strScenarioName, pstScheduleResult);
+  ERRIFGOTO(result, _EXIT);
+
+  // Check again if this scenario is fully scheduled.
+  result = ScheduleUtils_CheckScenarioScheduled(hTargetScheduleTable, strScenarioName, &bAllScheduled);
+  ERRIFGOTO(result, _EXIT);
+
+  if (bAllScheduled == TRUE) {
+    result = ScheduleUtils_IntializeScenario(hTargetScheduleTable, strScenarioName, this);
+    ERRIFGOTO(result, _EXIT);
+
+    if (hTargetScenarioTable == this->hScenarioTable_) {
+      result = ScenarioTable_SetState(hTargetScenarioTable, strScenarioName, SCENARIO_STATE_INITIALIZED);
+      ERRIFGOTO(result, _EXIT);
+    } else if (hTargetScenarioTable == this->hTempScenarioTable_) {
+      result = this->OnScheduleScenarioConfirm(strScenarioName);
+      ERRIFGOTO(result, _EXIT);
+    }
+  }
+
+  result = ERR_CAP_NOERROR;
+_EXIT:
+  return result;
+}
+
+MySchedulingPolicies::MySchedulingPolicies(void *middleware_name, void *service_table, void *scenario_table,
                                    void *schedule_table, void *tmp_scenario_table, void *tmp_schedule_table,
                                    void *super_thing_request_hash, void *run_queue, void *wait_queue, void *event_queue,
                                    void *schedule_queue, void *complete_queue, void *parent_mqtt_handler,
@@ -885,4 +1024,4 @@ MySchedulePolicy::MySchedulePolicy(void *middleware_name, void *service_table, v
   hChildMQTTHandler_ = (cap_handle)child_mqtt_handler;
 };
 
-MySchedulePolicy::~MySchedulePolicy() {}
+MySchedulingPolicies::~MySchedulingPolicies() {}

@@ -9,7 +9,8 @@ def print_progress_status(transferred, toBeTransferred):
 
 
 class SoPSSHClient:
-    COMMAND_SENDING = False
+    COMMAND_SENDING = 0
+    FILE_SENDING = 0
 
     def __init__(self, device: SoPDeviceElement, connect_timeout: float = 10) -> None:
         self._ssh_client = paramiko.SSHClient()
@@ -130,63 +131,67 @@ class SoPSSHClient:
         return target_pid_list
 
     def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False) -> Union[bool, List[str]]:
-        while SoPSSHClient.COMMAND_SENDING:
+        while not SoPSSHClient.COMMAND_SENDING < 5:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.COMMAND_SENDING = True
+        SoPSSHClient.COMMAND_SENDING += 1
 
         if isinstance(command, str):
             command = [command]
         if not self.connected:
             self.connect()
 
-        for item in command:
-            if self.connected:
-                if background:
-                    transport = self._ssh_client.get_transport()
-                    channel = transport.open_session()
-                    channel.exec_command(item)
-                else:
-                    try:
-                        stdin, stdout, stderr = self._ssh_client.exec_command(
-                            item)
-                    except Exception as e:
-                        # NOTE: `Secsh channel <int num> open FAILED: open failed: Connect failed` 에러가 발생하여 연결을 다시 수립하는 방식으로 해결
-                        # NOTE: 그러나 해당 방법이 제대로 된 해결법인지는 잘 모르겠음
-                        # NOTE: 반복적으로 send_command가 실행되면 생기는 것으로 보이나 while문으로 똑같은 명령을 반복했을 때는 문제가 생기지 않고 run_middleware를
-                        # NOTE: 반복적으로 실행하면 문제가 생김
-                        # NOTE: -> mosquitto, middelware를 실행시킬때 백그라운드로 안 시켜서 ssh 세션을 계속 유지하는 것이 문제였다.
+        try:
+            for item in command:
+                if self.connected:
+                    if background:
+                        transport = self._ssh_client.get_transport()
+                        channel = transport.open_session()
+                        channel.exec_command(item)
+                    else:
+                        try:
+                            stdin, stdout, stderr = self._ssh_client.exec_command(
+                                item)
+                        except Exception as e:
+                            # NOTE: `Secsh channel <int num> open FAILED: open failed: Connect failed` 에러가 발생하여 연결을 다시 수립하는 방식으로 해결
+                            # NOTE: 그러나 해당 방법이 제대로 된 해결법인지는 잘 모르겠음
+                            # NOTE: 반복적으로 send_command가 실행되면 생기는 것으로 보이나 while문으로 똑같은 명령을 반복했을 때는 문제가 생기지 않고 run_middleware를
+                            # NOTE: 반복적으로 실행하면 문제가 생김
+                            # NOTE: -> mosquitto, middelware를 실행시킬때 백그라운드로 안 시켜서 ssh 세션을 계속 유지하는 것이 문제였다.
 
-                        SOPTEST_LOG_DEBUG(
-                            f'Send_command error: {e}', SoPTestLogLevel.FAIL)
-                        self.disconnect()
-                        self.connect()
-                        stdin, stdout, stderr = self._ssh_client.exec_command(
-                            item)
-                # SOPTEST_LOG_DEBUG(f'command execute -> {item}', SoPTestLogLevel.PASS)
-                if ignore_result:
-                    SoPSSHClient.COMMAND_SENDING = False
-                    return True
-                else:
-                    if 'sudo' in command:
-                        stdin.write(f'{self.device.password}\n')
-                        stdin.flush()
+                            SOPTEST_LOG_DEBUG(
+                                f'Send_command error: {e}', SoPTestLogLevel.FAIL)
+                            self.disconnect()
+                            self.connect()
+                            stdin, stdout, stderr = self._ssh_client.exec_command(
+                                item)
+                    # SOPTEST_LOG_DEBUG(f'command execute -> {item}', SoPTestLogLevel.PASS)
+                    if ignore_result:
+                        return True
+                    else:
+                        if 'sudo' in command:
+                            stdin.write(f'{self.device.password}\n')
+                            stdin.flush()
 
-                    stdout_result: List[str] = stdout.readlines()
-                    # self.disconnect()
-                    SoPSSHClient.COMMAND_SENDING = False
-                    return [line.strip() for line in stdout_result]
-            else:
-                result = os.popen(item)
-                # SOPTEST_LOG_DEBUG(f'command execute -> {item}', SoPTestLogLevel.PASS)
-                if ignore_result:
-                    SoPSSHClient.COMMAND_SENDING = False
-                    return True
+                        stdout_result: List[str] = stdout.readlines()
+                        # self.disconnect()
+                        return [line.strip() for line in stdout_result]
                 else:
-                    SoPSSHClient.COMMAND_SENDING = False
-                    return result.read().split('\n')
+                    result = os.popen(item)
+                    # SOPTEST_LOG_DEBUG(f'command execute -> {item}', SoPTestLogLevel.PASS)
+                    if ignore_result:
+                        return True
+                    else:
+                        return result.read().split('\n')
+        finally:
+            SoPSSHClient.COMMAND_SENDING -= 1
 
     def send_file(self, local_path: str, remote_path: str):
+        while not SoPSSHClient.FILE_SENDING < 10:
+            time.sleep(THREAD_TIME_OUT)
+
+        SoPSSHClient.FILE_SENDING += 1
+
         if not self.sftp_opened:
             self.open_sftp()
 
@@ -200,6 +205,8 @@ class SoPSSHClient:
             return False
         except Exception as e:
             print_error(e)
+        finally:
+            SoPSSHClient.FILE_SENDING -= 1
 
     # local_path와 remote_path를 받아서 재귀적으로 폴더를 전송하는 함수
     def send_dir(self, local_path: str, remote_path: str):

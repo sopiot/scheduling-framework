@@ -43,7 +43,7 @@ class SoPSimulationConfig:
         self.running_time: float = data['simulation'].get(
             'running_time', 120.0)
         self.event_timeout: float = data['simulation'].get(
-            'event_timeout', 30.0)
+            'event_timeout', 15.0)
 
         self.device_pool_path = SoPPath(root_path=get_project_root(),
                                         config_path=os.path.abspath(

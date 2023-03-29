@@ -68,7 +68,7 @@ typedef struct _SScheduler {
   cap_handle hWaitQueue;
   cap_handle hCompleteQueue;
   cap_handle hSchedulingThread;
-  cap_handle hSchedulePolicy;
+  cap_handle hSchedulingPolicies;
 } SScheduler;
 
 typedef struct _SProceedData {

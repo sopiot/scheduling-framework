@@ -185,7 +185,7 @@ class SoPSimulatorExecutor:
                 [f'mkdir -p {middleware.remote_middleware_config_path.replace("~", remote_home_dir)}'])
             args.append((middleware, remote_home_dir))
 
-        pool_map(task, args, proc=1)
+        pool_map(task, args)
 
         return True
 

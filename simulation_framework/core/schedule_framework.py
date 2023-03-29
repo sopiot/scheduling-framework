@@ -3,6 +3,10 @@ from simulation_framework.core.simulation_generator import *
 from simulation_framework.core.simulation_evaluator import *
 
 
+PREDEFINED_POLICY_FILE_NAME = 'my_scheduling_policies.cc'
+SCHEDULING_ALGORITHM_PATH = f'{get_project_root()}/scheduling_algorithm'
+
+
 class SoPSchedulingFramework:
 
     def __init__(self, config_path_list: List[str] = [], simulation_file_path: str = '', mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
@@ -84,7 +88,7 @@ class SoPSchedulingFramework:
                 result = ssh_client.send_command(
                     f'rm -rf {home_dir_append(middleware_path, user)}')
                 result = ssh_client.send_dir(
-                    f'{get_project_root()}/schedule_algorithm', home_dir_append(middleware_path, user))
+                    SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
                 if 'Ubuntu 20.04' in remote_device_os:
                     result = ssh_client.send_file(
                         f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
@@ -97,7 +101,7 @@ class SoPSchedulingFramework:
                 middleware.binary_sended = True
 
             ssh_client.send_file(
-                policy_file_path, f'{home_dir_append(middleware_path, user)}/my_schedule_policy.cc')
+                policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
             middleware_update_result = ssh_client.send_command(
                 f'cd {home_dir_append(middleware_path, user)}; chmod +x sopiot_middleware;cmake .; make -j; echo $?')[-1]
 
@@ -128,7 +132,7 @@ class SoPSchedulingFramework:
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
             simulation_executor.simulation_env)
 
-        pool_map(task, middleware_list, proc=1)
+        pool_map(task, middleware_list)
 
         return True
 
@@ -150,7 +154,7 @@ class SoPSchedulingFramework:
         for policy, result_list in simulation_result_list_sort_by_policy.items():
             simulation_result_avg = SoPSimulationResult(policy=policy,
                                                         avg_latency=avg(
-                                                            [result.total_execute_time / result.total_scenario_cycle_num for result in result_list]),
+                                                            [result.get_avg_latency()[0] for result in result_list]),
                                                         avg_energy=avg(
                                                             [result.get_avg_energy()[0] for result in result_list]),
                                                         avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
@@ -164,14 +168,14 @@ class SoPSchedulingFramework:
             simulation_result_list, key=lambda x: x.avg_success_ratio, reverse=True)
 
         # TODO: policy에 대한 랭킹으로만 나와야한다. 같은 config결과는 평균을 내든지 해야한다.
-        rank_header = ['Rank', 'QoS', 'Energy Saving', 'Stablity']
+        rank_header = ['Rank', 'QoS', 'Energy Saving', 'Stability']
         print_table([[i+1,
-                      f'''latency: {simulation_result_list_sort_by_application_latency[i].avg_latency}
+                      f'''latency: {f'{simulation_result_list_sort_by_application_latency[i].avg_latency:.2f}'}
 policy: {simulation_result_list_sort_by_application_latency[i].policy}''',
-                      f'''energy: {simulation_result_list_sort_by_application_energy[i].avg_energy}
-policy: {simulation_result_list_sort_by_application_latency[i].policy}''',
+                      f'''energy: {f'{simulation_result_list_sort_by_application_energy[i].avg_energy:.2f}'}
+policy: {simulation_result_list_sort_by_application_energy[i].policy}''',
                       f'''success_ratio: {f'{simulation_result_list_sort_by_success_ratio[i].avg_success_ratio * 100:.2f}'}
-policy: {simulation_result_list_sort_by_application_latency[i].policy}'''] for i in range(len(simulation_result_list))], rank_header)
+policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in range(len(simulation_result_list))], rank_header)
 
         return True
 

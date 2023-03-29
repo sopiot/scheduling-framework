@@ -1,7 +1,7 @@
 #include "schedule_utils.h"
 
-#include "../../common/sop_payload_utils.h"
-#include "../../common/sop_topic_utils.h"
+#include "sop_payload_utils.h"
+#include "sop_topic_utils.h"
 #include "CAPString.h"
 #include "db_handler.h"
 #include "mqtt_message_handler.h"
@@ -112,7 +112,7 @@ static CALLBACK cap_result InitServiceTraverse(IN cap_string strScheduleKey, IN 
   cap_result result = ERR_CAP_UNKNOWN;
   SServiceInfo *pstServiceInfo = NULL;
   SScheduleInfo *pstScheduleInfo = NULL;
-  MySchedulePolicy *pstContext = NULL;
+  MySchedulingPolicies *pstContext = NULL;
   cap_handle hValueCache = NULL;
   cap_handle hMQTTHandler = NULL;
   cap_string strPrimaryIdentifier = NULL;
@@ -124,7 +124,7 @@ static CALLBACK cap_result InitServiceTraverse(IN cap_string strScheduleKey, IN 
   int nLen = -1;
 
   pstScheduleInfo = (SScheduleInfo *)pData;
-  pstContext = (MySchedulePolicy *)pUserData;
+  pstContext = (MySchedulingPolicies *)pUserData;
 
   strTopic = CAPString_New();
   ERRMEMGOTO(strTopic, result, _EXIT);
@@ -198,7 +198,7 @@ _EXIT:
 }
 
 cap_result ScheduleUtils_IntializeScenario(cap_handle hScheduleTable, cap_string strScenarioName,
-                                           MySchedulePolicy *pstContext) {
+                                           MySchedulingPolicies *pstContext) {
   cap_result result = ERR_CAP_UNKNOWN;
 
   // FIXME: determine how to subscribe
@@ -275,7 +275,7 @@ _EXIT:
   return result;
 }
 
-// cap_result ScheduleUtils_GetAffectedScenarioOnReg(MySchedulePolicy *pstContext, cap_string strThingName,
+// cap_result ScheduleUtils_GetAffectedScenarioOnReg(MySchedulingPolicies *pstContext, cap_string strThingName,
 //                                                     cap_handle *phScenarioNameList) {
 //   cap_result result = ERR_CAP_UNKNOWN;
 //   SGetAffectedScenarioOnUnregUserData stUserData;
@@ -301,7 +301,7 @@ _EXIT:
 //   return result;
 // }
 
-cap_result ScheduleUtils_GetAffectedScenarioOnUnreg(MySchedulePolicy *pstContext, cap_string strThingName,
+cap_result ScheduleUtils_GetAffectedScenarioOnUnreg(MySchedulingPolicies *pstContext, cap_string strThingName,
                                                     cap_handle *phScenarioNameList) {
   cap_result result = ERR_CAP_UNKNOWN;
   SGetAffectedScenarioOnUnregUserData stUserData;
@@ -327,7 +327,7 @@ _EXIT:
   return result;
 }
 
-cap_result ScheduleUtils_GetAffectedScenarioOnCancel(MySchedulePolicy *pstContext, cap_string strScenarioName,
+cap_result ScheduleUtils_GetAffectedScenarioOnCancel(MySchedulingPolicies *pstContext, cap_string strScenarioName,
                                                      cap_handle *phScenarioNameList) {
   cap_result result = ERR_CAP_UNKNOWN;
   cap_handle hScheduleMap = NULL;
@@ -362,7 +362,7 @@ static cap_result FindBestThing(IN cap_handle hCandidateList, IN EServiceType en
 
   SOPLOG_DEBUG("Find the best thing with schedule info: %s", CAPString_LowPtr(strScenarioName, NULL));
 
-  targetIdx = (int)(rand() % nLen);  // random (temporal policy)
+  targetIdx = (int)(rand() % nLen);  // random (temporal policies)
 
   result = CAPLinkedList_Get(hCandidateList, LINKED_LIST_OFFSET_FIRST, targetIdx, (void **)&strThingName);
   ERRIFGOTO(result, _EXIT);
@@ -375,7 +375,7 @@ _EXIT:
   return result;
 }
 
-static cap_result MapServiceToThings(IN MySchedulePolicy *pstContext, cap_string strServiceName,
+static cap_result MapServiceToThings(IN MySchedulingPolicies *pstContext, cap_string strServiceName,
                                      IN cap_handle hCandidateList, IN ERangeType enRangeType,
                                      IN EServiceType enServiceType, IN cap_string strScenarioName,
                                      IN OUT cap_handle hMappedThingNameList) {
@@ -394,7 +394,7 @@ static cap_result MapServiceToThings(IN MySchedulePolicy *pstContext, cap_string
     ERRIFGOTO(result, _EXIT);
   } else if ((enServiceType == SERVICE_TYPE_FUNCTION && enRangeType == RANGE_TYPE_NONE) ||
              (enServiceType == SERVICE_TYPE_VALUE && enRangeType == RANGE_TYPE_NONE)) {
-    // pick a candidate following a scheduling policy
+    // pick a candidate following a scheduling policies
     strPickedThingName = CAPString_New();
     ERRMEMGOTO(strPickedThingName, result, _EXIT);
 
@@ -647,7 +647,7 @@ _EXIT:
   return result;
 }
 
-cap_result ScheduleUtils_ScheduleScenario(MySchedulePolicy *pstContext, cap_string strScenarioName) {
+cap_result ScheduleUtils_ScheduleScenario(MySchedulingPolicies *pstContext, cap_string strScenarioName) {
   cap_result result = ERR_CAP_UNKNOWN;
   SScheduleServiceUserData stUserData;
 
@@ -673,7 +673,7 @@ _EXIT:
   return result;
 }
 
-cap_result ScheduleUtils_UpdateScenario(MySchedulePolicy *pstContext, cap_string strScenarioName,
+cap_result ScheduleUtils_UpdateScenario(MySchedulingPolicies *pstContext, cap_string strScenarioName,
                                         cap_bool *pbScheduled) {
   cap_result result = ERR_CAP_UNKNOWN;
   SScheduleServiceUserData stUserData;

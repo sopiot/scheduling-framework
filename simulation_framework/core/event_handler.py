@@ -247,7 +247,7 @@ class SoPEventHandler:
         target_simulation_log_path = home_dir_append(
             f'remote_logs/simulation_log_{get_current_time(mode=TimeFormat.DATETIME2)}')
 
-        pool_map(task, self.middleware_list, proc=1)
+        pool_map(task, self.middleware_list)
 
         return True
 
