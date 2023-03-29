@@ -445,8 +445,10 @@ class SoPEventHandler:
                     log_file_path = os.path.dirname(log_file_path)
                     break
 
+            user = os.path.basename(remote_home_dir)
+            home_dir_append(middleware.remote_middleware_path, user)
             cd_to_config_dir_command = f'cd {os.path.dirname(middleware.remote_middleware_config_path).replace("~", remote_home_dir)}'
-            run_command = f'mkdir -p {log_file_path}; {middleware.remote_middleware_path.replace("~", remote_home_dir)}/sopiot_middleware -f {middleware.remote_middleware_cfg_file_path.replace("~", remote_home_dir)} > {log_file_path}/{middleware.name}.stdout 2>&1 &'
+            run_command = f'mkdir -p {log_file_path}; cd {home_dir_append(middleware.remote_middleware_path, user)}; ./sopiot_middleware -f {middleware.remote_middleware_cfg_file_path.replace("~", remote_home_dir)} > {log_file_path}/{middleware.name}.stdout 2>&1 &'
             return f'{cd_to_config_dir_command}; {run_command}'
 
         def check_online(mqtt_client: SoPMQTTClient, timeout: float):
@@ -495,8 +497,6 @@ class SoPEventHandler:
         mqtt_client.run()
         ssh_client.send_command(middleware_run_command(
             middleware=middleware, remote_home_dir=remote_home_dir), ignore_result=True)
-
-        # 'cd /mnt/ramdisk; mkdir -p /home/pi/simulation_log; /home/pi/middleware/sopiot_middleware -f /mnt/ramdisk/middleware_config/middleware_level2_0_middleware.cfg > /home/pi/simulation_log/middleware_level2_0.stdout 2>&1 &'
 
         if not check_online_with_timeout(mqtt_client, timeout=timeout, check_interval=0.5):
             self.kill_middleware(middleware)
