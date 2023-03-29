@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 
 setup(
-    name="scheduling-framework",
+    name="simulation-framework",
     version="0.1.0",
     description="SoPIoT Thing SDK",
     author="caplab",

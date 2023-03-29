@@ -372,7 +372,7 @@ def copy_file(src_path, dest_path):
     shutil.copy(src_path, dest_path)
 
 
-def get_project_root(project_name: str = 'scheduling-framework') -> Path:
+def get_project_root(project_name: str = 'simulation-framework') -> Path:
     start_path = Path(__file__)
     while True:
         if str(start_path).split('/')[-1] == project_name:
