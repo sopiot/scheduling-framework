@@ -1,4 +1,4 @@
-from scheduling_framework.core.elements import *
+from simulation_framework.core.elements import *
 
 import paramiko
 import stat

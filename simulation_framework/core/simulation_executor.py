@@ -1,6 +1,6 @@
-from scheduling_framework.core.elements import *
-from scheduling_framework.core.event_handler import *
-from scheduling_framework.core.config import *
+from simulation_framework.core.elements import *
+from simulation_framework.core.event_handler import *
+from simulation_framework.core.config import *
 
 
 class SoPSimulatorExecutor:

@@ -1,6 +1,6 @@
-from scheduling_framework.core.simulation_executor import *
-from scheduling_framework.core.simulation_generator import *
-from scheduling_framework.core.simulation_evaluator import *
+from simulation_framework.core.simulation_executor import *
+from simulation_framework.core.simulation_generator import *
+from simulation_framework.core.simulation_evaluator import *
 
 
 class SoPSchedulingFramework:
@@ -180,14 +180,33 @@ policy: {simulation_result_list_sort_by_application_latency[i].policy}'''] for i
         simulation_info_list = []
 
         for config_path in self.config_path_list:
-            if 'paper_experiments' in config_path:
-                device_pool_path = SoPPath(root_path=get_project_root(),
-                                           config_path=config_path,
-                                           path=load_yaml(config_path)['device_pool_path'])
-                device_list = load_yaml(device_pool_path.abs_path())
-                if len(device_list) < 11:
+            device_pool_path = SoPPath(root_path=get_project_root(),
+                                       config_path=config_path,
+                                       path=load_yaml(config_path)['device_pool_path'])
+            device_list: List[dict] = load_yaml(
+                device_pool_path.abs_path())
+            valid_device_list = [
+                device for device in device_list if device != 'localhost']
+
+            if not 'sim_env_samples' in config_path:
+                pass
+            elif 'paper_experiments' in config_path:
+                if len(valid_device_list) < 11:
                     raise Exception(
-                        f'device pool is not enough for paper experiments. (more than 11 devices required)')
+                        f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 11 devices)')
+            elif 'remote' in config_path:
+                if 'simple_home' in config_path:
+                    if len(valid_device_list) < 1:
+                        raise Exception(
+                            f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 1 devices)')
+                elif 'simple_building' in config_path:
+                    if len(valid_device_list) < 5:
+                        raise Exception(
+                            f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 5 devices)')
+                elif 'simple_campus' in config_path:
+                    if len(valid_device_list) < 7:
+                        raise Exception(
+                            f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 7 devices)')
 
             simulation_file_path, simulation_ID = self.simulation_generator.generate_simulation(simulation_ID=simulation_ID,
                                                                                                 config_path=config_path,

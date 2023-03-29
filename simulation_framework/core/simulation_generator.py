@@ -1,5 +1,5 @@
-from scheduling_framework.core.simulation_executor import *
-from scheduling_framework.core.config import *
+from simulation_framework.core.simulation_executor import *
+from simulation_framework.core.config import *
 
 import random
 import copy

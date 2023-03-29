@@ -1,4 +1,4 @@
-from scheduling_framework.utils import *
+from simulation_framework.utils import *
 
 from queue import Queue
 

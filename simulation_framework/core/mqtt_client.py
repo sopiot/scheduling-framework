@@ -1,4 +1,4 @@
-from scheduling_framework.core.elements import *
+from simulation_framework.core.elements import *
 
 import paho.mqtt.client as mqtt
 from queue import Queue, Empty

@@ -1,6 +1,6 @@
 
-from scheduling_framework.core.ssh_client import *
-from scheduling_framework.core.mqtt_client import *
+from simulation_framework.core.ssh_client import *
+from simulation_framework.core.mqtt_client import *
 
 
 class SoPEventHandler:
