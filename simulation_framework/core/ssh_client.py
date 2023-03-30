@@ -166,7 +166,7 @@ class SoPSSHClient:
                             self.connect()
                             stdin, stdout, stderr = self._ssh_client.exec_command(
                                 item)
-                    # SOPTEST_LOG_DEBUG(f'command execute -> {item}', SoPTestLogLevel.PASS)
+
                     if ignore_result:
                         return True
                     else:
