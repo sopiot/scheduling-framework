@@ -132,7 +132,7 @@ class SoPSchedulingFramework:
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
             simulation_executor.simulation_env)
 
-        pool_map(task, middleware_list)
+        pool_map(task, middleware_list, proc=1)
 
         return True
 
