@@ -1,4 +1,4 @@
-# Scheduling Framework for Hierarchical Edge-based IoT
+# Simulation Framework for Hierarchical Edge-based IoT
 
 <div style="text-align:center">
   <img src="imgs/sim_overview.png" width="500" alt="sim_overview" style="margin-right:0px" />
