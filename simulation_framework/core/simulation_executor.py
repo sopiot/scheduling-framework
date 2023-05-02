@@ -3,17 +3,17 @@ from simulation_framework.core.event_handler import *
 from simulation_framework.core.config import *
 
 
-class SoPSimulatorExecutor:
+class MXSimulatorExecutor:
 
     def __init__(self, simulation_file_path: str = None, mqtt_debug: bool = False, middleware_debug: bool = False, args: dict = None) -> None:
         self.simulation_file_path = simulation_file_path
 
-        self.simulation_event_timeline: List[SoPEvent] = []
-        self.simulation_env: SoPMiddlewareElement = None
+        self.simulation_event_timeline: List[MXEvent] = []
+        self.simulation_env: MXMiddlewareElement = None
 
-        self.event_handler: SoPEventHandler = None
+        self.event_handler: MXEventHandler = None
 
-        self.event_log: List[SoPEvent] = []
+        self.event_log: List[MXEvent] = []
         self.mqtt_debug = mqtt_debug
         self.middleware_debug = middleware_debug
         self.args = args
@@ -26,16 +26,16 @@ class SoPSimulatorExecutor:
     def load_simulation(self, simulation_folder_path: str):
         simulation_data = json_file_read(simulation_folder_path)
         self.simulation_config = simulation_data['config']
-        self.simulation_env = SoPMiddlewareElement().load(
+        self.simulation_env = MXMiddlewareElement().load(
             simulation_data['component'])
 
-        self.event_handler = SoPEventHandler(simulation_env=self.simulation_env,
-                                             event_log=self.event_log,
-                                             timeout=self.simulation_config['event_timeout'],
-                                             mqtt_debug=self.mqtt_debug,
-                                             middleware_debug=self.middleware_debug,
-                                             running_time=self.simulation_config['running_time'],
-                                             download_logs=self.args.download_logs)
+        self.event_handler = MXEventHandler(simulation_env=self.simulation_env,
+                                            event_log=self.event_log,
+                                            timeout=self.simulation_config['event_timeout'],
+                                            mqtt_debug=self.mqtt_debug,
+                                            middleware_debug=self.middleware_debug,
+                                            running_time=self.simulation_config['running_time'],
+                                            download_logs=self.args.download_logs)
         self.event_handler.update_middleware_thing_device_list()
         self.event_handler.init_ssh_client_list()
         self.event_handler.init_mqtt_client_list()
@@ -46,8 +46,8 @@ class SoPSimulatorExecutor:
         self.generate_thing_file(self.simulation_env)
         self.generate_scenario_file(self.simulation_env)
 
-        self.simulation_event_timeline = [SoPEvent(event_type=SoPEventType.get(event['event_type']),
-                                                   element=find_element_by_name_recursive(
+        self.simulation_event_timeline = [MXEvent(event_type=MXEventType.get(event['event_type']),
+                                                  element=find_element_by_name_recursive(
             self.simulation_env, event['element'])[0],
             timestamp=event['timestamp'],
             duration=event['duration'],
@@ -56,9 +56,9 @@ class SoPSimulatorExecutor:
 
     def build_middleware_thing_env(self):
         simulation_env_build_timeline = [event for event in self.simulation_event_timeline if event.event_type in [
-            SoPEventType.MIDDLEWARE_RUN, SoPEventType.THING_RUN, SoPEventType.THING_REGISTER_WAIT, SoPEventType.DELAY]]
+            MXEventType.MIDDLEWARE_RUN, MXEventType.THING_RUN, MXEventType.THING_REGISTER_WAIT, MXEventType.DELAY]]
         last_index = [event.event_type for event in simulation_env_build_timeline].index(
-            SoPEventType.DELAY)
+            MXEventType.DELAY)
         simulation_env_build_timeline = simulation_env_build_timeline[:last_index+1]
 
         for event in simulation_env_build_timeline:
@@ -66,23 +66,23 @@ class SoPSimulatorExecutor:
 
     def build_scenario_env(self):
 
-        def task(middleware_scenario_add_timeline: List[SoPEvent]):
+        def task(middleware_scenario_add_timeline: List[MXEvent]):
             for event in middleware_scenario_add_timeline:
                 self.event_handler.event_trigger(event)
 
         whole_scenario_add_timeline = [
-            event for event in self.simulation_event_timeline if event.event_type in [SoPEventType.SCENARIO_ADD, SoPEventType.SCENARIO_ADD_CHECK, SoPEventType.REFRESH, SoPEventType.DELAY]][1:]
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
+            event for event in self.simulation_event_timeline if event.event_type in [MXEventType.SCENARIO_ADD, MXEventType.SCENARIO_ADD_CHECK, MXEventType.REFRESH, MXEventType.DELAY]][1:]
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
             self.simulation_env)
 
         middleware_scenario_add_timeline_list = []
         for middleware in middleware_list:
             scenario_add_timeline = [
-                event for event in [event for event in whole_scenario_add_timeline if event.event_type == SoPEventType.SCENARIO_ADD] if find_element_recursive(self.simulation_env, event.element)[1].name == middleware.name]
+                event for event in [event for event in whole_scenario_add_timeline if event.event_type == MXEventType.SCENARIO_ADD] if find_element_recursive(self.simulation_env, event.element)[1].name == middleware.name]
             middleware_scenario_add_timeline_list.append(scenario_add_timeline)
 
         scenario_check_timeline_list = [event for event in whole_scenario_add_timeline if event.event_type in [
-            SoPEventType.SCENARIO_ADD_CHECK, SoPEventType.REFRESH, SoPEventType.DELAY]]
+            MXEventType.SCENARIO_ADD_CHECK, MXEventType.REFRESH, MXEventType.DELAY]]
 
         pool_map(task, middleware_scenario_add_timeline_list)
 
@@ -93,9 +93,9 @@ class SoPSimulatorExecutor:
 
     def simulation_event_trigger_start(self):
         start_index = [event.event_type for event in self.simulation_event_timeline].index(
-            SoPEventType.START)
+            MXEventType.START)
         end_index = [event.event_type for event in self.simulation_event_timeline].index(
-            SoPEventType.END)
+            MXEventType.END)
         whole_simulation_timeline = self.simulation_event_timeline[start_index:end_index+1]
         for event in whole_simulation_timeline:
             self.event_handler.event_trigger(event)
@@ -113,8 +113,8 @@ class SoPSimulatorExecutor:
 
         return self.simulation_env, self.event_log, self.event_handler.simulation_duration, self.event_handler.simulation_start_time
 
-    def generate_middleware_file(self, simulation_env: SoPMiddlewareElement):
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
+    def generate_middleware_file(self, simulation_env: MXMiddlewareElement):
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
             simulation_env)
         for middleware in middleware_list:
             ssh_client = self.event_handler.find_ssh_client(middleware)
@@ -137,24 +137,24 @@ class SoPSimulatorExecutor:
             write_file(middleware.init_script_file_path,
                        middleware.init_script)
 
-    def generate_thing_file(self, simulation_env: SoPMiddlewareElement):
-        thing_list: List[SoPThingElement] = get_thing_list_recursive(
+    def generate_thing_file(self, simulation_env: MXMiddlewareElement):
+        thing_list: List[MXThingElement] = get_thing_list_recursive(
             simulation_env)
 
         for thing in thing_list:
             write_file(
                 thing.thing_file_path, thing.thing_code())
 
-    def generate_scenario_file(self, simulation_env: SoPMiddlewareElement):
-        scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(
+    def generate_scenario_file(self, simulation_env: MXMiddlewareElement):
+        scenario_list: List[MXScenarioElement] = get_scenario_list_recursive(
             simulation_env)
         for scenario in scenario_list:
             write_file(scenario.scenario_file_path,
                        scenario.scenario_code())
 
-    def send_middleware_file(self, simulation_env: SoPMiddlewareElement):
+    def send_middleware_file(self, simulation_env: MXMiddlewareElement):
 
-        def ssh_task(middleware: SoPMiddlewareElement):
+        def ssh_task(middleware: MXMiddlewareElement):
             ssh_client = self.event_handler.find_ssh_client(middleware)
             user = middleware.device.user
             ssh_client.send_command(
@@ -162,7 +162,7 @@ class SoPSimulatorExecutor:
 
             return True
 
-        def send_task(middleware: SoPMiddlewareElement):
+        def send_task(middleware: MXMiddlewareElement):
             ssh_client = self.event_handler.find_ssh_client(middleware)
             user = middleware.device.user
             ssh_client.send_command(
@@ -173,22 +173,22 @@ class SoPSimulatorExecutor:
                 os.path.abspath(middleware.mosquitto_conf_file_path), home_dir_append(middleware.remote_mosquitto_conf_file_path, user))
             ssh_client.send_file(
                 os.path.abspath(middleware.init_script_file_path), home_dir_append(middleware.remote_init_script_file_path, user))
-            SOPTEST_LOG_DEBUG(
-                f'Send middleware config folder {middleware.name}', SoPTestLogLevel.PASS)
+            MXTEST_LOG_DEBUG(
+                f'Send middleware config folder {middleware.name}', MXTestLogLevel.PASS)
 
             return True
 
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
             simulation_env)
 
         pool_map(ssh_task, middleware_list)
-        pool_map(send_task, middleware_list, proc=1)
+        pool_map(send_task, middleware_list)
 
         return True
 
-    def send_thing_file(self, simulation_env: SoPMiddlewareElement):
+    def send_thing_file(self, simulation_env: MXMiddlewareElement):
 
-        def ssh_task(thing: SoPThingElement):
+        def ssh_task(thing: MXThingElement):
             ssh_client = self.event_handler.find_ssh_client(thing)
             user = thing.device.user
             ssh_client.send_command(
@@ -196,7 +196,7 @@ class SoPSimulatorExecutor:
 
             return True
 
-        def send_task(thing: SoPThingElement):
+        def send_task(thing: MXThingElement):
             ssh_client = self.event_handler.find_ssh_client(thing)
             user = thing.device.user
             ssh_client.send_command(
@@ -208,16 +208,16 @@ class SoPSimulatorExecutor:
                 os.system(
                     f'sshpass -p "{ssh_client.device.password}" scp -o StrictHostKeyChecking=no -P {ssh_client.device.ssh_port} {os.path.abspath(thing.thing_file_path)} {ssh_client.device.user}@{ssh_client.device.host}:{thing.remote_thing_file_path} > /dev/null 2>&1 &')
 
-            SOPTEST_LOG_DEBUG(
-                f'Send thing file {os.path.basename(thing.thing_file_path)}', SoPTestLogLevel.PASS)
+            MXTEST_LOG_DEBUG(
+                f'Send thing file {os.path.basename(thing.thing_file_path)}', MXTestLogLevel.PASS)
 
             return True
 
-        thing_list: List[SoPThingElement] = get_thing_list_recursive(
+        thing_list: List[MXThingElement] = get_thing_list_recursive(
             simulation_env)
 
         pool_map(ssh_task, thing_list)
-        pool_map(send_task, thing_list, proc=1)
+        pool_map(send_task, thing_list)
 
         return True
 

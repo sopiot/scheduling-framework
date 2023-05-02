@@ -4,7 +4,7 @@ import csv
 from itertools import zip_longest
 
 
-class SoPExecuteCycleErrorType(Enum):
+class MXExecuteCycleErrorType(Enum):
     SUCCESS = 'SUCCESS'
     PERIOD_FAIL = 'PERIOD_FAIL'
     RERUN_FAIL = 'RERUN_FAIL'
@@ -12,28 +12,28 @@ class SoPExecuteCycleErrorType(Enum):
     OVERTIME = 'OVERTIME'
 
 
-class SoPScenarioErrorType(Enum):
+class MXScenarioErrorType(Enum):
     SUCCESS = 'SUCCESS'
     FAIL = 'FAIL'
     SCHEDULE_FAIL = 'SCHEDULE_FAIL'
     SCHEDULE_TIMEOUT = 'SCHEDULE_TIMEOUT'
 
 
-class SoPAcceptanceScore:
-    def __init__(self, middleware_list: List[SoPMiddlewareElement]) -> None:
-        whole_event_log: List[SoPEvent] = []
+class MXAcceptanceScore:
+    def __init__(self, middleware_list: List[MXMiddlewareElement]) -> None:
+        whole_event_log: List[MXEvent] = []
         for middleware in middleware_list:
             whole_event_log += middleware.event_log
         whole_event_log = sorted(
             whole_event_log, key=lambda x: x.timestamp)
         whole_event_log = [
-            event for event in whole_event_log if event.event_type == SoPEventType.SCENARIO_ADD]
+            event for event in whole_event_log if event.event_type == MXEventType.SCENARIO_ADD]
 
         acceptance_ratio_meter = []
         acceptance_ratio_by_section = []
         acceptance_ratio_by_cumulative = []
         for event_group in self.grouper(10, whole_event_log):
-            event_group: List[SoPEvent]
+            event_group: List[MXEvent]
             accept = 0
             not_accept = 0
             for event in event_group:
@@ -77,9 +77,9 @@ class SoPAcceptanceScore:
         return zip_longest(fillvalue=fillvalue, *args)
 
 
-class SoPExecuteCycleResult:
-    def __init__(self, execute_cycle: List[SoPEvent] = [], cycle_latency: int = 0, cycle_energy: int = 0, avg_execute_time: int = 0, overhead: float = 0, error: SoPExecuteCycleErrorType = None) -> None:
-        self.execute_event_cycle: List[SoPEvent] = execute_cycle
+class MXExecuteCycleResult:
+    def __init__(self, execute_cycle: List[MXEvent] = [], cycle_latency: int = 0, cycle_energy: int = 0, avg_execute_time: int = 0, overhead: float = 0, error: MXExecuteCycleErrorType = None) -> None:
+        self.execute_event_cycle: List[MXEvent] = execute_cycle
 
         self.cycle_latency = cycle_latency
         self.cycle_energy = cycle_energy
@@ -88,18 +88,18 @@ class SoPExecuteCycleResult:
         self.error = error
 
 
-class SoPScenarioResult:
-    def __init__(self, scenario_element: SoPScenarioElement = None,
-                 execute_cycle_result_list: List[SoPExecuteCycleResult] = [],
-                 schedule_event_list: List[SoPEvent] = [],
+class MXScenarioResult:
+    def __init__(self, scenario_element: MXScenarioElement = None,
+                 execute_cycle_result_list: List[MXExecuteCycleResult] = [],
+                 schedule_event_list: List[MXEvent] = [],
                  avg_schedule_latency: int = 0,
                  avg_latency: int = 0,
                  avg_energy: int = 0,
                  avg_exeucte_time: int = 0,
                  avg_overhead: int = 0,
                  total_scenario_cycle_num: int = 0,
-                 error: SoPScenarioErrorType = None) -> None:
-        self.scenario_element: SoPScenarioElement = scenario_element
+                 error: MXScenarioErrorType = None) -> None:
+        self.scenario_element: MXScenarioElement = scenario_element
 
         self.execute_cycle_result_list = execute_cycle_result_list
         self.schedule_event_list = schedule_event_list
@@ -110,12 +110,12 @@ class SoPScenarioResult:
         self.avg_execute_time = avg_exeucte_time
         self.avg_overhead = avg_overhead
         self.total_scenario_cycle_num = total_scenario_cycle_num
-        self.error: SoPScenarioErrorType = error
+        self.error: MXScenarioErrorType = error
 
 
-class SoPMiddlewareResult:
-    def __init__(self, middleware_element: SoPMiddlewareElement,
-                 scenario_result_list: List[SoPScenarioResult] = [], local_scenario_result_list: List[SoPScenarioResult] = [], super_scenario_result_list: List[SoPScenarioResult] = [],
+class MXMiddlewareResult:
+    def __init__(self, middleware_element: MXMiddlewareElement,
+                 scenario_result_list: List[MXScenarioResult] = [], local_scenario_result_list: List[MXScenarioResult] = [], super_scenario_result_list: List[MXScenarioResult] = [],
                  total_scenario_num: List[int] = [0, 0, 0], timeout_scenario_num: List[int] = [0, 0, 0], denied_scenario_num: List[int] = [0, 0, 0], failed_scenario_num: List[int] = [0, 0, 0],
                  avg_latency: List[int] = [0, 0, 0], avg_execute_time: List[int] = [0, 0, 0], avg_schedule_latency: List[int] = [0, 0, 0], avg_energy: List[int] = [0, 0, 0], avg_overhead: List[int] = [0, 0, 0]) -> None:
         self.middleware_element = middleware_element
@@ -137,13 +137,13 @@ class SoPMiddlewareResult:
         self.total_scenario_cycle_num = sum(
             [scenario.cycle_count for scenario in self.middleware_element.scenario_list])
         self.total_execute_count = len([event for event in self.middleware_element.event_log if event.event_type in [
-                                       SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]])
+                                       MXEventType.FUNCTION_EXECUTE, MXEventType.SUB_FUNCTION_EXECUTE]])
         self.total_execute_time = sum([event.duration for event in self.middleware_element.event_log if event.event_type in [
-                                      SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]])
+                                      MXEventType.FUNCTION_EXECUTE, MXEventType.SUB_FUNCTION_EXECUTE]])
 
 
-class SoPSimulationResult:
-    def __init__(self, middleware_result_list: List[SoPMiddlewareResult] = [],
+class MXSimulationResult:
+    def __init__(self, middleware_result_list: List[MXMiddlewareResult] = [],
                  total_scenario_num: List[int] = [0, 0, 0], timeout_scenario_num: List[int] = [0, 0, 0], denied_scenario_num: List[int] = [0, 0, 0], failed_scenario_num: List[int] = [0, 0, 0],
                  avg_latency: List[int] = [0, 0, 0], avg_execute_time: List[int] = [0, 0, 0], avg_schedule_latency: List[int] = [0, 0, 0], avg_energy: List[int] = [0, 0, 0], avg_overhead: List[int] = [0, 0, 0],
                  avg_success_ratio: List[float] = [0, 0, 0],
@@ -235,47 +235,47 @@ class SoPSimulationResult:
         return self.avg_overhead
 
 
-class SoPSimulationEvaluator:
+class MXSimulationEvaluator:
 
-    MIDDLEWARE_EVENT = [SoPEventType.MIDDLEWARE_RUN,
-                        SoPEventType.MIDDLEWARE_KILL,
-                        SoPEventType.THING_REGISTER,
-                        SoPEventType.THING_UNREGISTER,
-                        SoPEventType.THING_KILL,
-                        SoPEventType.SCENARIO_VERIFY,
-                        SoPEventType.SCENARIO_ADD,
-                        SoPEventType.SCENARIO_RUN,
-                        SoPEventType.SCENARIO_STOP,
-                        SoPEventType.SCENARIO_UPDATE,
-                        SoPEventType.SCENARIO_DELETE,
-                        SoPEventType.FUNCTION_EXECUTE,
-                        SoPEventType.SUPER_FUNCTION_EXECUTE,
-                        SoPEventType.SUPER_SCHEDULE,
-                        SoPEventType.SUB_FUNCTION_EXECUTE,
-                        SoPEventType.SUB_SCHEDULE]
-    THING_EVENT = [SoPEventType.THING_REGISTER,
-                   SoPEventType.THING_UNREGISTER,
-                   SoPEventType.THING_KILL,
-                   SoPEventType.FUNCTION_EXECUTE,
-                   SoPEventType.SUPER_FUNCTION_EXECUTE,
-                   SoPEventType.SUPER_SCHEDULE,
-                   SoPEventType.SUB_FUNCTION_EXECUTE]
-    SERVICE_EVENT = [SoPEventType.FUNCTION_EXECUTE,
-                     SoPEventType.SUB_FUNCTION_EXECUTE,
-                     SoPEventType.SUPER_FUNCTION_EXECUTE,
-                     SoPEventType.SUPER_SCHEDULE]
-    SCENARIO_EVENT = [SoPEventType.FUNCTION_EXECUTE,
-                      SoPEventType.SUB_FUNCTION_EXECUTE,
-                      SoPEventType.SUPER_FUNCTION_EXECUTE,
-                      SoPEventType.SUPER_SCHEDULE,
-                      SoPEventType.SCENARIO_VERIFY,
-                      SoPEventType.SCENARIO_ADD,
-                      SoPEventType.SCENARIO_RUN,
-                      SoPEventType.SCENARIO_STOP,
-                      SoPEventType.SCENARIO_UPDATE,
-                      SoPEventType.SCENARIO_DELETE]
+    MIDDLEWARE_EVENT = [MXEventType.MIDDLEWARE_RUN,
+                        MXEventType.MIDDLEWARE_KILL,
+                        MXEventType.THING_REGISTER,
+                        MXEventType.THING_UNREGISTER,
+                        MXEventType.THING_KILL,
+                        MXEventType.SCENARIO_VERIFY,
+                        MXEventType.SCENARIO_ADD,
+                        MXEventType.SCENARIO_RUN,
+                        MXEventType.SCENARIO_STOP,
+                        MXEventType.SCENARIO_UPDATE,
+                        MXEventType.SCENARIO_DELETE,
+                        MXEventType.FUNCTION_EXECUTE,
+                        MXEventType.SUPER_FUNCTION_EXECUTE,
+                        MXEventType.SUPER_SCHEDULE,
+                        MXEventType.SUB_FUNCTION_EXECUTE,
+                        MXEventType.SUB_SCHEDULE]
+    THING_EVENT = [MXEventType.THING_REGISTER,
+                   MXEventType.THING_UNREGISTER,
+                   MXEventType.THING_KILL,
+                   MXEventType.FUNCTION_EXECUTE,
+                   MXEventType.SUPER_FUNCTION_EXECUTE,
+                   MXEventType.SUPER_SCHEDULE,
+                   MXEventType.SUB_FUNCTION_EXECUTE]
+    SERVICE_EVENT = [MXEventType.FUNCTION_EXECUTE,
+                     MXEventType.SUB_FUNCTION_EXECUTE,
+                     MXEventType.SUPER_FUNCTION_EXECUTE,
+                     MXEventType.SUPER_SCHEDULE]
+    SCENARIO_EVENT = [MXEventType.FUNCTION_EXECUTE,
+                      MXEventType.SUB_FUNCTION_EXECUTE,
+                      MXEventType.SUPER_FUNCTION_EXECUTE,
+                      MXEventType.SUPER_SCHEDULE,
+                      MXEventType.SCENARIO_VERIFY,
+                      MXEventType.SCENARIO_ADD,
+                      MXEventType.SCENARIO_RUN,
+                      MXEventType.SCENARIO_STOP,
+                      MXEventType.SCENARIO_UPDATE,
+                      MXEventType.SCENARIO_DELETE]
 
-    def __init__(self, simulation_env: SoPMiddlewareElement, event_log: List[SoPEvent], simulation_duration: float, simulation_start_time: float) -> None:
+    def __init__(self, simulation_env: MXMiddlewareElement, event_log: List[MXEvent], simulation_duration: float, simulation_start_time: float) -> None:
         self.simulation_env = simulation_env
         self.simulation_duration = simulation_duration
         self.simulation_start_time = simulation_start_time
@@ -285,37 +285,37 @@ class SoPSimulationEvaluator:
 
     def classify_event_log(self):
         for event in self.event_log:
-            if event.event_type in SoPSimulationEvaluator.MIDDLEWARE_EVENT:
+            if event.event_type in MXSimulationEvaluator.MIDDLEWARE_EVENT:
                 middleware, _ = find_element_recursive(
                     self.simulation_env, event.middleware_element)
-                middleware: SoPMiddlewareElement
+                middleware: MXMiddlewareElement
                 middleware.event_log.append(event)
-            if event.event_type in SoPSimulationEvaluator.THING_EVENT:
+            if event.event_type in MXSimulationEvaluator.THING_EVENT:
                 thing, _ = find_element_recursive(
                     self.simulation_env, event.thing_element)
-                thing: SoPThingElement
+                thing: MXThingElement
                 thing.event_log.append(event)
-            if event.event_type in SoPSimulationEvaluator.SCENARIO_EVENT:
+            if event.event_type in MXSimulationEvaluator.SCENARIO_EVENT:
                 scenario, _ = find_element_recursive(
                     self.simulation_env, event.scenario_element)
-                scenario: SoPScenarioElement
+                scenario: MXScenarioElement
                 scenario.event_log.append(event)
 
-    def evaluate_service(self, target_middleware: SoPMiddlewareElement, target_service: SoPServiceElement) -> Tuple[str, str, int, float, float]:
+    def evaluate_service(self, target_middleware: MXMiddlewareElement, target_service: MXServiceElement) -> Tuple[str, str, int, float, float]:
 
-        def count_service_call(target_service: SoPServiceElement, event_log: List[SoPEvent]):
+        def count_service_call(target_service: MXServiceElement, event_log: List[MXEvent]):
             call_count = 0
             event_log = [
-                event for event in event_log if event.event_type in SoPSimulationEvaluator.SERVICE_EVENT]
+                event for event in event_log if event.event_type in MXSimulationEvaluator.SERVICE_EVENT]
             for event in event_log:
                 if event.service_element.name == target_service.name:
                     call_count += 1
             return call_count
 
-        def cal_service_whole_duration(target_service: SoPServiceElement, event_log: List[SoPEvent]):
+        def cal_service_whole_duration(target_service: MXServiceElement, event_log: List[MXEvent]):
             whole_duration = 0
             event_log = [
-                event for event in event_log if event.event_type in SoPSimulationEvaluator.SERVICE_EVENT]
+                event for event in event_log if event.event_type in MXSimulationEvaluator.SERVICE_EVENT]
             for event in event_log:
                 if event.service_element.name == target_service.name:
                     whole_duration += event.duration
@@ -340,7 +340,7 @@ class SoPSimulationEvaluator:
 
         return thing_name, service_name, call_count, energy_consumption, utilization
 
-    def evaluate_execute_cycle(self, scenario: SoPScenarioElement, execute_cycle: List[SoPEvent]) -> SoPExecuteCycleResult:
+    def evaluate_execute_cycle(self, scenario: MXScenarioElement, execute_cycle: List[MXEvent]) -> MXExecuteCycleResult:
         if not scenario.is_super():
             first_service = scenario.service_list[0]
             last_service = scenario.service_list[-1]
@@ -362,19 +362,19 @@ class SoPSimulationEvaluator:
             # 시나리오 안의 서비스가 순차적으로 실행되지 않는 경우. -> 이런 경우 미들웨어의 문제임
             if not execute_cycle[-1].error:
                 if all([event.timestamp > self.simulation_duration for event in execute_cycle]):
-                    return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.OVERTIME)
+                    return MXExecuteCycleResult(error=MXExecuteCycleErrorType.OVERTIME)
                 else:
-                    return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.RERUN_FAIL)
-            elif execute_cycle[-1].error == SoPErrorType.FAIL:
-                return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.RERUN_FAIL)
+                    return MXExecuteCycleResult(error=MXExecuteCycleErrorType.RERUN_FAIL)
+            elif execute_cycle[-1].error == MXErrorCode.FAIL:
+                return MXExecuteCycleResult(error=MXExecuteCycleErrorType.RERUN_FAIL)
             else:
-                SOPTEST_LOG_DEBUG(
-                    f'First or last index of scenario cycle service is not matched with super service\'s subfunction list', SoPTestLogLevel.FAIL)
-                SOPTEST_LOG_DEBUG(
-                    f'[{execute_cycle[0].service_element.name} <-> {scenario.service_list[0].name}', SoPTestLogLevel.FAIL)
-                SOPTEST_LOG_DEBUG(
-                    f'[{execute_cycle[-1].service_element.name} <-> {scenario.service_list[-1].name}', SoPTestLogLevel.FAIL)
-                return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.SERVICE_ORDER_FAIL)
+                MXTEST_LOG_DEBUG(
+                    f'First or last index of scenario cycle service is not matched with super service\'s subfunction list', MXTestLogLevel.FAIL)
+                MXTEST_LOG_DEBUG(
+                    f'[{execute_cycle[0].service_element.name} <-> {scenario.service_list[0].name}', MXTestLogLevel.FAIL)
+                MXTEST_LOG_DEBUG(
+                    f'[{execute_cycle[-1].service_element.name} <-> {scenario.service_list[-1].name}', MXTestLogLevel.FAIL)
+                return MXExecuteCycleResult(error=MXExecuteCycleErrorType.SERVICE_ORDER_FAIL)
 
         if not scenario.is_super():
             cycle_latency = execute_cycle[-1].timestamp - \
@@ -389,9 +389,9 @@ class SoPSimulationEvaluator:
             else:
                 # FIXME: 매핑이 잘 되는지만 보려고 추가한 코드임. 나중에 삭제해야함
                 avg_execute_time = 0
-                thing_list: List[SoPThingElement] = get_thing_list_recursive(
+                thing_list: List[MXThingElement] = get_thing_list_recursive(
                     self.simulation_env)
-                service_list: List[SoPServiceElement] = []
+                service_list: List[MXServiceElement] = []
                 for thing in thing_list:
                     service_list += thing.service_list
 
@@ -417,18 +417,18 @@ class SoPSimulationEvaluator:
                                 len(candidate_service_execute_time_list) * 100
                             energy_opt = energy_index / \
                                 len(candidate_service_energy_list) * 100
-                            SOPTEST_LOG_DEBUG(
+                            MXTEST_LOG_DEBUG(
                                 f'execute_time opt: {execute_time_opt:0.2f}%')
-                            SOPTEST_LOG_DEBUG(
+                            MXTEST_LOG_DEBUG(
                                 f'energy opt: {energy_opt:0.2f}%')
                             break
                 avg_execute_time /= len(execute_cycle)
             overhead = 0
         elif scenario.is_super():
             super_execute_cycle = [
-                event for event in execute_cycle if event.event_type == SoPEventType.SUPER_FUNCTION_EXECUTE]
+                event for event in execute_cycle if event.event_type == MXEventType.SUPER_FUNCTION_EXECUTE]
             sub_execute_cycle = [
-                event for event in execute_cycle if event.event_type == SoPEventType.SUB_FUNCTION_EXECUTE]
+                event for event in execute_cycle if event.event_type == MXEventType.SUB_FUNCTION_EXECUTE]
             cycle_latency = super_execute_cycle[-1].timestamp - \
                 super_execute_cycle[0].timestamp + \
                 super_execute_cycle[-1].duration
@@ -439,36 +439,36 @@ class SoPSimulationEvaluator:
             avg_execute_time = avg(
                 [event.duration for event in super_execute_cycle])
 
-        execute_cycle_result = SoPExecuteCycleResult(cycle_latency=cycle_latency,
+        execute_cycle_result = MXExecuteCycleResult(cycle_latency=cycle_latency,
                                                      cycle_energy=cycle_energy,
                                                      avg_execute_time=avg_execute_time,
                                                      execute_cycle=execute_cycle,
                                                      overhead=overhead,
-                                                     error=SoPExecuteCycleErrorType.SUCCESS)
+                                                     error=MXExecuteCycleErrorType.SUCCESS)
         if execute_cycle_result.cycle_latency > scenario.period:
             # 시나리오 상태가 stucked는 아니지만 total service execute time이 period를 넘어서는 경우
-            SOPTEST_LOG_DEBUG(
-                f'Current execute event cycle of scenario {scenario.name} is PERIOD_FAIL, Scenario will be checked to deadline meet fail', SoPTestLogLevel.WARN)
-            SOPTEST_LOG_DEBUG(
-                f'Scenario: {scenario.name}, Period: {scenario.period}ms, Cycle Latency: {execute_cycle_result.cycle_latency}, ', SoPTestLogLevel.WARN)
-            SOPTEST_LOG_DEBUG(
-                f'Scenario Code: \n{scenario.scenario_code()}', SoPTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(
+                f'Current execute event cycle of scenario {scenario.name} is PERIOD_FAIL, Scenario will be checked to deadline meet fail', MXTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(
+                f'Scenario: {scenario.name}, Period: {scenario.period}ms, Cycle Latency: {execute_cycle_result.cycle_latency}, ', MXTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(
+                f'Scenario Code: \n{scenario.scenario_code()}', MXTestLogLevel.WARN)
             for event in execute_cycle:
-                SOPTEST_LOG_DEBUG(
-                    f'timestamp: {unixtime_to_date(self.simulation_start_time + event.timestamp)}|{event.timestamp}, event_type: {event.event_type}, service: {event.service_element.name}, duartion: {event.duration}', SoPTestLogLevel.WARN)
+                MXTEST_LOG_DEBUG(
+                    f'timestamp: {unixtime_to_date(self.simulation_start_time + event.timestamp)}|{event.timestamp}, event_type: {event.event_type}, service: {event.service_element.name}, duartion: {event.duration}', MXTestLogLevel.WARN)
 
-            # return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.PERIOD_FAIL)
+            # return MXExecuteCycleResult(error=MXExecuteCycleErrorType.PERIOD_FAIL)
             # return execute_cycle_result
 
         return execute_cycle_result
 
-    def evaluate_scenario(self, scenario: SoPScenarioElement) -> SoPScenarioResult:
+    def evaluate_scenario(self, scenario: MXScenarioElement) -> MXScenarioResult:
 
         # 리스트 execute_event_list 안에 다른 리스트 execute_pattern의 패턴을 찾아 리스트로 반환하는 함수
         # 예를 들어 src_list가 [1, 2, 3, 1, 2, 1, 2, 3, 1]이고 execute_pattern가 [1, 2, 3]이면
         # [[1, 2, 3], [1,2], [1, 2, 3], [1]]을 반환한다.
 
-        def find_execute_cycle(execute_event_list: List[SoPEvent], service_pattern: List[SoPServiceElement]) -> List[List[SoPEvent]]:
+        def find_execute_cycle(execute_event_list: List[MXEvent], service_pattern: List[MXServiceElement]) -> List[List[MXEvent]]:
             '''
             리스트 execute_event_list 안에 다른 리스트 execute_pattern의 패턴을 찾아 리스트로 반환하는 함수
             예를 들어 src_list가 [1, 2, 3, 1, 2, 1, 2, 3, 1]이고 execute_pattern가 [1, 2, 3]이면
@@ -478,7 +478,7 @@ class SoPSimulationEvaluator:
             result = []
 
             for i in range(len(execute_event_list)):
-                if any([event.error == SoPErrorType.FAIL for event in [event for event in execute_event_list[i:i+len(service_pattern)] if event.event_type in [SoPEventType.SUPER_FUNCTION_EXECUTE, SoPEventType.FUNCTION_EXECUTE]]]):
+                if any([event.error == MXErrorCode.FAIL for event in [event for event in execute_event_list[i:i+len(service_pattern)] if event.event_type in [MXEventType.SUPER_FUNCTION_EXECUTE, MXEventType.FUNCTION_EXECUTE]]]):
                     # 시나리오 cycle중 fail이 있는 경우 무시한다.
                     continue
                 sliced_service_list = [
@@ -514,7 +514,7 @@ class SoPSimulationEvaluator:
 
             return result[1:-1]
 
-        def get_service_pattern_from_scenario(scenario: SoPScenarioElement):
+        def get_service_pattern_from_scenario(scenario: MXScenarioElement):
             service_pattern = []
             for service in scenario.service_list:
                 service_pattern.append(service)
@@ -522,10 +522,10 @@ class SoPSimulationEvaluator:
                     service_pattern.append(subservice)
             return service_pattern
 
-        whole_execute_event_list: List[SoPEvent] = [
-            event for event in scenario.event_log if event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUPER_FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]]
-        schedule_event_list: List[SoPEvent] = [
-            event for event in scenario.event_log if event.event_type == SoPEventType.SUPER_SCHEDULE]
+        whole_execute_event_list: List[MXEvent] = [
+            event for event in scenario.event_log if event.event_type in [MXEventType.FUNCTION_EXECUTE, MXEventType.SUPER_FUNCTION_EXECUTE, MXEventType.SUB_FUNCTION_EXECUTE]]
+        schedule_event_list: List[MXEvent] = [
+            event for event in scenario.event_log if event.event_type == MXEventType.SUPER_SCHEDULE]
 
         if not scenario.is_super():
             event_type_list = [
@@ -533,16 +533,16 @@ class SoPSimulationEvaluator:
             if len(schedule_event_list) > 0:
                 raise Exception(
                     f'scenario {scenario.name} is super, but super schedule event is found')
-            if SoPEventType.SUPER_FUNCTION_EXECUTE in event_type_list or SoPEventType.SUB_FUNCTION_EXECUTE in event_type_list:
+            if MXEventType.SUPER_FUNCTION_EXECUTE in event_type_list or MXEventType.SUB_FUNCTION_EXECUTE in event_type_list:
                 raise Exception(
                     f'scenario {scenario.name} is local, but subservice event is not found')
 
         if scenario.schedule_timeout:
-            return SoPScenarioResult(scenario_element=scenario, error=SoPScenarioErrorType.SCHEDULE_TIMEOUT)
+            return MXScenarioResult(scenario_element=scenario, error=MXScenarioErrorType.SCHEDULE_TIMEOUT)
         elif not scenario.schedule_success:
-            return SoPScenarioResult(scenario_element=scenario, error=SoPScenarioErrorType.SCHEDULE_FAIL)
-        elif scenario.state == SoPScenarioState.STUCKED:
-            return SoPScenarioResult(scenario_element=scenario, error=SoPScenarioErrorType.FAIL)
+            return MXScenarioResult(scenario_element=scenario, error=MXScenarioErrorType.SCHEDULE_FAIL)
+        elif scenario.state == MXScenarioState.STUCKED:
+            return MXScenarioResult(scenario_element=scenario, error=MXScenarioErrorType.FAIL)
         else:
             pass
 
@@ -550,14 +550,14 @@ class SoPSimulationEvaluator:
         execute_cycle_list = find_execute_cycle(
             execute_event_list=whole_execute_event_list, service_pattern=service_pattern)
 
-        execute_cycle_result_list: List[SoPExecuteCycleResult] = []
+        execute_cycle_result_list: List[MXExecuteCycleResult] = []
         for execute_cycle in execute_cycle_list[1:-1]:
             execute_cycle_result = self.evaluate_execute_cycle(
                 scenario, execute_cycle)
             execute_cycle_result_list.append(
                 execute_cycle_result)
 
-        scenario_result = SoPScenarioResult(scenario_element=scenario,
+        scenario_result = MXScenarioResult(scenario_element=scenario,
                                             execute_cycle_result_list=execute_cycle_result_list,
                                             schedule_event_list=schedule_event_list,
                                             avg_schedule_latency=avg(
@@ -570,11 +570,11 @@ class SoPSimulationEvaluator:
                                                 [execute_cycle_result.avg_execute_time for execute_cycle_result in execute_cycle_result_list]),
                                             avg_overhead=avg(
                                                 [execute_cycle_result.overhead for execute_cycle_result in execute_cycle_result_list]),
-                                            error=SoPScenarioErrorType.SUCCESS)
+                                            error=MXScenarioErrorType.SUCCESS)
         return scenario_result
 
-    def evaluate_middleware(self, middleware: SoPMiddlewareElement) -> SoPMiddlewareResult:
-        scenario_result_list: List[SoPScenarioResult] = []
+    def evaluate_middleware(self, middleware: MXMiddlewareElement) -> MXMiddlewareResult:
+        scenario_result_list: List[MXScenarioResult] = []
         for scenario in middleware.scenario_list:
             scenario_result = self.evaluate_scenario(scenario)
             scenario_result_list.append(scenario_result)
@@ -587,18 +587,18 @@ class SoPSimulationEvaluator:
         total_scenario_num = [len(scenario_result_list),
                               len(local_scenario_result_list),
                               len(super_scenario_result_list)]
-        timeout_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_TIMEOUT]),
+        timeout_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_TIMEOUT]),
                                 len([scenario_result for scenario_result in local_scenario_result_list if scenario_result.error ==
-                                    SoPScenarioErrorType.SCHEDULE_TIMEOUT]),
-                                len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_TIMEOUT])]
-        denied_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_FAIL]),
+                                    MXScenarioErrorType.SCHEDULE_TIMEOUT]),
+                                len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_TIMEOUT])]
+        denied_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_FAIL]),
                                len([scenario_result for scenario_result in local_scenario_result_list if scenario_result.error ==
-                                   SoPScenarioErrorType.SCHEDULE_FAIL]),
-                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_FAIL])]
-        failed_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == SoPScenarioErrorType.FAIL]),
+                                   MXScenarioErrorType.SCHEDULE_FAIL]),
+                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_FAIL])]
+        failed_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == MXScenarioErrorType.FAIL]),
                                len([
-                                   scenario_result for scenario_result in local_scenario_result_list if scenario_result.error == SoPScenarioErrorType.FAIL]),
-                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == SoPScenarioErrorType.FAIL])]
+                                   scenario_result for scenario_result in local_scenario_result_list if scenario_result.error == MXScenarioErrorType.FAIL]),
+                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == MXScenarioErrorType.FAIL])]
         avg_schedule_latency = [avg([scenario_result.avg_schedule_latency for scenario_result in scenario_result_list]),
                                 avg([
                                     scenario_result.avg_schedule_latency for scenario_result in local_scenario_result_list]),
@@ -620,7 +620,7 @@ class SoPSimulationEvaluator:
             avg([scenario_result.avg_overhead for scenario_result in local_scenario_result_list]),
             avg([scenario_result.avg_overhead for scenario_result in super_scenario_result_list])]
 
-        return SoPMiddlewareResult(middleware_element=middleware,
+        return MXMiddlewareResult(middleware_element=middleware,
                                    scenario_result_list=scenario_result_list,
                                    local_scenario_result_list=local_scenario_result_list,
                                    super_scenario_result_list=super_scenario_result_list,
@@ -634,9 +634,9 @@ class SoPSimulationEvaluator:
                                    avg_energy=avg_energy,
                                    avg_overhead=avg_overhead)
 
-    def evaluate_simulation(self) -> SoPSimulationResult:
+    def evaluate_simulation(self) -> MXSimulationResult:
 
-        def flatten_middleware_result_list(middleware_result_list: List[SoPMiddlewareResult]) -> Tuple[List[SoPScenarioResult], List[SoPScenarioResult], List[SoPScenarioResult]]:
+        def flatten_middleware_result_list(middleware_result_list: List[MXMiddlewareResult]) -> Tuple[List[MXScenarioResult], List[MXScenarioResult], List[MXScenarioResult]]:
             scenario_result_list = []
             local_scenario_result_list = []
             super_scenario_result_list = []
@@ -646,7 +646,7 @@ class SoPSimulationEvaluator:
                 super_scenario_result_list += middleware_result.super_scenario_result_list
             return scenario_result_list, local_scenario_result_list, super_scenario_result_list
 
-        middleware_result_list: List[SoPMiddlewareResult] = []
+        middleware_result_list: List[MXMiddlewareResult] = []
         middleware_list = get_middleware_list_recursive(self.simulation_env)
         for middleware in middleware_list:
             middleware_result = self.evaluate_middleware(middleware)
@@ -660,18 +660,18 @@ class SoPSimulationEvaluator:
         total_scenario_num = [len(scenario_result_list),
                               len(local_scenario_result_list),
                               len(super_scenario_result_list)]
-        timeout_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_TIMEOUT]),
+        timeout_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_TIMEOUT]),
                                 len([scenario_result for scenario_result in local_scenario_result_list if scenario_result.error ==
-                                    SoPScenarioErrorType.SCHEDULE_TIMEOUT]),
-                                len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_TIMEOUT])]
-        denied_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_FAIL]),
+                                    MXScenarioErrorType.SCHEDULE_TIMEOUT]),
+                                len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_TIMEOUT])]
+        denied_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_FAIL]),
                                len([scenario_result for scenario_result in local_scenario_result_list if scenario_result.error ==
-                                   SoPScenarioErrorType.SCHEDULE_FAIL]),
-                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == SoPScenarioErrorType.SCHEDULE_FAIL])]
-        failed_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == SoPScenarioErrorType.FAIL]),
+                                   MXScenarioErrorType.SCHEDULE_FAIL]),
+                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == MXScenarioErrorType.SCHEDULE_FAIL])]
+        failed_scenario_num = [len([scenario_result for scenario_result in scenario_result_list if scenario_result.error == MXScenarioErrorType.FAIL]),
                                len([
-                                   scenario_result for scenario_result in local_scenario_result_list if scenario_result.error == SoPScenarioErrorType.FAIL]),
-                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == SoPScenarioErrorType.FAIL])]
+                                   scenario_result for scenario_result in local_scenario_result_list if scenario_result.error == MXScenarioErrorType.FAIL]),
+                               len([scenario_result for scenario_result in super_scenario_result_list if scenario_result.error == MXScenarioErrorType.FAIL])]
         avg_schedule_latency = [avg([scenario_result.avg_schedule_latency for scenario_result in scenario_result_list]),
                                 avg([
                                     scenario_result.avg_schedule_latency for scenario_result in local_scenario_result_list]),
@@ -693,19 +693,19 @@ class SoPSimulationEvaluator:
                             scenario_result.avg_overhead for scenario_result in local_scenario_result_list]),
                         avg([scenario_result.avg_overhead for scenario_result in super_scenario_result_list])]
 
-        simulation_result = SoPSimulationResult(middleware_result_list=middleware_result_list,
-                                                total_scenario_num=total_scenario_num,
-                                                timeout_scenario_num=timeout_scenario_num,
-                                                denied_scenario_num=denied_scenario_num,
-                                                failed_scenario_num=failed_scenario_num,
-                                                avg_latency=avg_latency,
-                                                avg_execute_time=avg_execute_time,
-                                                avg_schedule_latency=avg_schedule_latency,
-                                                avg_energy=avg_energy,
-                                                avg_overhead=avg_overhead)
+        simulation_result = MXSimulationResult(middleware_result_list=middleware_result_list,
+                                               total_scenario_num=total_scenario_num,
+                                               timeout_scenario_num=timeout_scenario_num,
+                                               denied_scenario_num=denied_scenario_num,
+                                               failed_scenario_num=failed_scenario_num,
+                                               avg_latency=avg_latency,
+                                               avg_execute_time=avg_execute_time,
+                                               avg_schedule_latency=avg_schedule_latency,
+                                               avg_energy=avg_energy,
+                                               avg_overhead=avg_overhead)
         return simulation_result
 
-    def make_service_utilization_table(self, target_middleware: SoPMiddlewareElement):
+    def make_service_utilization_table(self, target_middleware: MXMiddlewareElement):
         header = ['thing', 'service(call count)',
                   'energy consumption', 'utilization']
         table = []
@@ -720,7 +720,7 @@ class SoPSimulationEvaluator:
                         [f'{thing_name}', f"{service_name}({call_count})", energy_consumption, f'{utilization * 100:.3f}%'])
         return table, header
 
-    def make_scenario_score_table(self, target_middleware: SoPMiddlewareElement):
+    def make_scenario_score_table(self, target_middleware: MXMiddlewareElement):
         header = ['application', 'avg latency',
                   'period', 'avg_energy', 'result']
         table = []
@@ -733,7 +733,7 @@ class SoPSimulationEvaluator:
              scenario_evaluate_result) = self.evaluate_scenario(scenario)
             table.append(
                 [scenario.name, f'{avg_scenario_latency:.3f}s', f'{(scenario.period):.3f}s', f'{avg_scenario_energy:.3f}s', scenario_evaluate_result.value])
-            if scenario_evaluate_result == SoPScenarioErrorType.SUCCESS:
+            if scenario_evaluate_result == MXScenarioErrorType.SUCCESS:
                 deadline_meet_cnt += 1
         acceptance_ratio = [scenario.schedule_success for scenario in target_middleware.scenario_list].count(
             True) / len(target_middleware.scenario_list)
@@ -745,12 +745,12 @@ class SoPSimulationEvaluator:
             [f'Deadline Meet Ratio: {deadline_meet_ratio * 100:0.2f}%', '', '', '', ''])
         return table, header
 
-    def make_whole_timeline_table(self, target_middleware: SoPMiddlewareElement):
+    def make_whole_timeline_table(self, target_middleware: MXMiddlewareElement):
         header = ['time', 'duration', 'event_type', 'level', 'requester_middleware', 'thing',
                   'service(delay)', 'application(period)', 'result', 'return_value', 'return_type']
         table = []
         for event in target_middleware.event_log:
-            if event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUPER_FUNCTION_EXECUTE] and not event.duration:
+            if event.event_type in [MXEventType.FUNCTION_EXECUTE, MXEventType.SUPER_FUNCTION_EXECUTE] and not event.duration:
                 continue
 
             if event.middleware_element:
@@ -763,7 +763,7 @@ class SoPSimulationEvaluator:
                 _, middleware = find_element_recursive(
                     self.simulation_env, event.scenario_element)
 
-            middleware: SoPMiddlewareElement
+            middleware: MXMiddlewareElement
             requester_middleware = event.requester_middleware_name if event.service_element else None
 
             if not middleware:
@@ -782,10 +782,10 @@ class SoPSimulationEvaluator:
                           str(event.return_type) if event.return_type else ''])
         return table, header
 
-    def export_txt(self, simulation_result: SoPSimulationResult, label: str = '', args: dict = None):
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
+    def export_txt(self, simulation_result: MXSimulationResult, label: str = '', args: dict = None):
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
             self.simulation_env)
-        # scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(
+        # scenario_list: List[MXScenarioElement] = get_scenario_list_recursive(
         #     self.simulation_env)
 
         scenario_result_header = [
@@ -799,7 +799,7 @@ class SoPSimulationEvaluator:
         scenario_result_table = []
         count_result_table = []
 
-        acceptance_score = SoPAcceptanceScore(middleware_list)
+        acceptance_score = MXAcceptanceScore(middleware_list)
 
         scenario_result_table.append([f'total',
                                       f'{simulation_result.get_avg_acceptance_ratio()[0] * 100:.3f}',
@@ -857,7 +857,7 @@ class SoPSimulationEvaluator:
             [''.join(acceptance_score.acceptance_ratio_meter)]]
 
         # print simulation score
-        thing_list: List[SoPThingElement] = get_thing_list_recursive(
+        thing_list: List[MXThingElement] = get_thing_list_recursive(
             self.simulation_env)
         thing_list = [thing for thing in thing_list if thing.is_super == False]
         main_title = f'Simulation result of label "{label}" is_parallel={thing_list[0].is_parallel} {get_current_time(mode=TimeFormat.DATETIME1)}\n'
@@ -901,10 +901,10 @@ class SoPSimulationEvaluator:
             f.write(acceptance_result_table_str)
             f.write('\n')
 
-    def export_csv(self, simulation_result: SoPSimulationResult, label: str, args: dict):
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
+    def export_csv(self, simulation_result: MXSimulationResult, label: str, args: dict):
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
             self.simulation_env)
-        acceptance_score = SoPAcceptanceScore(middleware_list)
+        acceptance_score = MXAcceptanceScore(middleware_list)
 
         if not args.filename:
             filename = f'result_{os.path.basename(os.path.dirname(args.config_path))}'

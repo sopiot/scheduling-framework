@@ -7,7 +7,7 @@ PREDEFINED_POLICY_FILE_NAME = 'my_scheduling_policies.cc'
 SCHEDULING_ALGORITHM_PATH = f'{get_project_root()}/scheduling_algorithm'
 
 
-class SoPSchedulingFramework:
+class MXSchedulingFramework:
 
     def __init__(self, config_path_list: List[str] = [], simulation_file_path: str = '', mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
         tmp_config_path_list = []
@@ -39,7 +39,7 @@ class SoPSchedulingFramework:
         if not self.simulation_file_path and not self.config_path_list:
             raise Exception('No config file path provided.')
         elif self.config_path_list:
-            self.simulation_generator = SoPSimulationGenerator(
+            self.simulation_generator = MXSimulationGenerator(
                 config_path=self.config_path_list[0])
 
     def start(self, policy_file_path_list: Union[str, List[str]] = [], args=None):
@@ -66,11 +66,11 @@ class SoPSchedulingFramework:
                                                      policy_file_path_list=tmp_policy_file_path_list, args=args)
         self.print_ranking(raw_simulation_result_list=simulation_result_list)
 
-    def update_middleware_thing(self, simulation_executor: SoPSimulatorExecutor,
+    def update_middleware_thing(self, simulation_executor: MXSimulatorExecutor,
                                 middleware_path: str = '~/middleware',
                                 policy_file_path: str = ''):
 
-        def task(middleware: SoPMiddlewareElement):
+        def task(middleware: MXMiddlewareElement):
             ssh_client = simulation_executor.event_handler.find_ssh_client(
                 middleware)
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
@@ -106,8 +106,8 @@ class SoPSchedulingFramework:
                 f'cd {home_dir_append(middleware_path, user)}; chmod +x sopiot_middleware;cmake .; make -j; echo $?')[-1]
 
             if not int(middleware_update_result[0]):
-                SOPTEST_LOG_DEBUG(
-                    f'device {middleware.device.name} middleware {middleware.name} update result: True', SoPTestLogLevel.INFO)
+                MXTEST_LOG_DEBUG(
+                    f'device {middleware.device.name} middleware {middleware.name} update result: True', MXTestLogLevel.INFO)
             else:
                 raise Exception(
                     f'device {middleware.device.name} middleware {middleware.name} update result: False')
@@ -129,19 +129,19 @@ class SoPSchedulingFramework:
                 thing_install_command = f'pip install big-thing-py'
                 ssh_client.send_command(thing_install_command)
 
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
             simulation_executor.simulation_env)
 
-        pool_map(task, middleware_list, proc=1)
+        pool_map(task, middleware_list)
 
         return True
 
-    def print_ranking(self, raw_simulation_result_list: List[SoPSimulationResult]):
+    def print_ranking(self, raw_simulation_result_list: List[MXSimulationResult]):
         if not raw_simulation_result_list:
-            SOPTEST_LOG_DEBUG(f'No simulation result', SoPTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(f'No simulation result', MXTestLogLevel.WARN)
             return False
 
-        simulation_result_list_sort_by_policy: Dict[str, List[SoPSimulationResult]] = {
+        simulation_result_list_sort_by_policy: Dict[str, List[MXSimulationResult]] = {
         }
         for simualtion_result in raw_simulation_result_list:
             if simualtion_result.policy in simulation_result_list_sort_by_policy:
@@ -150,14 +150,14 @@ class SoPSchedulingFramework:
             else:
                 simulation_result_list_sort_by_policy[simualtion_result.policy] = [
                     simualtion_result]
-        simulation_result_list: List[SoPSimulationResult] = []
+        simulation_result_list: List[MXSimulationResult] = []
         for policy, result_list in simulation_result_list_sort_by_policy.items():
-            simulation_result_avg = SoPSimulationResult(policy=policy,
-                                                        avg_latency=avg(
-                                                            [result.get_avg_latency()[0] for result in result_list]),
-                                                        avg_energy=avg(
-                                                            [result.get_avg_energy()[0] for result in result_list]),
-                                                        avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
+            simulation_result_avg = MXSimulationResult(policy=policy,
+                                                       avg_latency=avg(
+                                                           [result.get_avg_latency()[0] for result in result_list]),
+                                                       avg_energy=avg(
+                                                           [result.get_avg_energy()[0] for result in result_list]),
+                                                       avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
             simulation_result_list.append(simulation_result_avg)
 
         simulation_result_list_sort_by_application_latency = sorted(
@@ -184,9 +184,9 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
         simulation_info_list = []
 
         for config_path in self.config_path_list:
-            device_pool_path = SoPPath(project_root_path=get_project_root(),
-                                       config_path=config_path,
-                                       path=load_yaml(config_path)['device_pool_path'])
+            device_pool_path = MXPath(project_root_path=get_project_root(),
+                                      config_path=config_path,
+                                      path=load_yaml(config_path)['device_pool_path'])
             device_list: List[dict] = load_yaml(
                 device_pool_path.abs_path())
             valid_device_list = [
@@ -230,18 +230,18 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
     def run_simulation(self, simulation_info_list: List[dict], policy_file_path_list: List[str] = [], args=None):
         # FIXME: simulation file을 직접 명세하여 시뮬레이션을 진행하는 경우 config 파일 위치를 알 수 없어 에러 발생.
         # 이 부분 수정할 것
-        simulation_result_list: List[SoPSimulationResult] = []
+        simulation_result_list: List[MXSimulationResult] = []
 
         if self.simulation_file_path:
-            simulation_executor = SoPSimulatorExecutor(simulation_file_path=self.simulation_file_path,
-                                                       mqtt_debug=self.mqtt_debug,
-                                                       middleware_debug=self.middleware_debug,
-                                                       args=args)
+            simulation_executor = MXSimulatorExecutor(simulation_file_path=self.simulation_file_path,
+                                                      mqtt_debug=self.mqtt_debug,
+                                                      middleware_debug=self.middleware_debug,
+                                                      args=args)
 
             for policy_file_path in policy_file_path_list:
                 label = f'simulation_file_{self.simulation_file_path}_policy_{os.path.basename(policy_file_path).split(".")[0]}'
-                SOPTEST_LOG_DEBUG(
-                    f'==== Start simulation {label} ====', SoPTestLogLevel.INFO)
+                MXTEST_LOG_DEBUG(
+                    f'==== Start simulation {label} ====', MXTestLogLevel.INFO)
 
                 self.update_middleware_thing(
                     simulation_executor=simulation_executor,
@@ -254,7 +254,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     print_error(e)
                     continue
 
-                simulation_evaluator = SoPSimulationEvaluator(
+                simulation_evaluator = MXSimulationEvaluator(
                     simulation_env, event_log, simulation_duration, simulation_start_time)
                 simulation_result = simulation_evaluator.evaluate_simulation()
                 simulation_result.config = self.simulation_generator.simulation_config.name
@@ -276,13 +276,13 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
         else:
             for simulation_info in simulation_info_list:
                 for label, policy_file_path in zip(simulation_info['label'], simulation_info['policy_file_path']):
-                    SOPTEST_LOG_DEBUG(
-                        f'==== Start simulation {label} ====', SoPTestLogLevel.INFO)
+                    MXTEST_LOG_DEBUG(
+                        f'==== Start simulation {label} ====', MXTestLogLevel.INFO)
 
                     simulation_file_path = simulation_info['simulation_file_path']
                     args.config_path = simulation_info['config_path']
 
-                    simulation_executor = SoPSimulatorExecutor(
+                    simulation_executor = MXSimulatorExecutor(
                         simulation_file_path=simulation_file_path,
                         mqtt_debug=self.mqtt_debug,
                         middleware_debug=self.middleware_debug,
@@ -295,11 +295,11 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     try:
                         simulation_env, event_log, simulation_duration, simulation_start_time = simulation_executor.start()
                     except Exception as e:
-                        SOPTEST_LOG_DEBUG(
-                            f'==== Simulation {label} Canceled by user ====', SoPTestLogLevel.WARN)
+                        MXTEST_LOG_DEBUG(
+                            f'==== Simulation {label} Canceled by user ====', MXTestLogLevel.WARN)
                         continue
 
-                    simulation_evaluator = SoPSimulationEvaluator(
+                    simulation_evaluator = MXSimulationEvaluator(
                         simulation_env, event_log, simulation_duration, simulation_start_time)
                     simulation_result = simulation_evaluator.evaluate_simulation()
                     simulation_result.config = os.path.basename(

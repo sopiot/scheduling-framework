@@ -3,7 +3,7 @@ from simulation_framework.utils import *
 from queue import Queue
 
 
-class SoPElementType(Enum):
+class MXElementType(Enum):
     UNDEFINED = 'UNDEFINED'
     DEVICE = 'DEVICE'
     MIDDLEWARE = 'MIDDLEWARE'
@@ -19,7 +19,7 @@ class SoPElementType(Enum):
             return cls.UNDEFINED
 
 
-class SoPElementActionType(Enum):
+class MXElementActionType(Enum):
     UNDEFINED = 'UNDEFINED'
 
     RUN = 'RUN'
@@ -41,7 +41,7 @@ class SoPElementActionType(Enum):
             return cls.UNDEFINED
 
 
-class SoPScenarioState(Enum):
+class MXScenarioState(Enum):
     UNDEFINED = -1
     CREATED = 'CREATED'
     SCHEDULING = 'SCHEDULING'
@@ -59,16 +59,16 @@ class SoPScenarioState(Enum):
             return cls.UNDEFINED
 
 
-class SoPScenarioInfo:
+class MXScenarioInfo:
     '''
         return dict(id=scenario_info['id'], 
         name=scenario_info['name'], 
         code=scenario_info['contents'],
-        state=SoPScenarioStateType.get(scenario_info['state']), 
+        state=MXScenarioStateType.get(scenario_info['state']), 
         schedule_info=scenario_info['scheduleInfo'])
     '''
 
-    def __init__(self, id: int, name: str, code: str, state: SoPScenarioState, schedule_info: List[dict]) -> None:
+    def __init__(self, id: int, name: str, code: str, state: MXScenarioState, schedule_info: List[dict]) -> None:
         self.id = id
         self.name = name
         self.code = code
@@ -76,7 +76,7 @@ class SoPScenarioInfo:
         self.schedule_info = schedule_info
 
 
-class SoPThingFaultType(Enum):
+class MXThingFaultType(Enum):
     UNDEFINED = 'UNDEFINED'
     NORMAL = 'NORMAL'
     FAIL = 'FAIL'
@@ -91,16 +91,16 @@ class SoPThingFaultType(Enum):
             return cls.UNDEFINED
 
 
-class SoPElementScopeType(Enum):
+class MXElementScopeType(Enum):
     LOCAL = 'LOCAL'
     SUPER = 'SUPER'
 
 
-class SoPEvent:
+class MXEvent:
 
-    def __init__(self, event_type: SoPEventType, element: 'SoPElement' = None, middleware_element: 'SoPMiddlewareElement' = None, thing_element: 'SoPThingElement' = None, service_element: 'SoPServiceElement' = None, scenario_element: 'SoPScenarioElement' = None,
+    def __init__(self, event_type: MXEventType, element: 'MXElement' = None, middleware_element: 'MXMiddlewareElement' = None, thing_element: 'MXThingElement' = None, service_element: 'MXServiceElement' = None, scenario_element: 'MXScenarioElement' = None,
                  timestamp: float = 0, duration: float = None, delay: float = None,
-                 error: SoPErrorType = None, return_type: SoPType = None, return_value: Union[int, float, bool, str] = None,
+                 error: MXErrorCode = None, return_type: MXType = None, return_value: Union[int, float, bool, str] = None,
                  requester_middleware_name: str = None, super_thing_name: str = None, super_function_name: str = None) -> None:
         self.event_type = event_type
 
@@ -123,19 +123,19 @@ class SoPEvent:
         self.super_function_name = super_function_name
 
     def load(self, data: dict):
-        self.event_type = SoPEventType.get(
+        self.event_type = MXEventType.get(
             data['event_type']) if data['event_type'] is str else data['event_type']
-        self.element = SoPElement.load(data['element'])
-        self.middleware_element = SoPElement.load(data['middleware_element'])
-        self.thing_element = SoPElement.load(data['thing_element'])
-        self.service_element = SoPElement.load(data['service_element'])
-        self.scenario_element = SoPElement.load(data['scenario_element'])
+        self.element = MXElement.load(data['element'])
+        self.middleware_element = MXElement.load(data['middleware_element'])
+        self.thing_element = MXElement.load(data['thing_element'])
+        self.service_element = MXElement.load(data['service_element'])
+        self.scenario_element = MXElement.load(data['scenario_element'])
         self.timestamp = data['timestamp']
         self.duration = data['duration']
         self.delay = data['delay']
-        self.error = SoPErrorType.get(
+        self.error = MXErrorCode.get(
             data['error']) if data['error'] is str else data['error']
-        self.return_type = SoPType.get(
+        self.return_type = MXType.get(
             data['return_type']) if data['return_type'] is str else data['return_type']
         self.return_value = data['return_value']
         self.requester_middleware_name = data['requester_middleware_name']
@@ -156,9 +156,9 @@ class SoPEvent:
                     requester_middleware_name=self.requester_middleware_name)
 
 
-class SoPElement(metaclass=ABCMeta):
+class MXElement(metaclass=ABCMeta):
 
-    def __init__(self, name: str, level: int, element_type: SoPElementType) -> None:
+    def __init__(self, name: str, level: int, element_type: MXElementType) -> None:
         # basic info
         self.name = name
         self.level = level
@@ -167,7 +167,7 @@ class SoPElement(metaclass=ABCMeta):
     def load(self, data: dict) -> None:
         self.name = data['name']
         self.level = data['level']
-        self.element_type = SoPElementType.get(data['element_type'])
+        self.element_type = MXElementType.get(data['element_type'])
 
         return self
 
@@ -176,15 +176,15 @@ class SoPElement(metaclass=ABCMeta):
                     level=self.level,
                     element_type=self.element_type.value)
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
-        return SoPEvent(element=self,
-                        event_type=event_type,
-                        timestamp=timestamp,
-                        **kwargs)
+    def event(self, event_type: MXEventType, timestamp: float = 0.0, **kwargs) -> MXEvent:
+        return MXEvent(element=self,
+                       event_type=event_type,
+                       timestamp=timestamp,
+                       **kwargs)
 
 
-class SoPDeviceElement(SoPElement):
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = SoPElementType.DEVICE,
+class MXDeviceElement(MXElement):
+    def __init__(self, name: str = '', level: int = -1, element_type: MXElementType = MXElementType.DEVICE,
                  host: str = '', ssh_port: int = None, user: str = '', password: str = '',
                  mqtt_port: int = None,
                  mqtt_ssl_port: int = None,
@@ -209,9 +209,9 @@ class SoPDeviceElement(SoPElement):
     def __eq__(self, __o: object) -> bool:
         return self.host == __o.host and self.user == __o.user and self.ssh_port == __o.ssh_port and self.password == __o.password
 
-    def load(self, data: dict) -> 'SoPDeviceElement':
+    def load(self, data: dict) -> 'MXDeviceElement':
         self.name = data['name']
-        self.element_type = SoPElementType.get(data['element_type'])
+        self.element_type = MXElementType.get(data['element_type'])
 
         self.host = data['host']
         self.ssh_port = data['ssh_port']
@@ -240,9 +240,10 @@ class SoPDeviceElement(SoPElement):
                     localserver_port=self.localserver_port)
 
 
-class SoPMiddlewareElement(SoPElement):
+class MXMiddlewareElement(MXElement):
 
-    CFG_TEMPLATE = '''%s
+    CFG_TEMPLATE = '''\
+%s
 broker_uri = "tcp://%s:%d"
 
 middleware_identifier = "%s"
@@ -255,7 +256,8 @@ value_log_db_file_path = "%s/%s_ValueLog.db"
 log_level = 5
 log_file_path = "%s/simulation_log/%s_middleware.log"
 log_max_size = 300
-log_backup_num = 100'''
+log_backup_num = 100
+'''
 
     MOSQUITTO_CONF_TEMPLATE = '''set_tcp_nodelay true    
 
@@ -315,9 +317,9 @@ fi
 sqlite3 $MAIN_DB < %s/MainDBCreate
 sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
-                 thing_list: List['SoPThingElement'] = [], scenario_list: List['SoPScenarioElement'] = [], child_middleware_list: List['SoPMiddlewareElement'] = [],
-                 device: SoPDeviceElement = None,
+    def __init__(self, name: str = '', level: int = -1, element_type: MXElementType = None,
+                 thing_list: List['MXThingElement'] = [], scenario_list: List['MXScenarioElement'] = [], child_middleware_list: List['MXMiddlewareElement'] = [],
+                 device: MXDeviceElement = None,
                  remote_middleware_path: str = None, remote_middleware_config_path: str = None,
                  mqtt_port: int = None, mqtt_ssl_port: int = None, websocket_port: int = None, websocket_ssl_port: int = None, localserver_port: int = 58132,
                  thing_num: List[int] = None, scenario_num: List[int] = None, super_thing_num: List[int] = None, super_scenario_num: List[int] = None) -> None:
@@ -358,20 +360,20 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.online = False
         self.binary_sended = False
 
-        self.event_log: List[SoPEvent] = []
+        self.event_log: List[MXEvent] = []
         self.recv_queue: Queue = Queue()
 
     def load(self, data: dict):
         super().load(data)
 
-        self.thing_list = [SoPThingElement().load(thing_info)
+        self.thing_list = [MXThingElement().load(thing_info)
                            for thing_info in data['thing_list']]
-        self.scenario_list = [SoPScenarioElement().load(
+        self.scenario_list = [MXScenarioElement().load(
             scenario_info) for scenario_info in data['scenario_list']]
-        self.child_middleware_list = [SoPMiddlewareElement().load(
+        self.child_middleware_list = [MXMiddlewareElement().load(
             child_middleware_info) for child_middleware_info in data['child_middleware_list']]
 
-        self.device = SoPDeviceElement().load(data['device'])
+        self.device = MXDeviceElement().load(data['device'])
 
         self.remote_middleware_path = data['remote_middleware_path']
         self.remote_middleware_config_path = data['remote_middleware_config_path']
@@ -411,7 +413,7 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
             scenario_num=self.scenario_num,
             super_scenario_num=self.super_scenario_num)
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
+    def event(self, event_type: MXEventType, timestamp: float = 0.0, **kwargs) -> MXEvent:
         return super().event(event_type, timestamp, **kwargs)
 
     def set_port(self, mqtt_port: int, mqtt_ssl_port: int, websocket_port: int, websocket_ssl_port: int, localserver_port: int):
@@ -421,62 +423,62 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.websocket_ssl_port = websocket_ssl_port
         self.localserver_port = localserver_port
 
-    def middleware_cfg_file(self, simulation_env: 'SoPMiddlewareElement', remote_home_dir: str):
+    def middleware_cfg_file(self, simulation_env: 'MXMiddlewareElement', remote_home_dir: str):
         _, parent_middleware = find_element_recursive(simulation_env, self)
-        parent_middleware: SoPMiddlewareElement
+        parent_middleware: MXMiddlewareElement
         if parent_middleware is None:
             parent_middleware_line = ''
         else:
             parent_middleware_line = f'parent_broker_uri = "tcp://{parent_middleware.device.host}:{parent_middleware.mqtt_port}"'
 
         user = os.path.basename(remote_home_dir)
-        self.middleware_cfg = SoPMiddlewareElement.CFG_TEMPLATE % (parent_middleware_line,
-                                                                   '127.0.0.1',
-                                                                   self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
-                                                                   self.name,
-                                                                   self.localserver_port,
-                                                                   home_dir_append(
-                                                                       path=self.remote_middleware_config_path, user=user),
-                                                                   self.name,
-                                                                   home_dir_append(
-                                                                       path=self.remote_middleware_config_path, user=user),
-                                                                   self.name,
-                                                                   remote_home_dir,
-                                                                   self.name)
+        self.middleware_cfg = MXMiddlewareElement.CFG_TEMPLATE % (parent_middleware_line,
+                                                                  '127.0.0.1',
+                                                                  self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
+                                                                  self.name,
+                                                                  self.localserver_port,
+                                                                  home_dir_append(
+                                                                      path=self.remote_middleware_config_path, user=user),
+                                                                  self.name,
+                                                                  home_dir_append(
+                                                                      path=self.remote_middleware_config_path, user=user),
+                                                                  self.name,
+                                                                  remote_home_dir,
+                                                                  self.name)
         return self.middleware_cfg
 
     def mosquitto_conf_file(self):
         # if mosquitto_conf_trim:
-        #     self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
+        #     self.mosquitto_conf = MXMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
         #                                                                           self.websocket_port,)
         # else:
-        #     self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE_OLD % (self.mqtt_port,
+        #     self.mosquitto_conf = MXMiddlewareElement.MOSQUITTO_CONF_TEMPLATE_OLD % (self.mqtt_port,
         #                                                                               self.mqtt_ssl_port,
         #                                                                               self.websocket_port,
         #                                                                               self.websocket_ssl_port)
 
-        # self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
+        # self.mosquitto_conf = MXMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
         #                                                                       self.websocket_port,)
 
-        self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (
+        self.mosquitto_conf = MXMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (
             self.mqtt_port if self.mqtt_port else self.device.mqtt_port)
 
         return self.mosquitto_conf
 
     def init_script_file(self, remote_home_dir: str):
         user = os.path.basename(remote_home_dir)
-        self.init_script = SoPMiddlewareElement.INIT_SCRIPT_TEMPLATE % (home_dir_append(path=self.remote_middleware_config_path, user=user),
-                                                                        self.name,
-                                                                        home_dir_append(
-                                                                            path=self.remote_middleware_config_path, user=user),
-                                                                        self.name,
-                                                                        home_dir_append(
-                                                                            path=self.remote_middleware_path, user=user),
-                                                                        home_dir_append(path=self.remote_middleware_path, user=user))
+        self.init_script = MXMiddlewareElement.INIT_SCRIPT_TEMPLATE % (home_dir_append(path=self.remote_middleware_config_path, user=user),
+                                                                       self.name,
+                                                                       home_dir_append(
+            path=self.remote_middleware_config_path, user=user),
+            self.name,
+            home_dir_append(
+            path=self.remote_middleware_path, user=user),
+            home_dir_append(path=self.remote_middleware_path, user=user))
         return self.init_script
 
 
-class SoPServiceElement(SoPElement):
+class MXServiceElement(MXElement):
 
     ERROR_TEMPLATE = '''\
 global thing_start_time
@@ -490,17 +492,17 @@ if random.uniform(0, 1) < %f or service_fail_flag[f'{get_current_function_name()
 '''
 
     SUBFUNCTION_TEMPLATE = '''\
-results += [self.req(key, subfunction_name='%s', tag_list=%s, arg_list=(), service_type=SoPServiceType.FUNCTION, policy=SoPPolicy.%s)]'''
+results += [self.req(sub_service_name='%s', tag_list=%s, arg_list=(), return_type=%s, service_type=MXServiceType.FUNCTION, range_type=MXRangeType.%s)]'''
 
     SERVICE_INSTANCE_TEMPLATE = '''\
-SoPFunction(func=%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%.3f, timeout=%.3f, energy=%d)'''
+MXFunction(func=%s, return_type=MXType.STRING, tag_list=[%s], arg_list=[], exec_time=%.3f, timeout=%.3f, energy=%d)'''
 
     SUPER_SERVICE_INSTANCE_TEMPLATE = '''\
-SoPSuperFunction(func=self.%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%.3f, timeout=%.3f, energy=%d)'''
+MXSuperFunction(func=self.%s, return_type=MXType.STRING, tag_list=[%s], arg_list=[], exec_time=%.3f, timeout=%.3f, energy=%d)'''
 
     FUNCTION_TEMPLATE = '''\
 def %s() -> str:
-    SOPLOG_DEBUG(f'function {get_current_function_name()} run... return %d')
+    MXLOG_DEBUG(f'function {get_current_function_name()} run... return %d')
     
 %s
     
@@ -509,8 +511,8 @@ def %s() -> str:
 '''
 
     SUPER_FUNCTION_TEMPLATE = '''\
-def %s(self, key) -> str:
-    SOPLOG_DEBUG(f'super function {get_current_function_name()} run...')
+def %s(self) -> str:
+    MXLOG_DEBUG(f'super function {get_current_function_name()} run...')
     results = []
 
 %s
@@ -532,9 +534,9 @@ def %s(self, key) -> str:
         raise Exception('super execute fail...')
 '''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
+    def __init__(self, name: str = '', level: int = -1, element_type: MXElementType = None,
                  tag_list: List[str] = [], is_super: bool = False, energy: float = 0, execute_time: float = 0, return_value: int = 0,
-                 subservice_list: List['SoPServiceElement'] = []) -> None:
+                 subservice_list: List['MXServiceElement'] = []) -> None:
         super().__init__(name, level, element_type)
 
         self.tag_list = tag_list
@@ -546,7 +548,7 @@ def %s(self, key) -> str:
         self.subservice_list = subservice_list
 
     def tag_code(self) -> str:
-        tag_code = ', '.join([f'SoPTag("{tag}")' for tag in self.tag_list])
+        tag_code = ', '.join([f'MXTag("{tag}")' for tag in self.tag_list])
         return tag_code
 
     def error_code(self, fail_rate: float, is_super: bool) -> str:
@@ -560,23 +562,24 @@ elif thing_start_time == 1:
 
         return error_code.rstrip()
 
-    def reqline_code(self) -> str:
-        reqline_code_list = []
-        for subfunction in self.subservice_list:
-            picked_tag_list = random.sample(subfunction.tag_list, random.randint(
-                1, len(subfunction.tag_list)))
+    def req_code(self) -> str:
+        req_code_list = []
+        for sub_service in self.subservice_list:
+            picked_tag_list = random.sample(sub_service.tag_list, random.randint(
+                1, len(sub_service.tag_list)))
             if len(picked_tag_list) != len(set(picked_tag_list)):
-                SOPTEST_LOG_DEBUG(
-                    f'request line of {self.name}:{subfunction.name}\'s tag_list has duplicated words! check this out...', SoPTestLogLevel.FAIL)
+                MXTEST_LOG_DEBUG(
+                    f'request line of {self.name}:{sub_service.name}\'s tag_list has duplicated words! check this out...', MXTestLogLevel.FAIL)
                 picked_tag_list = list(set(picked_tag_list))
 
-            # TODO: policy(ALL, SINGLE) 비율을 조정할 수 있도록 수정하면 좋을 것 같다. (현재는 1:1로 고정)
-            policy = random.choice(['SINGLE'])
+            # TODO: range_type(ALL, SINGLE) 비율을 조정할 수 있도록 수정하면 좋을 것 같다. (현재는 1:1로 고정)
+            range_type = random.choice(['SINGLE'])
 
-            reqline_code_list.append(self.SUBFUNCTION_TEMPLATE % (subfunction.name,
-                                                                  picked_tag_list,
-                                                                  policy))
-        return '\n'.join(reqline_code_list).rstrip()
+            req_code_list.append(self.SUBFUNCTION_TEMPLATE % (sub_service.name,
+                                                              picked_tag_list,
+                                                              f'MXType.{MXType.STRING}',
+                                                              range_type))
+        return '\n'.join(req_code_list).rstrip()
 
     def service_instance_code(self) -> str:
         tag_code = self.tag_code()
@@ -606,12 +609,12 @@ elif thing_start_time == 1:
                                                      self.energy)
         else:
             # NOTE: in case of super service, error_code is not used.
-            reqline_code = append_indent(self.reqline_code())
+            reqline_code = append_indent(self.req_code())
             service_code = self.SUPER_FUNCTION_TEMPLATE % (self.name,
                                                            reqline_code)
         return service_code
 
-    def load(self, data: dict) -> 'SoPServiceElement':
+    def load(self, data: dict) -> 'MXServiceElement':
         super().load(data)
 
         self.tag_list = data['tag_list']
@@ -620,7 +623,7 @@ elif thing_start_time == 1:
         self.execute_time = data['execute_time']
         self.return_value = data['return_value']
 
-        self.subservice_list = [SoPServiceElement().load(
+        self.subservice_list = [MXServiceElement().load(
             service_info) for service_info in data['subfunction_list']]
 
         return self
@@ -634,11 +637,11 @@ elif thing_start_time == 1:
                     return_value=self.return_value,
                     subfunction_list=[subfunction.dict() for subfunction in self.subservice_list])
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
+    def event(self, event_type: MXEventType, timestamp: float = 0.0, **kwargs) -> MXEvent:
         return super().event(event_type, timestamp, **kwargs)
 
 
-class SoPThingElement(SoPElement):
+class MXThingElement(MXElement):
 
     THING_TEMPLATE = '''\
 from big_thing_py.big_thing import *
@@ -666,8 +669,6 @@ def arg_parse():
                         required=False, default=%.3f, help="refresh_cycle")
     parser.add_argument("--append_mac", '-am', action='%s',                         # store_true, store_false
                         required=False, help="append mac address to thing name")
-    parser.add_argument("--retry_register", action='store_true',
-                        required=False, help="retry register feature enable")
     args, unknown = parser.parse_known_args()
     return args
 
@@ -677,10 +678,9 @@ def main():
     function_list = \\
         [%s]
     value_list = []
-    thing = SoPBigThing(name=args.name, service_list=function_list + value_list,
+    thing = MXBigThing(name=args.name, service_list=function_list + value_list,
                         alive_cycle=args.alive_cycle, is_super=False, is_parallel=%s, ip=args.host, port=args.port,
-                        ssl_ca_path=None, ssl_enable=None, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.ABBR,
-                        retry_register=args.retry_register)
+                        ssl_ca_path=None, ssl_enable=None, append_mac_address=False, log_name='%s', log_mode=MXPrintMode.ABBR)
     thing.setup(avahi_enable=False)
     thing.run()
 
@@ -696,18 +696,18 @@ import argparse
 thing_start_time = 0
 
 
-class SoPBasicSuperThing(SoPSuperThing):
+class MXBasicSuperThing(MXSuperThing):
 
-    def __init__(self, name: str, service_list: List[SoPService] = ..., alive_cycle: float = 600, is_super: bool = False, is_parallel: bool = True,
-                 ip: str = None, port: int = None, ssl_ca_path: str = None, ssl_enable: bool = False, log_name: str = None, log_enable: bool = True, log_mode: SoPPrintMode = SoPPrintMode.ABBR, append_mac_address: bool = True,
-                 refresh_cycle: float = 10, retry_register: bool = False):
+    def __init__(self, name: str, service_list: List[MXService] = ..., alive_cycle: float = 600, is_super: bool = False, is_parallel: bool = True,
+                 ip: str = None, port: int = None, ssl_ca_path: str = None, ssl_enable: bool = False, log_name: str = None, log_enable: bool = True, log_mode: MXPrintMode = MXPrintMode.ABBR, append_mac_address: bool = True,
+                 refresh_cycle: float = 10):
         value_list = []
         function_list = \\
             [%s]
 
         service_list = value_list + function_list
         super().__init__(name, service_list, alive_cycle, is_super, is_parallel, ip, port,
-                         ssl_ca_path, ssl_enable, log_name, log_enable, log_mode, append_mac_address, refresh_cycle, retry_register)
+                         ssl_ca_path, ssl_enable, log_name, log_enable, log_mode, append_mac_address, refresh_cycle)
 
 %s
 
@@ -728,20 +728,17 @@ def arg_parse():
     parser.add_argument("--log", action='store_true',
                         required=False, help="log enable")
     parser.add_argument("--log_mode", action='store',
-                        required=False, default=SoPPrintMode.FULL, help="log mode")
+                        required=False, default=MXPrintMode.FULL, help="log mode")
     parser.add_argument("--append_mac", '-am', action='store_true',                         # store_true, store_false
                         required=False, help="append mac address to thing name")
-    parser.add_argument("--retry_register", action='store_true',
-                        required=False, help="retry register feature enable")
     args, unknown = parser.parse_known_args()
 
     return args
 
 
 def generate_thing(args):
-    super_thing = SoPBasicSuperThing(name=args.name, ip=args.host, port=args.port, is_super=True, is_parallel=%s, ssl_ca_path=None, ssl_enable=None,
-                                     alive_cycle=args.alive_cycle, refresh_cycle=args.refresh_cycle, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.ABBR,
-                                     retry_register=args.retry_register)
+    super_thing = MXBasicSuperThing(name=args.name, ip=args.host, port=args.port, is_super=True, is_parallel=%s, ssl_ca_path=None, ssl_enable=None,
+                                     alive_cycle=args.alive_cycle, refresh_cycle=args.refresh_cycle, append_mac_address=False, log_name='%s', log_mode=MXPrintMode.ABBR)
     return super_thing
 
 
@@ -752,9 +749,9 @@ if __name__ == '__main__':
     thing.run()
 '''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
-                 service_list: List['SoPServiceElement'] = [], is_super: bool = False, is_parallel: bool = False, alive_cycle: float = 0,
-                 device: SoPDeviceElement = None,
+    def __init__(self, name: str = '', level: int = -1, element_type: MXElementType = None,
+                 service_list: List['MXServiceElement'] = [], is_super: bool = False, is_parallel: bool = False, alive_cycle: float = 0,
+                 device: MXDeviceElement = None,
                  thing_file_path: str = '', remote_thing_file_path: str = '',
                  fail_rate: float = None) -> None:
         super().__init__(name, level, element_type)
@@ -774,19 +771,19 @@ if __name__ == '__main__':
         self.registered: bool = False
         self.pid: int = 0
 
-        self.event_log: List[SoPEvent] = []
+        self.event_log: List[MXEvent] = []
         self.recv_queue: Queue = Queue()
 
     def load(self, data: dict):
         super().load(data)
 
-        self.service_list = [SoPServiceElement().load(service_info)
+        self.service_list = [MXServiceElement().load(service_info)
                              for service_info in data['service_list']]
         self.is_super = data['is_super']
         self.is_parallel = data['is_parallel']
         self.alive_cycle = data['alive_cycle']
 
-        self.device = SoPDeviceElement().load(data['device'])
+        self.device = MXDeviceElement().load(data['device'])
 
         self.thing_file_path = data['thing_file_path']
         self.remote_thing_file_path = data['remote_thing_file_path']
@@ -807,7 +804,7 @@ if __name__ == '__main__':
                     remote_thing_file_path=self.remote_thing_file_path,
                     fail_rate=self.fail_rate)
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
+    def event(self, event_type: MXEventType, timestamp: float = 0.0, **kwargs) -> MXEvent:
         return super().event(event_type, timestamp, **kwargs)
 
     def thing_code(self):
@@ -845,21 +842,21 @@ if __name__ == '__main__':
                                                       f'./log/{self.name}.log')
         return thing_code
 
-    def find_service_by_name(self, service_name: str) -> SoPServiceElement:
+    def find_service_by_name(self, service_name: str) -> MXServiceElement:
         for service in self.service_list:
             if service.name == service_name:
                 return service
 
 
-class SoPScenarioElement(SoPElement):
+class MXScenarioElement(MXElement):
 
     SCENARIO_TEMPLATE = '''loop(%s) {
 %s
 }
 '''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
-                 service_list: List[SoPServiceElement] = [], period: float = None,
+    def __init__(self, name: str = '', level: int = -1, element_type: MXElementType = None,
+                 service_list: List[MXServiceElement] = [], period: float = None,
                  scenario_file_path: str = '') -> None:
         super().__init__(name, level, element_type)
 
@@ -867,12 +864,12 @@ class SoPScenarioElement(SoPElement):
         self.period = period
         self.scenario_file_path = scenario_file_path
 
-        self.state: SoPScenarioState = None
+        self.state: MXScenarioState = None
         self.schedule_success = False
         self.schedule_timeout = False
         self.service_check = False
 
-        self.event_log: List[SoPEvent] = []
+        self.event_log: List[MXEvent] = []
         self.recv_queue: Queue = Queue()
 
         # FIXME: 제대로 구현하기
@@ -881,7 +878,7 @@ class SoPScenarioElement(SoPElement):
     def load(self, data: dict) -> None:
         super().load(data)
 
-        self.service_list = [SoPServiceElement().load(service_info)
+        self.service_list = [MXServiceElement().load(service_info)
                              for service_info in data['service_list']]
         self.period = data['period']
         self.scenario_file_path = data['scenario_file_path']
@@ -895,7 +892,7 @@ class SoPScenarioElement(SoPElement):
                     period=self.period,
                     scenario_file_path=self.scenario_file_path)
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
+    def event(self, event_type: MXEventType, timestamp: float = 0.0, **kwargs) -> MXEvent:
         return super().event(event_type, round(timestamp, 4), **kwargs)
 
     def scenario_code(self) -> str:

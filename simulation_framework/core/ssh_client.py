@@ -8,12 +8,12 @@ def print_progress_status(transferred, toBeTransferred):
     print(f'Progress: {(transferred / toBeTransferred):.2%}', end='\r')
 
 
-class SoPSSHClient:
+class MXSSHClient:
     COMMAND_SENDING = 0
     FILE_UPLOADING = 0
     FILE_DOWNLOADING = 0
 
-    def __init__(self, device: SoPDeviceElement, connect_timeout: float = 10) -> None:
+    def __init__(self, device: MXDeviceElement, connect_timeout: float = 10) -> None:
         self._ssh_client = paramiko.SSHClient()
         self._sftp_client = None
 
@@ -132,10 +132,10 @@ class SoPSSHClient:
         return target_pid_list
 
     def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False) -> Union[bool, List[str]]:
-        while not SoPSSHClient.COMMAND_SENDING < 2:
+        while not MXSSHClient.COMMAND_SENDING < 1:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.COMMAND_SENDING += 1
+        MXSSHClient.COMMAND_SENDING += 1
 
         if isinstance(command, str):
             command = [command]
@@ -160,8 +160,8 @@ class SoPSSHClient:
                             # NOTE: 반복적으로 실행하면 문제가 생김
                             # NOTE: -> mosquitto, middelware를 실행시킬때 백그라운드로 안 시켜서 ssh 세션을 계속 유지하는 것이 문제였다.
 
-                            SOPTEST_LOG_DEBUG(
-                                f'Send_command error: {e}', SoPTestLogLevel.FAIL)
+                            MXTEST_LOG_DEBUG(
+                                f'Send_command error: {e}', MXTestLogLevel.FAIL)
                             self.disconnect()
                             self.connect()
                             stdin, stdout, stderr = self._ssh_client.exec_command(
@@ -179,25 +179,25 @@ class SoPSSHClient:
                         return [line.strip() for line in stdout_result]
                 else:
                     result = os.popen(item)
-                    # SOPTEST_LOG_DEBUG(f'command execute -> {item}', SoPTestLogLevel.PASS)
+                    # MXTEST_LOG_DEBUG(f'command execute -> {item}', MXTestLogLevel.PASS)
                     if ignore_result:
                         return True
                     else:
                         return result.read().split('\n')
         finally:
-            SoPSSHClient.COMMAND_SENDING -= 1
+            MXSSHClient.COMMAND_SENDING -= 1
 
     def send_file(self, local_path: str, remote_path: str):
-        while not SoPSSHClient.FILE_UPLOADING < 10:
+        while not MXSSHClient.FILE_UPLOADING < 1:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.FILE_UPLOADING += 1
+        MXSSHClient.FILE_UPLOADING += 1
 
         if not self.sftp_opened:
             self.open_sftp()
 
-        SOPTEST_LOG_DEBUG(
-            f'Send files: {local_path} -> {remote_path}', SoPTestLogLevel.PASS)
+        MXTEST_LOG_DEBUG(
+            f'Send files: {local_path} -> {remote_path}', MXTestLogLevel.PASS)
         try:
             self._sftp_client.put(local_path, remote_path,
                                   callback=print_progress_status)
@@ -207,7 +207,7 @@ class SoPSSHClient:
         except Exception as e:
             print_error(e)
         finally:
-            SoPSSHClient.FILE_UPLOADING -= 1
+            MXSSHClient.FILE_UPLOADING -= 1
 
     # local_path와 remote_path를 받아서 재귀적으로 폴더를 전송하는 함수
     def send_dir(self, local_path: str, remote_path: str):
@@ -232,17 +232,17 @@ class SoPSSHClient:
                     pass
 
     def get_file(self, remote_path: str, local_path: str, ext_filter: str = ''):
-        while not SoPSSHClient.FILE_DOWNLOADING < 20:
+        while not MXSSHClient.FILE_DOWNLOADING < 1:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.FILE_DOWNLOADING += 1
+        MXSSHClient.FILE_DOWNLOADING += 1
 
         if not self.sftp_opened:
             self.open_sftp()
 
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         if remote_path.split('.')[-1] == ext_filter:
-            SOPTEST_LOG_DEBUG(
+            MXTEST_LOG_DEBUG(
                 f'Download file: {local_path} <- {remote_path}')
             try:
                 self._sftp_client.get(remote_path, local_path,
@@ -253,10 +253,10 @@ class SoPSSHClient:
             except Exception as e:
                 print_error(e)
             finally:
-                SoPSSHClient.FILE_DOWNLOADING -= 1
+                MXSSHClient.FILE_DOWNLOADING -= 1
         else:
-            SOPTEST_LOG_DEBUG(
-                f'{remote_path} is not {ext_filter} file. Skip download...', SoPTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(
+                f'{remote_path} is not {ext_filter} file. Skip download...', MXTestLogLevel.WARN)
             return False
 
     # FIXME: 폴더자체를 받아오는 것이 아니라 폴더안의 파일만 받아오는 것으로 되어있음. 해당 부분을 폴더까지 같이 받아오는 것으로 수정해야함
@@ -292,8 +292,8 @@ class SoPSSHClient:
         }
 
         if not os.path.exists(os.path.expanduser("~/.ssh/config")):
-            SOPTEST_LOG_DEBUG('Not found ssh config file',
-                              SoPTestLogLevel.INFO)
+            MXTEST_LOG_DEBUG('Not found ssh config file',
+                             MXTestLogLevel.INFO)
             ssh_cfg['hostname'] = self.device.host
             return False
 
@@ -326,7 +326,7 @@ class SoPSSHClient:
 
             return ssh_cfg
         else:
-            SOPTEST_LOG_DEBUG(
+            MXTEST_LOG_DEBUG(
                 f'Host {self.device.name} is not found in ssh config file.', 2)
             ssh_cfg['hostname'] = self.device.host
             return False
@@ -335,8 +335,8 @@ class SoPSSHClient:
         while retry:
             try:
                 if self.connected:
-                    SOPTEST_LOG_DEBUG('Already connected to host',
-                                      SoPTestLogLevel.WARN)
+                    MXTEST_LOG_DEBUG('Already connected to host',
+                                     MXTestLogLevel.WARN)
                     return self._ssh_client
 
                 self._ssh_client.set_missing_host_key_policy(
@@ -350,11 +350,11 @@ class SoPSSHClient:
                     self._ssh_client.connect(hostname=self.device.host, port=self.device.ssh_port,
                                              username=self.device.user, password=self.device.password, timeout=self.connect_timeout)
                 else:
-                    raise SOPTEST_LOG_DEBUG(
-                        'Please set the user, host, port, password or locate .ssh/config before connect to ssh host', SoPTestLogLevel.FAIL)
+                    raise MXTEST_LOG_DEBUG(
+                        'Please set the user, host, port, password or locate .ssh/config before connect to ssh host', MXTestLogLevel.FAIL)
 
-                SOPTEST_LOG_DEBUG(
-                    f'SSH Connect success to device {self.device.name}.', SoPTestLogLevel.PASS)
+                MXTEST_LOG_DEBUG(
+                    f'SSH Connect success to device {self.device.name}.', MXTestLogLevel.PASS)
 
                 self.connected = True
 
@@ -376,8 +376,8 @@ class SoPSSHClient:
             self.connect()
 
         if self.sftp_opened:
-            SOPTEST_LOG_DEBUG('SFTP client already opened',
-                              SoPTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG('SFTP client already opened',
+                             MXTestLogLevel.WARN)
             return self._sftp_client
 
         self._sftp_client = self._ssh_client.open_sftp()

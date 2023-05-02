@@ -1,7 +1,7 @@
 from simulation_framework.utils import *
 
 
-class SoPPath:
+class MXPath:
     def __init__(self, project_root_path: str, config_path: str, path: str) -> None:
         self.project_root_path = project_root_path
         self.config_path = config_path
@@ -28,7 +28,7 @@ class SoPPath:
         return path
 
 
-class SoPSimulationConfig:
+class MXSimulationConfig:
     def __init__(self, config_path: str = None, config: dict = None) -> None:
         self.path = config_path
         if not config and self.path:
@@ -45,18 +45,18 @@ class SoPSimulationConfig:
         self.event_timeout: float = data['simulation'].get(
             'event_timeout', 15.0)
 
-        self.device_pool_path = SoPPath(project_root_path=get_project_root(),
-                                        config_path=os.path.abspath(
-                                            self.path),
-                                        path=data.get('device_pool_path', 'device_pool.yml'))
-        self.middleware_config = SoPMiddlewareConfig(
+        self.device_pool_path = MXPath(project_root_path=get_project_root(),
+                                       config_path=os.path.abspath(
+            self.path),
+            path=data.get('device_pool_path', 'device_pool.yml'))
+        self.middleware_config = MXMiddlewareConfig(
             data['middleware'], self.path)
-        self.service_config = SoPServiceConfig(data['service'])
-        self.thing_config = SoPThingConfig(data['thing'])
-        self.application_config = SoPApplicationConfig(data['application'])
+        self.service_config = MXServiceConfig(data['service'])
+        self.thing_config = MXThingConfig(data['thing'])
+        self.application_config = MXApplicationConfig(data['application'])
 
 
-class SoPMiddlewareConfig:
+class MXMiddlewareConfig:
 
     class RandomConfig:
 
@@ -69,9 +69,9 @@ class SoPMiddlewareConfig:
             self.height: Tuple[int] = data['height']
             self.width: Tuple[int] = data['width']
 
-            self.normal = SoPMiddlewareConfig.RandomConfig.DetailConfig(
+            self.normal = MXMiddlewareConfig.RandomConfig.DetailConfig(
                 data['normal'])
-            self.super = SoPMiddlewareConfig.RandomConfig.DetailConfig(
+            self.super = MXMiddlewareConfig.RandomConfig.DetailConfig(
                 data['super'])
 
     def __init__(self, data: dict, config_path: str) -> None:
@@ -81,17 +81,17 @@ class SoPMiddlewareConfig:
         self.remote_middleware_config_path: str = data.get(
             'remote_middleware_config_path', '/mnt/ramdisk/middleware_config')
 
-        self.manual = SoPPath(project_root_path=get_project_root(),
-                              config_path=os.path.abspath(config_path),
-                              path=data.get('manual', ''))
-        self.random = SoPMiddlewareConfig.RandomConfig(
+        self.manual = MXPath(project_root_path=get_project_root(),
+                             config_path=os.path.abspath(config_path),
+                             path=data.get('manual', ''))
+        self.random = MXMiddlewareConfig.RandomConfig(
             data['random']) if 'random' in data else None
         if not 'manual' in data and not 'random' in data:
-            raise SOPTEST_LOG_DEBUG(
-                f'random: and manual: are not set...', SoPTestLogLevel.FAIL)
+            raise MXTEST_LOG_DEBUG(
+                f'random: and manual: are not set...', MXTestLogLevel.FAIL)
 
 
-class SoPServiceConfig:
+class MXServiceConfig:
 
     class NormalConfig:
         def __init__(self, data: dict) -> None:
@@ -108,11 +108,11 @@ class SoPServiceConfig:
         self.tag_type_num: int = data.get('tag_type_num', 1)
         self.tag_per_service: Tuple[int] = data.get('tag_per_service', [1, 1])
 
-        self.normal = SoPServiceConfig.NormalConfig(data['normal'])
-        self.super = SoPServiceConfig.SuperConfig(data['super'])
+        self.normal = MXServiceConfig.NormalConfig(data['normal'])
+        self.super = MXServiceConfig.SuperConfig(data['super'])
 
 
-class SoPThingConfig:
+class MXThingConfig:
 
     class DetailConfig:
         def __init__(self, data: dict) -> None:
@@ -127,11 +127,11 @@ class SoPThingConfig:
             'remote_thing_folder_path', '/mnt/ramdisk/thing')
         self.device_pool: List[str] = data.get('device', None)
 
-        self.normal = SoPThingConfig.DetailConfig(data['normal'])
-        self.super = SoPThingConfig.DetailConfig(data['super'])
+        self.normal = MXThingConfig.DetailConfig(data['normal'])
+        self.super = MXThingConfig.DetailConfig(data['super'])
 
 
-class SoPApplicationConfig:
+class MXApplicationConfig:
 
     class DetailConfig:
         def __init__(self, data: dict) -> None:
@@ -139,5 +139,5 @@ class SoPApplicationConfig:
             self.period: List[float] = data['period']
 
     def __init__(self, data: dict) -> None:
-        self.normal = SoPApplicationConfig.DetailConfig(data['normal'])
-        self.super = SoPApplicationConfig.DetailConfig(data['super'])
+        self.normal = MXApplicationConfig.DetailConfig(data['normal'])
+        self.super = MXApplicationConfig.DetailConfig(data['super'])

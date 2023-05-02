@@ -11,7 +11,7 @@ from big_thing_py.utils import *
 from dataclasses import dataclass, field
 
 
-class SoPEventType(Enum):
+class MXEventType(Enum):
     UNDEFINED = 'UNDEFINED'
 
     START = 'START'

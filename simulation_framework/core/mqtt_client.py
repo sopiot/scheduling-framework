@@ -4,8 +4,8 @@ import paho.mqtt.client as mqtt
 from queue import Queue, Empty
 
 
-class SoPMQTTClient:
-    def __init__(self, middleware: SoPMiddlewareElement, debug: bool = False):
+class MXMQTTClient:
+    def __init__(self, middleware: MXMiddlewareElement, debug: bool = False):
         self.client: mqtt.Client = mqtt.Client(
             client_id=middleware.name, clean_session=True)
 
@@ -29,7 +29,7 @@ class SoPMQTTClient:
             self.client.connect(self.middleware.device.host,
                                 self.middleware.mqtt_port)
         except Exception as e:
-            SOPLOG_DEBUG(f'Connect to broker failed...', 'red')
+            MXLOG_DEBUG(f'Connect to broker failed...', 'red')
             return False
 
     def set_debug(self, debug: bool):
@@ -53,25 +53,25 @@ class SoPMQTTClient:
         if self.debug:
             if ret.rc == 0:
                 pass
-                SOPLOG_DEBUG(
+                MXLOG_DEBUG(
                     f'{f"✅ Published by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, {payload} on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
             else:
                 pass
-                SOPLOG_DEBUG(f'Publish failed...', 'red')
+                MXLOG_DEBUG(f'Publish failed...', 'red')
 
     def subscribe(self, topic: Union[List, str], qos=0):
         if type(topic) is not list:
             self.client.subscribe(topic, qos)
             self.subscribe_list.add(topic)
             if self.debug:
-                SOPLOG_DEBUG(
+                MXLOG_DEBUG(
                     f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
             for item in topic:
                 self.client.subscribe(item, qos)
                 self.subscribe_list.add(item)
                 if self.debug:
-                    SOPLOG_DEBUG(
+                    MXLOG_DEBUG(
                         f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {item:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
     def unsubscribe(self, topic, properties=None):
@@ -80,7 +80,7 @@ class SoPMQTTClient:
             if topic in self.subscribe_list:
                 self.subscribe_list.remove(topic)
             if self.debug:
-                SOPLOG_DEBUG(
+                MXLOG_DEBUG(
                     f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {topic:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
             for item in topic:
@@ -88,7 +88,7 @@ class SoPMQTTClient:
                 if item in self.subscribe_list:
                     self.subscribe_list.remove(item)
                 if self.debug:
-                    SOPLOG_DEBUG(
+                    MXLOG_DEBUG(
                         f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {item:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
     def run(self):
@@ -136,32 +136,11 @@ class SoPMQTTClient:
         topic, payload, _ = decode_MQTT_message(message)
 
         if self.debug:
-            SOPLOG_DEBUG(
+            MXLOG_DEBUG(
                 f'{f"✅ Received by {self.get_client_id()}":>16}(qos={message.qos}): {topic:<80}, {payload} on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
 
-def main():
-    client = SoPMQTTClient('mid1', '147.46.114.165', 21283)
-    client.run()
-
-    input('Press Enter to continue...')
-    client.publish(
-        'mid1',
-        'MS/SCHEDULE/on_all/SuperThingTest_D45D64A628DB/SoPIoT-MW-thsvkd1_E45F01615B50/SoPIoT-MW-thsvkd1_E45F01615B50',
-        '{ "scenario": "test1", "period": 0 }')
-
-    input('Press Enter to continue...')
-    client.publish(
-        'mid1',
-        'MS/SCHEDULE/on_all/SuperThingTest_D45D64A628DB/SoPIoT-MW-thsvkd1_E45F01615B50/SoPIoT-MW-thsvkd1_E45F01615B50',
-        '{ "scenario": "test1", "period": 0 }')
-
-    input('Press Enter to continue...')
-    client.publish(
-        'mid1',
-        'MS/RESULT/SCHEDULE/on/BigThingTest_D45D64A628DB/SoPIoT-MW-thsvkd0_E45F016E0066/SuperThingTest_D45D64A628DB',
-        '{ "error": 0, "scenario": "test1" }')
 
 
 if __name__ == '__main__':
-    main()
+    pass

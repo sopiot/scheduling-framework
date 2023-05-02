@@ -30,10 +30,10 @@ def main():
     START_LOGGER()
     args = arg_parse()
 
-    simulation_framework = SoPSchedulingFramework(config_path_list=args.config_path_list,
-                                                  simulation_file_path=args.simulation_file_path,
-                                                  mqtt_debug=args.mqtt_debug,
-                                                  middleware_debug=args.middleware_debug)
+    simulation_framework = MXSchedulingFramework(config_path_list=args.config_path_list,
+                                                 simulation_file_path=args.simulation_file_path,
+                                                 mqtt_debug=args.mqtt_debug,
+                                                 middleware_debug=args.middleware_debug)
 
     simulation_framework.start(policy_file_path_list=args.policy_file_path_list,
                                args=args)

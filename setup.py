@@ -7,7 +7,7 @@ with open("README.md", "r") as f:
 setup(
     name="simulation-framework",
     version="0.1.0",
-    description="SoPIoT Thing SDK",
+    description="Simulation Framework for Hierarchical Edge-based IoT system",
     author="caplab",
     author_email="caplab94@gmail.com",
     long_description=long_description,
@@ -18,6 +18,8 @@ setup(
         'pyyaml',
         'paramiko',
         'termcolor',
+        'toml',
+        'dataclasses',
         'tabulate'],
     packages=find_packages(exclude=[]),
 )

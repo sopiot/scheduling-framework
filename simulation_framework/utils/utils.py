@@ -1,5 +1,7 @@
 from simulation_framework.common import *
 from big_thing_py.utils.log_util import *
+from string import Template
+
 
 from pathlib import Path
 import yaml
@@ -14,14 +16,14 @@ import subprocess
 from tabulate import tabulate
 
 
-class SoPTestLogLevel(Enum):
+class MXTestLogLevel(Enum):
     PASS = 'PASS'
     WARN = 'WARN'
     INFO = 'INFO'
     FAIL = 'FAIL'
 
 
-def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, color: str = None, e: Exception = None, progress: float = None):
+def MXTEST_LOG_DEBUG(msg: str, error: MXTestLogLevel = MXTestLogLevel.PASS, color: str = None, e: Exception = None, progress: float = None):
     # error = 0  : PASS ✅
     # error = 1  : WARN ⚠ -> use b'\xe2\x9a\xa0\xef\xb8\x8f'.decode()
     # error = -1 : FAIL ❌
@@ -31,22 +33,22 @@ def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, c
     if progress:
         progress_status = f'[{progress*100:.3f}%]'
 
-    if error == SoPTestLogLevel.PASS:
+    if error == MXTestLogLevel.PASS:
         log_msg = f'{progress_status} [PASS✅] {msg} --> {str(e)}'
-        SOPLOG_DEBUG(log_msg, 'green' if not color else color)
-    elif error == SoPTestLogLevel.WARN:
+        MXLOG_DEBUG(log_msg, 'green' if not color else color)
+    elif error == MXTestLogLevel.WARN:
         log_msg = f'{progress_status} [WARN{WARN_emoji} ] {msg} --> {str(e)}'
-        SOPLOG_DEBUG(log_msg, 'yellow' if not color else color)
-    elif error == SoPTestLogLevel.INFO:
+        MXLOG_DEBUG(log_msg, 'yellow' if not color else color)
+    elif error == MXTestLogLevel.INFO:
         log_msg = f'{progress_status} [INFOℹ️ ] {msg} --> {str(e)}'
-        SOPLOG_DEBUG(log_msg, 'cyan' if not color else color)
-    elif error == SoPTestLogLevel.FAIL:
+        MXLOG_DEBUG(log_msg, 'cyan' if not color else color)
+    elif error == MXTestLogLevel.FAIL:
         log_msg = f'{progress_status} [FAIL❌] {msg} --> {str(e)}'
-        SOPLOG_DEBUG(log_msg, 'red' if not color else color)
+        MXLOG_DEBUG(log_msg, 'red' if not color else color)
         return e
 
 
-def topic_seperator(topic: SoPProtocolType, back_num: int):
+def topic_seperator(topic: MXProtocolType, back_num: int):
     topic_slice = topic.value.split('/')
     for _ in range(back_num):
         topic_slice.pop()
@@ -121,7 +123,7 @@ def exception_wrapper(func: Callable = None,
                 return key_error_case_func()
         except KeyboardInterrupt as e:
             print('KeyboardInterrupt')
-            if self.__class__.__name__ == 'SoPSimulatorExecutor':
+            if self.__class__.__name__ == 'MXSimulatorExecutor':
                 self.event_handler.kill_all_simulation_instance()
                 user_input = input(
                     'Select exit mode[1].\n1. Just exit\n2. Download remote logs\n') or '1'
@@ -143,7 +145,7 @@ def exception_wrapper(func: Callable = None,
             else:
                 print_error(e)
                 self.event_handler.kill_all_simulation_instance()
-                # if self.__class__.__name__ == 'SoPSimulator':
+                # if self.__class__.__name__ == 'MXSimulator':
                 #     user_input = input(
                 #         'kill_all_simulation_instance before exit? (y/n)[Y]: ') or 'y'
                 #     if user_input == 'y':
@@ -160,8 +162,8 @@ def exception_wrapper(func: Callable = None,
 
 def check_result_payload(payload: dict = None):
     if not payload:
-        SOPTEST_LOG_DEBUG(f'Payload is None (timeout)!!!',
-                          SoPTestLogLevel.FAIL)
+        MXTEST_LOG_DEBUG(f'Payload is None (timeout)!!!',
+                         MXTestLogLevel.FAIL)
         return None
 
     error_code = payload['error']
@@ -170,8 +172,8 @@ def check_result_payload(payload: dict = None):
     if error_code in [0, -4]:
         return True
     else:
-        SOPTEST_LOG_DEBUG(
-            f'error_code: {error_code}, error_string : {error_string if error_string else "(No error string)"}', SoPTestLogLevel.FAIL)
+        MXTEST_LOG_DEBUG(
+            f'error_code: {error_code}, error_string : {error_string if error_string else "(No error string)"}', MXTestLogLevel.FAIL)
         return False
 
 
@@ -351,12 +353,12 @@ def avg(src: List[Union[int, float]]) -> float:
 
 
 def pool_map(func: Callable, args: List[Tuple], proc: int = 10) -> List[Any]:
-    thread_list: List[SoPThread] = []
+    thread_list: List[MXThread] = []
     for arg_chuck in [args[i:i+proc] for i in range(0, len(args), proc)]:
         for arg in arg_chuck:
             if not isinstance(arg, tuple):
                 arg = (arg,)
-            thread = SoPThread(target=func, args=arg)
+            thread = MXThread(target=func, args=arg)
             thread_list.append(thread)
             thread.start()
 
@@ -400,7 +402,7 @@ def read_file(path: str, strip: bool = True, raw: bool = False) -> List[str]:
                 return f.readlines()
     except FileNotFoundError as e:
         print_error(e)
-        SOPLOG_DEBUG(f'File not found: {path}')
+        MXLOG_DEBUG(f'File not found: {path}')
         raise e
 
 
@@ -415,7 +417,7 @@ def write_file(path: str, content: Union[str, List[str]]) -> None:
         return path
     except FileNotFoundError as e:
         print_error(e)
-        SOPLOG_DEBUG(f'Path not found: {path}')
+        MXLOG_DEBUG(f'Path not found: {path}')
         raise e
 
 
