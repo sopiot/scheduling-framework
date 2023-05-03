@@ -135,14 +135,13 @@ class MXSSHClient:
         while not MXSSHClient.COMMAND_SENDING < 1:
             time.sleep(THREAD_TIME_OUT)
 
-        MXSSHClient.COMMAND_SENDING += 1
-
         if isinstance(command, str):
             command = [command]
         if not self.connected:
             self.connect()
 
         try:
+            MXSSHClient.COMMAND_SENDING += 1
             for item in command:
                 if self.connected:
                     if background:
@@ -191,14 +190,13 @@ class MXSSHClient:
         while not MXSSHClient.FILE_UPLOADING < 1:
             time.sleep(THREAD_TIME_OUT)
 
-        MXSSHClient.FILE_UPLOADING += 1
-
         if not self.sftp_opened:
             self.open_sftp()
 
         MXTEST_LOG_DEBUG(
             f'Send files: {local_path} -> {remote_path}', MXTestLogLevel.PASS)
         try:
+            MXSSHClient.FILE_UPLOADING += 1
             self._sftp_client.put(local_path, remote_path,
                                   callback=print_progress_status)
             return True
@@ -235,8 +233,6 @@ class MXSSHClient:
         while not MXSSHClient.FILE_DOWNLOADING < 1:
             time.sleep(THREAD_TIME_OUT)
 
-        MXSSHClient.FILE_DOWNLOADING += 1
-
         if not self.sftp_opened:
             self.open_sftp()
 
@@ -245,6 +241,7 @@ class MXSSHClient:
             MXTEST_LOG_DEBUG(
                 f'Download file: {local_path} <- {remote_path}')
             try:
+                MXSSHClient.FILE_DOWNLOADING += 1
                 self._sftp_client.get(remote_path, local_path,
                                       callback=print_progress_status)
                 return True
@@ -265,12 +262,12 @@ class MXSSHClient:
             self.open_sftp()
 
         os.makedirs(local_path, exist_ok=True)
-        fileattr_list = self._sftp_client.listdir_attr(remote_path)
-        for fileattr in fileattr_list:
-            remote_file_path = os.path.join(remote_path, fileattr.filename)
-            local_file_path = os.path.join(local_path, fileattr.filename)
+        file_attr_list = self._sftp_client.listdir_attr(remote_path)
+        for file_attr in file_attr_list:
+            remote_file_path = os.path.join(remote_path, file_attr.filename)
+            local_file_path = os.path.join(local_path, file_attr.filename)
 
-            if stat.S_ISDIR(fileattr.st_mode):
+            if stat.S_ISDIR(file_attr.st_mode):
                 self.get_dir(remote_file_path, local_file_path)
             else:
                 for ext in ext_filter:

@@ -71,52 +71,46 @@ class MXSchedulingFramework:
                                 policy_file_path: str = ''):
 
         def task(middleware: MXMiddlewareElement):
-            ssh_client = simulation_executor.event_handler.find_ssh_client(
-                middleware)
+            ssh_client = simulation_executor.event_handler.find_ssh_client(middleware)
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
             user = os.path.basename(remote_home_dir)
             ssh_client.send_command('sudo apt install lsb-release -y')
             result = ssh_client.send_command('echo $?')
             if int(result[0]):
-                raise Exception(
-                    f'Install lsb-release failed to {middleware.name}')
-            remote_device_os = ssh_client.send_command(
-                'lsb_release -a')[1].split('\t')[1].strip()
+                raise Exception(f'Install lsb-release failed to {middleware.name}')
+            remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
 
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
             if not middleware.binary_sended:
-                result = ssh_client.send_command(
-                    f'rm -rf {home_dir_append(middleware_path, user)}')
-                result = ssh_client.send_dir(
-                    SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
+                result = ssh_client.send_command(f'rm -rf {home_dir_append(middleware_path, user)}')
+                result = ssh_client.send_dir(SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
                 if 'Ubuntu 20.04' in remote_device_os:
-                    result = ssh_client.send_file(
-                        f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                    result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
                 elif 'Ubuntu 22.04' in remote_device_os:
-                    result = ssh_client.send_file(
-                        f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                    result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
                 elif 'Raspbian' in remote_device_os:
-                    result = ssh_client.send_file(
-                        f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                    result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
                 middleware.binary_sended = True
 
-            ssh_client.send_file(
-                policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
-            middleware_update_result = ssh_client.send_command(
-                f'cd {home_dir_append(middleware_path, user)}; chmod +x sopiot_middleware;cmake .; make -j; echo $?')[-1]
+            ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
+            ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)}; chmod +x sopiot_middleware;')
+            middleware_cmake_result = ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)};cmake .; make -j; echo $?')[-1]
+            if int(middleware_cmake_result[0]):
+                raise Exception(f'Cmake is not installed at device {middleware.device.name} middleware {middleware.name}...')
+
+            MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} update start', MXTestLogLevel.INFO)
+            middleware_update_result = ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)};cmake .; make -j; echo $?')[-1]
 
             if not int(middleware_update_result[0]):
-                MXTEST_LOG_DEBUG(
-                    f'device {middleware.device.name} middleware {middleware.name} update result: True', MXTestLogLevel.INFO)
+                MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} update result: True', MXTestLogLevel.INFO)
             else:
-                raise Exception(
-                    f'device {middleware.device.name} middleware {middleware.name} update result: False')
+                raise Exception(f'device {middleware.device.name} middleware {middleware.name} update result: False')
 
             # TODO: not tested yet
-            randisk_check_command = f'ls /mnt/ramdisk'
-            ssh_client.send_command(randisk_check_command)
-            randisk_check_result = ssh_client.send_command('echo $?')
-            if int(randisk_check_result[0]):
+            ramdisk_check_command = f'ls /mnt/ramdisk'
+            ssh_client.send_command(ramdisk_check_command)
+            ramdisk_check_result = ssh_client.send_command('echo $?')
+            if int(ramdisk_check_result[0]):
                 ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
                                                  f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
                                                  f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
@@ -126,11 +120,16 @@ class MXSchedulingFramework:
 
             if any([thing.is_super for thing in middleware.thing_list]):
                 remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-                thing_install_command = f'pip install big-thing-py'
-                ssh_client.send_command(thing_install_command)
+                force_pip_install = True
+                thing_install_command = f'pip install big-thing-py {"" if not force_pip_install else "--force-reinstall"}'
+                MXTEST_LOG_DEBUG(f'middleware {middleware.name} pip install start', MXTestLogLevel.INFO)
+                pip_install_result = ssh_client.send_command(thing_install_command)
+                if not int(ramdisk_check_result[0]):
+                    MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} pip install result: True', MXTestLogLevel.INFO)
+                else:
+                    raise Exception(f'device {middleware.device.name} middleware {middleware.name} pip install result: False')
 
-        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
-            simulation_executor.simulation_env)
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(simulation_executor.simulation_env)
 
         pool_map(task, middleware_list)
 
@@ -141,40 +140,35 @@ class MXSchedulingFramework:
             MXTEST_LOG_DEBUG(f'No simulation result', MXTestLogLevel.WARN)
             return False
 
-        simulation_result_list_sort_by_policy: Dict[str, List[MXSimulationResult]] = {
-        }
-        for simualtion_result in raw_simulation_result_list:
-            if simualtion_result.policy in simulation_result_list_sort_by_policy:
-                simulation_result_list_sort_by_policy[simualtion_result.policy].append(
-                    simualtion_result)
+        simulation_result_list_sort_by_policy: Dict[str, List[MXSimulationResult]] = {}
+        for simulation_result in raw_simulation_result_list:
+            if simulation_result.policy in simulation_result_list_sort_by_policy:
+                simulation_result_list_sort_by_policy[simulation_result.policy].append(simulation_result)
             else:
-                simulation_result_list_sort_by_policy[simualtion_result.policy] = [
-                    simualtion_result]
+                simulation_result_list_sort_by_policy[simulation_result.policy] = [simulation_result]
         simulation_result_list: List[MXSimulationResult] = []
         for policy, result_list in simulation_result_list_sort_by_policy.items():
             simulation_result_avg = MXSimulationResult(policy=policy,
-                                                       avg_latency=avg(
-                                                           [result.get_avg_latency()[0] for result in result_list]),
-                                                       avg_energy=avg(
-                                                           [result.get_avg_energy()[0] for result in result_list]),
+                                                       avg_latency=avg([result.get_avg_latency()[0] for result in result_list]),
+                                                       avg_energy=avg([result.get_avg_energy()[0] for result in result_list]),
                                                        avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
             simulation_result_list.append(simulation_result_avg)
 
-        simulation_result_list_sort_by_application_latency = sorted(
-            simulation_result_list, key=lambda x: x.avg_latency)
-        simulation_result_list_sort_by_application_energy = sorted(
-            simulation_result_list, key=lambda x: x.avg_energy)
-        simulation_result_list_sort_by_success_ratio = sorted(
-            simulation_result_list, key=lambda x: x.avg_success_ratio, reverse=True)
+        simulation_result_list_sort_by_application_latency = sorted(simulation_result_list, key=lambda x: x.avg_latency)
+        simulation_result_list_sort_by_application_energy = sorted(simulation_result_list, key=lambda x: x.avg_energy)
+        simulation_result_list_sort_by_success_ratio = sorted(simulation_result_list, key=lambda x: x.avg_success_ratio, reverse=True)
 
         # TODO: policy에 대한 랭킹으로만 나와야한다. 같은 config결과는 평균을 내든지 해야한다.
         rank_header = ['Rank', 'QoS', 'Energy Saving', 'Stability']
         print_table([[i+1,
-                      f'''latency: {f'{simulation_result_list_sort_by_application_latency[i].avg_latency:.2f}'}
+                      f'''\
+latency: {f'{simulation_result_list_sort_by_application_latency[i].avg_latency:.2f}'}
 policy: {simulation_result_list_sort_by_application_latency[i].policy}''',
-                      f'''energy: {f'{simulation_result_list_sort_by_application_energy[i].avg_energy:.2f}'}
+                      f'''\
+energy: {f'{simulation_result_list_sort_by_application_energy[i].avg_energy:.2f}'}
 policy: {simulation_result_list_sort_by_application_energy[i].policy}''',
-                      f'''success_ratio: {f'{simulation_result_list_sort_by_success_ratio[i].avg_success_ratio * 100:.2f}'}
+                      f'''\
+success_ratio: {f'{simulation_result_list_sort_by_success_ratio[i].avg_success_ratio * 100:.2f}'}
 policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in range(len(simulation_result_list))], rank_header)
 
         return True
@@ -187,30 +181,24 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
             device_pool_path = MXPath(project_root_path=get_project_root(),
                                       config_path=config_path,
                                       path=load_yaml(config_path)['device_pool_path'])
-            device_list: List[dict] = load_yaml(
-                device_pool_path.abs_path())
-            valid_device_list = [
-                device for device in device_list if device != 'localhost']
+            device_list: List[dict] = load_yaml(device_pool_path.abs_path())
+            valid_device_list = [device for device in device_list if device != 'localhost']
 
             if not 'sim_env_samples' in config_path:
                 pass
             elif 'paper_experiments' in config_path:
                 if len(valid_device_list) < 11:
-                    raise Exception(
-                        f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 11 devices)')
+                    raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 11 devices)')
             elif 'remote' in config_path:
                 if 'simple_home' in config_path:
                     if len(valid_device_list) < 1:
-                        raise Exception(
-                            f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 1 devices)')
+                        raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 1 devices)')
                 elif 'simple_building' in config_path:
                     if len(valid_device_list) < 5:
-                        raise Exception(
-                            f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 5 devices)')
+                        raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 5 devices)')
                 elif 'simple_campus' in config_path:
                     if len(valid_device_list) < 7:
-                        raise Exception(
-                            f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 7 devices)')
+                        raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 7 devices)')
 
             simulation_file_path, simulation_ID = self.simulation_generator.generate_simulation(simulation_ID=simulation_ID,
                                                                                                 config_path=config_path,
@@ -220,10 +208,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                                    policy_file_path=[],
                                    label=[])
             for policy_file_path in policy_file_path_list:
-                simulation_info['policy_file_path'].append(
-                    policy_file_path)
-                simulation_info['label'].append(
-                    f'{self.simulation_generator.simulation_config.name}_policy_{os.path.basename(policy_file_path).split(".")[0]}')
+                simulation_info['policy_file_path'].append(policy_file_path)
+                simulation_info['label'].append(f'{self.simulation_generator.simulation_config.name}_policy_{os.path.basename(policy_file_path).split(".")[0]}')
             simulation_info_list.append(simulation_info)
         return simulation_info_list
 
@@ -254,18 +240,14 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     print_error(e)
                     continue
 
-                simulation_evaluator = MXSimulationEvaluator(
-                    simulation_env, event_log, simulation_duration, simulation_start_time)
+                simulation_evaluator = MXSimulationEvaluator(simulation_env, event_log, simulation_duration, simulation_start_time)
                 simulation_result = simulation_evaluator.evaluate_simulation()
                 simulation_result.config = self.simulation_generator.simulation_config.name
-                simulation_result.policy = os.path.basename(
-                    policy_file_path).split(".")[0]
+                simulation_result.policy = os.path.basename(policy_file_path).split(".")[0]
                 simulation_result_list.append(simulation_result)
 
-                simulation_evaluator.export_txt(
-                    simulation_result=simulation_result, label=label, args=args)
-                simulation_evaluator.export_csv(
-                    simulation_result=simulation_result, label=label, args=args)
+                simulation_evaluator.export_txt(simulation_result=simulation_result, label=label, args=args)
+                simulation_evaluator.export_csv(simulation_result=simulation_result, label=label, args=args)
 
                 if args.download_logs:
                     simulation_executor.event_handler.download_log_file()
@@ -276,8 +258,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
         else:
             for simulation_info in simulation_info_list:
                 for label, policy_file_path in zip(simulation_info['label'], simulation_info['policy_file_path']):
-                    MXTEST_LOG_DEBUG(
-                        f'==== Start simulation {label} ====', MXTestLogLevel.INFO)
+                    MXTEST_LOG_DEBUG(f'==== Start simulation {label} ====', MXTestLogLevel.INFO)
 
                     simulation_file_path = simulation_info['simulation_file_path']
                     args.config_path = simulation_info['config_path']
@@ -295,23 +276,17 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     try:
                         simulation_env, event_log, simulation_duration, simulation_start_time = simulation_executor.start()
                     except Exception as e:
-                        MXTEST_LOG_DEBUG(
-                            f'==== Simulation {label} Canceled by user ====', MXTestLogLevel.WARN)
+                        MXTEST_LOG_DEBUG(f'==== Simulation {label} Canceled by user ====', MXTestLogLevel.WARN)
                         continue
 
-                    simulation_evaluator = MXSimulationEvaluator(
-                        simulation_env, event_log, simulation_duration, simulation_start_time)
+                    simulation_evaluator = MXSimulationEvaluator(simulation_env, event_log, simulation_duration, simulation_start_time)
                     simulation_result = simulation_evaluator.evaluate_simulation()
-                    simulation_result.config = os.path.basename(
-                        self.simulation_generator.simulation_config.path).split('.')[0]
-                    simulation_result.policy = os.path.basename(
-                        policy_file_path).split('.')[0]
+                    simulation_result.config = os.path.basename(self.simulation_generator.simulation_config.path).split('.')[0]
+                    simulation_result.policy = os.path.basename(policy_file_path).split('.')[0]
                     simulation_result_list.append(simulation_result)
 
-                    simulation_evaluator.export_txt(
-                        simulation_result=simulation_result, label=label, args=args)
-                    simulation_evaluator.export_csv(
-                        simulation_result=simulation_result, label=label, args=args)
+                    simulation_evaluator.export_txt(simulation_result=simulation_result, label=label, args=args)
+                    simulation_evaluator.export_csv(simulation_result=simulation_result, label=label, args=args)
 
                     if args.download_logs:
                         simulation_executor.event_handler.download_log_file()

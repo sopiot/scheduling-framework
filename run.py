@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from simulation_framework.core.schedule_framework import *
 from simulation_framework.core.simulation_generator import *
 import argparse

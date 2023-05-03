@@ -63,6 +63,7 @@ class MXEventHandler:
 
         def task(device: MXDeviceElement):
             ssh_client = MXSSHClient(device)
+            MXTEST_LOG_DEBUG(f'Connecting to {device.name}', MXTestLogLevel.INFO)
             ssh_client.connect(use_ssh_config=False)
 
             # 따로 명세되어있지 않고 local network에 있는 경우 사용 가능한 port를 찾는다.
@@ -80,6 +81,7 @@ class MXEventHandler:
             self.add_ssh_client(ssh_client)
 
         pool_map(task, self.device_list)
+        # pool_map(task, self.device_list, proc=1)
 
         return True
 
@@ -197,22 +199,22 @@ class MXEventHandler:
             target_middleware_log_path = os.path.join(
                 target_simulation_log_path, f'middleware.level{middleware.level}.{middleware.name}')
 
-            fileattr_list = ssh_client._sftp_client.listdir_attr(
+            file_attr_list = ssh_client._sftp_client.listdir_attr(
                 middleware.remote_middleware_config_path)
-            for fileattr in fileattr_list:
-                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, fileattr.filename),
+            for file_attr in file_attr_list:
+                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.cfg'), ext_filter='cfg')
-                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, fileattr.filename),
+                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.mosquitto.conf'), ext_filter='conf')
 
             remote_middleware_log_path = os.path.join(
                 remote_home_dir, 'simulation_log')
-            fileattr_list = ssh_client._sftp_client.listdir_attr(
+            file_attr_list = ssh_client._sftp_client.listdir_attr(
                 remote_middleware_log_path)
-            for fileattr in fileattr_list:
-                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, fileattr.filename),
+            for file_attr in file_attr_list:
+                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.log'), ext_filter='log')
-                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, fileattr.filename),
+                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.stdout'), ext_filter='stdout')
 
             for thing in middleware.thing_list:
@@ -224,12 +226,12 @@ class MXEventHandler:
                 thing_log_path = os.path.join(os.path.dirname(
                     thing.remote_thing_file_path), 'log')
 
-                fileattr_list = thing_ssh_client._sftp_client.listdir_attr(
+                file_attr_list = thing_ssh_client._sftp_client.listdir_attr(
                     thing_log_path)
-                for fileattr in fileattr_list:
-                    if not thing.name in fileattr.filename:
+                for file_attr in file_attr_list:
+                    if not thing.name in file_attr.filename:
                         continue
-                    thing_ssh_client.get_file(remote_path=os.path.join(thing_log_path, fileattr.filename),
+                    thing_ssh_client.get_file(remote_path=os.path.join(thing_log_path, file_attr.filename),
                                               local_path=os.path.join(target_middleware_log_path, 'thing', target_thing_log_file_name), ext_filter='log')
 
             return True
