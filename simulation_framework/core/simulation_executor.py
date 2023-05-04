@@ -190,7 +190,7 @@ class MXSimulatorExecutor:
         thing_list: List[MXThingElement] = get_thing_list_recursive(simulation_env)
 
         pool_map(ssh_task, thing_list)
-        pool_map(send_task, thing_list)
+        pool_map(send_task, thing_list, proc=1)
 
         return True
 

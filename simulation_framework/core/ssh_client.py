@@ -42,8 +42,7 @@ class MXSSHClient:
                     used_ports.append(local_port)
 
         # 사용 중인 포트 목록과 사용 가능한 포트 목록을 비교하여 사용중이지 않은 포트 목록을 생성
-        available_ports = [
-            port for port in available_ports if port not in used_ports]
+        available_ports = [port for port in available_ports if port not in used_ports]
         return available_ports
 
     def get_duplicate_proc_pid(self, proc_name: str, user: str = None,
@@ -187,7 +186,7 @@ class MXSSHClient:
             MXSSHClient.COMMAND_SENDING -= 1
 
     def send_file(self, local_path: str, remote_path: str):
-        while not MXSSHClient.FILE_UPLOADING < 1:
+        while not MXSSHClient.FILE_UPLOADING < 5:
             time.sleep(THREAD_TIME_OUT)
 
         if not self.sftp_opened:
@@ -230,7 +229,7 @@ class MXSSHClient:
                     pass
 
     def get_file(self, remote_path: str, local_path: str, ext_filter: str = ''):
-        while not MXSSHClient.FILE_DOWNLOADING < 1:
+        while not MXSSHClient.FILE_DOWNLOADING < 5:
             time.sleep(THREAD_TIME_OUT)
 
         if not self.sftp_opened:
