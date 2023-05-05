@@ -133,6 +133,7 @@ def exception_wrapper(func: Callable = None,
                 elif user_input == '2':
                     cprint(f'Download remote logs...', 'yellow')
                     self.event_handler.download_log_file()
+                    exit(0)
                 else:
                     pass
         except Exception as e:

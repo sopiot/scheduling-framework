@@ -45,8 +45,7 @@ class MXSSHClient:
         available_ports = [port for port in available_ports if port not in used_ports]
         return available_ports
 
-    def get_duplicate_proc_pid(self, proc_name: str, user: str = None,
-                               local_ip: str = None, local_port: int = None, foreign_ip: str = None, foreign_port: int = None,
+    def get_duplicate_proc_pid(self, proc_name: str, user: str = None, local_ip: str = None, local_port: int = None, foreign_ip: str = None, foreign_port: int = None,
                                args: Union[List[str], str] = ''):
 
         def get_proc_info():
@@ -54,15 +53,11 @@ class MXSSHClient:
             ps_ef_result = None
 
             if not self.connected:
-                netstat_result: List[str] = os.popen(
-                    f'netstat -nap 2>/dev/null | grep {proc_name}').read().split('\n')
-                ps_ef_result: List[str] = os.popen(
-                    f'ps -ef 2>/dev/null | grep {proc_name}').read().split('\n')
+                netstat_result: List[str] = os.popen(f'netstat -nap 2>/dev/null | grep {proc_name}').read().split('\n')
+                ps_ef_result: List[str] = os.popen(f'ps -ef 2>/dev/null | grep {proc_name}').read().split('\n')
             else:
-                netstat_result: List[str] = self.send_command(
-                    f'netstat -nap 2>/dev/null | grep {proc_name}', False)
-                ps_ef_result: List[str] = self.send_command(
-                    f'ps -ef 2>/dev/null | grep {proc_name}', False)
+                netstat_result: List[str] = self.send_command(f'netstat -nap 2>/dev/null | grep {proc_name}', False)
+                ps_ef_result: List[str] = self.send_command(f'ps -ef 2>/dev/null | grep {proc_name}', False)
 
             return ps_ef_result, netstat_result
 
@@ -99,8 +94,7 @@ class MXSSHClient:
         for line in ps_ef_result:
             parse_result = parse_ps_ef_line(line)
             if parse_result:
-                proc_name_check = proc_name in parse_result['proc_name'].split(
-                    '/')[-1]
+                proc_name_check = proc_name in parse_result['proc_name'].split('/')[-1]
                 args_check = args in ' '.join(parse_result['args'])
                 if proc_name_check and args_check:
                     target_pid_list_ps_ef.append(parse_result['pid'])
@@ -111,8 +105,7 @@ class MXSSHClient:
                 proc_name_check = proc_name in parse_result['proc_name']
 
                 local_ip_check = local_ip == parse_result['local_ip']
-                local_port_check = local_port == parse_result[
-                    'local_port'] or local_port == parse_result['foreign_port']
+                local_port_check = local_port == parse_result['local_port'] or local_port == parse_result['foreign_port']
                 foreign_ip_check = foreign_ip == parse_result['foreign_ip']
                 foreign_port_check = foreign_port == parse_result['foreign_port']
 
@@ -124,12 +117,12 @@ class MXSSHClient:
                     target_pid_list_netstat.append(parse_result['pid'])
 
         if not proc_name == 'python':
-            target_pid_list = list(
-                set(target_pid_list_netstat).intersection(target_pid_list_ps_ef))
+            target_pid_list = list(set(target_pid_list_netstat).intersection(target_pid_list_ps_ef))
         else:
             target_pid_list = list(set(target_pid_list_ps_ef))
         return target_pid_list
 
+    # FIXME: parallel feature is not working
     def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False) -> Union[bool, List[str]]:
         while not MXSSHClient.COMMAND_SENDING < 1:
             time.sleep(THREAD_TIME_OUT)
@@ -149,8 +142,7 @@ class MXSSHClient:
                         channel.exec_command(item)
                     else:
                         try:
-                            stdin, stdout, stderr = self._ssh_client.exec_command(
-                                item)
+                            stdin, stdout, stderr = self._ssh_client.exec_command(item)
                         except Exception as e:
                             # NOTE: `Secsh channel <int num> open FAILED: open failed: Connect failed` 에러가 발생하여 연결을 다시 수립하는 방식으로 해결
                             # NOTE: 그러나 해당 방법이 제대로 된 해결법인지는 잘 모르겠음
@@ -158,12 +150,10 @@ class MXSSHClient:
                             # NOTE: 반복적으로 실행하면 문제가 생김
                             # NOTE: -> mosquitto, middelware를 실행시킬때 백그라운드로 안 시켜서 ssh 세션을 계속 유지하는 것이 문제였다.
 
-                            MXTEST_LOG_DEBUG(
-                                f'Send_command error: {e}', MXTestLogLevel.FAIL)
+                            MXTEST_LOG_DEBUG(f'Send_command error: {e}', MXTestLogLevel.FAIL)
                             self.disconnect()
                             self.connect()
-                            stdin, stdout, stderr = self._ssh_client.exec_command(
-                                item)
+                            stdin, stdout, stderr = self._ssh_client.exec_command(item)
 
                     if ignore_result:
                         return True
@@ -185,6 +175,7 @@ class MXSSHClient:
         finally:
             MXSSHClient.COMMAND_SENDING -= 1
 
+    # FIXME: parallel feature is not working
     def send_file(self, local_path: str, remote_path: str):
         while not MXSSHClient.FILE_UPLOADING < 5:
             time.sleep(THREAD_TIME_OUT)
@@ -192,12 +183,10 @@ class MXSSHClient:
         if not self.sftp_opened:
             self.open_sftp()
 
-        MXTEST_LOG_DEBUG(
-            f'Send files: {local_path} -> {remote_path}', MXTestLogLevel.PASS)
+        MXTEST_LOG_DEBUG(f'Send files: {local_path} -> {remote_path}', MXTestLogLevel.PASS)
         try:
             MXSSHClient.FILE_UPLOADING += 1
-            self._sftp_client.put(local_path, remote_path,
-                                  callback=print_progress_status)
+            self._sftp_client.put(local_path, remote_path, callback=print_progress_status)
             return True
         except KeyboardInterrupt:
             return False
@@ -208,26 +197,24 @@ class MXSSHClient:
 
     # local_path와 remote_path를 받아서 재귀적으로 폴더를 전송하는 함수
     def send_dir(self, local_path: str, remote_path: str):
-        self.send_command(
-            f'mkdir -p {remote_path}')
+        self.send_command(f'mkdir -p {remote_path}')
         if not self.sftp_opened:
             self.open_sftp()
 
         for root, dirs, files in os.walk(local_path):
             for name in files:
                 local_file_path = os.path.join(root, name)
-                remote_file_path = os.path.join(
-                    remote_path, os.path.relpath(local_file_path, local_path))
+                remote_file_path = os.path.join(remote_path, os.path.relpath(local_file_path, local_path))
                 self.send_file(local_file_path, remote_file_path)
             for name in dirs:
                 local_dir_path = os.path.join(root, name)
-                remote_dir_path = os.path.join(
-                    remote_path, os.path.relpath(local_dir_path, local_path))
+                remote_dir_path = os.path.join(remote_path, os.path.relpath(local_dir_path, local_path))
                 try:
                     self._sftp_client.mkdir(remote_dir_path)
                 except:
                     pass
 
+    # FIXME: parallel feature is not working
     def get_file(self, remote_path: str, local_path: str, ext_filter: str = ''):
         while not MXSSHClient.FILE_DOWNLOADING < 5:
             time.sleep(THREAD_TIME_OUT)
@@ -237,12 +224,10 @@ class MXSSHClient:
 
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         if remote_path.split('.')[-1] == ext_filter:
-            MXTEST_LOG_DEBUG(
-                f'Download file: {local_path} <- {remote_path}')
+            MXTEST_LOG_DEBUG(f'Download file: {local_path} <- {remote_path}')
             try:
                 MXSSHClient.FILE_DOWNLOADING += 1
-                self._sftp_client.get(remote_path, local_path,
-                                      callback=print_progress_status)
+                self._sftp_client.get(remote_path, local_path, callback=print_progress_status)
                 return True
             except KeyboardInterrupt:
                 return False
@@ -251,8 +236,7 @@ class MXSSHClient:
             finally:
                 MXSSHClient.FILE_DOWNLOADING -= 1
         else:
-            MXTEST_LOG_DEBUG(
-                f'{remote_path} is not {ext_filter} file. Skip download...', MXTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(f'{remote_path} is not {ext_filter} file. Skip download...', MXTestLogLevel.WARN)
             return False
 
     # FIXME: 폴더자체를 받아오는 것이 아니라 폴더안의 파일만 받아오는 것으로 되어있음. 해당 부분을 폴더까지 같이 받아오는 것으로 수정해야함
@@ -288,8 +272,7 @@ class MXSSHClient:
         }
 
         if not os.path.exists(os.path.expanduser("~/.ssh/config")):
-            MXTEST_LOG_DEBUG('Not found ssh config file',
-                             MXTestLogLevel.INFO)
+            MXTEST_LOG_DEBUG('Not found ssh config file', MXTestLogLevel.INFO)
             ssh_cfg['hostname'] = self.device.host
             return False
 
@@ -311,19 +294,16 @@ class MXSSHClient:
             if 'identityfile' in host_conf:
                 ssh_cfg['key_filename'] = host_conf['identityfile']
             if 'proxycommand' in host_conf:
-                ssh_cfg['sock'] = paramiko.ProxyCommand(
-                    host_conf['proxycommand'])
+                ssh_cfg['sock'] = paramiko.ProxyCommand(host_conf['proxycommand'])
 
-            # proxy_host_conf = ssh_config.lookup(
-            #     [cmd for cmd in ssh_cfg['sock'].cmd if '@' in cmd][0].split('@')[1])
+            # proxy_host_conf = ssh_config.lookup([cmd for cmd in ssh_cfg['sock'].cmd if '@' in cmd][0].split('@')[1])
             self.device.host = ssh_cfg['hostname']
             self.device.user = ssh_cfg['username']
             self.device.password = ssh_cfg['password']
 
             return ssh_cfg
         else:
-            MXTEST_LOG_DEBUG(
-                f'Host {self.device.name} is not found in ssh config file.', 2)
+            MXTEST_LOG_DEBUG(f'Host {self.device.name} is not found in ssh config file.', 2)
             ssh_cfg['hostname'] = self.device.host
             return False
 
@@ -331,26 +311,21 @@ class MXSSHClient:
         while retry:
             try:
                 if self.connected:
-                    MXTEST_LOG_DEBUG('Already connected to host',
-                                     MXTestLogLevel.WARN)
+                    MXTEST_LOG_DEBUG('Already connected to host', MXTestLogLevel.WARN)
                     return self._ssh_client
 
-                self._ssh_client.set_missing_host_key_policy(
-                    paramiko.AutoAddPolicy())
+                self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh_cfg = self.get_ssh_config(use_ssh_config=use_ssh_config)
 
                 if ssh_cfg:
-                    self._ssh_client.connect(
-                        **ssh_cfg, timeout=self.connect_timeout)
+                    self._ssh_client.connect(**ssh_cfg, timeout=self.connect_timeout)
                 elif self.device.host and self.device.ssh_port and self.device.user and self.device.password:
                     self._ssh_client.connect(hostname=self.device.host, port=self.device.ssh_port,
                                              username=self.device.user, password=self.device.password, timeout=self.connect_timeout)
                 else:
-                    raise MXTEST_LOG_DEBUG(
-                        'Please set the user, host, port, password or locate .ssh/config before connect to ssh host', MXTestLogLevel.FAIL)
+                    raise MXTEST_LOG_DEBUG('Please set the user, host, port, password or locate .ssh/config before connect to ssh host', MXTestLogLevel.FAIL)
 
-                MXTEST_LOG_DEBUG(
-                    f'SSH Connect success to device {self.device.name}.', MXTestLogLevel.PASS)
+                MXTEST_LOG_DEBUG(f'SSH Connect success to device {self.device.name}.', MXTestLogLevel.PASS)
 
                 self.connected = True
 
@@ -372,8 +347,7 @@ class MXSSHClient:
             self.connect()
 
         if self.sftp_opened:
-            MXTEST_LOG_DEBUG('SFTP client already opened',
-                             MXTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG('SFTP client already opened', MXTestLogLevel.WARN)
             return self._sftp_client
 
         self._sftp_client = self._ssh_client.open_sftp()
