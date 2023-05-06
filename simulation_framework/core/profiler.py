@@ -7,10 +7,10 @@ from datetime import datetime
 
 
 class LogLine:
-    def __init__(self, timestamp: str, raw_log_data: str, topic_pattern: str, payload_pattern: str) -> None:
+    def __init__(self, timestamp: str, raw_log_data: str, get_topic_func: Callable, get_payload_func: Callable) -> None:
         self._raw_log_data = raw_log_data
-        self._topic_pattern = topic_pattern
-        self._payload_pattern = payload_pattern
+        self._get_topic_func = get_topic_func
+        self._get_payload_func = get_payload_func
 
         self.timestamp = timestamp
         self.topic: str = self.get_topic(self.raw_log_data)
@@ -27,17 +27,17 @@ class LogLine:
         self.payload = self.get_payload(self._raw_log_data)
 
     def get_topic(self, log_data: str) -> str:
-        if not ('[PUBLISH]' in log_data or '[RECEIVED]' in log_data):
+        topic = self._get_topic_func(log_data)
+        if not topic:
             return False
 
-        topic = re.search(self._topic_pattern, log_data).group(1)
         return topic
 
     def get_payload(self, log_data: str) -> Union[str, dict]:
-        if not ('[PUBLISH]' in log_data or '[RECEIVED]' in log_data):
-            return False
+        payload = self._get_payload_func(log_data)
 
-        payload = re.search(self._payload_pattern, log_data).group(1)
+        if not payload:
+            return False
 
         # 만약 payload가 json 형식이라면 json 형식으로 변환
         try:
@@ -49,13 +49,13 @@ class LogLine:
 
 
 class LogData:
-    def __init__(self, log_path: str, timestamp_pattern: str, topic_pattern: str, payload_pattern: str) -> None:
+    def __init__(self, log_path: str, timestamp_pattern: str, get_topic_func: Callable, get_payload_func: Callable) -> None:
         self._log_path = log_path
         self._log_line_list: List[LogLine] = []
 
-        self.load(self._log_path, timestamp_pattern=timestamp_pattern, topic_pattern=topic_pattern, payload_pattern=payload_pattern)
+        self.load(self._log_path, timestamp_pattern=timestamp_pattern, get_topic_func=get_topic_func, get_payload_func=get_payload_func)
 
-    def load(self, log_path: str, timestamp_pattern: str, topic_pattern: str, payload_pattern: str):
+    def load(self, log_path: str, timestamp_pattern: str, get_topic_func: Callable, get_payload_func: Callable):
         with open(log_path, 'r') as f:
             raw_log_string = f.read()
 
@@ -63,7 +63,7 @@ class LogData:
         for i in range(0, len(log_line_strings), 2):
             timestamp = log_line_strings[i]
             message = log_line_strings[i+1]
-            log_line = LogLine(timestamp=timestamp, raw_log_data=message, topic_pattern=topic_pattern, payload_pattern=payload_pattern)
+            log_line = LogLine(timestamp=timestamp, raw_log_data=message, get_topic_func=get_topic_func, get_payload_func=get_payload_func)
             self._log_line_list.append(log_line)
 
 
@@ -73,8 +73,29 @@ class MiddlewareLog:
         self._name = name
 
         self._log_data = LogData(log_path, timestamp_pattern=r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]',
-                                 topic_pattern=r'Topic: \s*(.*)\n',
-                                 payload_pattern=r'Payload: \s*(.*)\n',)
+                                 get_topic_func=self.get_topic_func,
+                                 get_payload_func=self.get_payload_func)
+
+    def get_topic_func(self, log_data: str) -> str:
+        if not ('[RECEIVED]' in log_data or '[PUBLISH]' in log_data):
+            return False
+
+        match = re.search(r'(?<=Topic: ).*', log_data)
+        if match:
+            topic = match.group(0)
+        else:
+            return False
+
+        return topic
+
+    def get_payload_func(self, log_data: str) -> str:
+        match = re.search(r'(?<=Payload: ).*', log_data)
+        if match:
+            payload = match.group(0)
+        else:
+            return False
+
+        return payload
 
 
 class ThingLog:
@@ -84,8 +105,26 @@ class ThingLog:
         self._is_super = is_super
 
         self._log_data = LogData(log_path, timestamp_pattern=r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]',
-                                 topic_pattern=r'topic : \s*(.*)\n',
-                                 payload_pattern=r'payload : \s*(.*)\n')
+                                 get_topic_func=self.get_topic_func,
+                                 get_payload_func=self.get_payload_func)
+
+    def get_topic_func(self, log_data: str) -> str:
+        match = re.search(r'(?<=topic : ).*', log_data)
+        if match:
+            topic = match.group(0)
+        else:
+            return False
+
+        return topic
+
+    def get_payload_func(self, log_data: str) -> str:
+        match = re.search(r'(?<=payload : ).*', log_data)
+        if match:
+            payload = match.group(0)
+        else:
+            return False
+
+        return payload
 
 
 class Profiler:
@@ -109,7 +148,11 @@ class Profiler:
             return middleware_log
 
     def get_thing_log_list(self, path: str) -> List[ThingLog]:
-        file_list = os.listdir(path)
+        try:
+            file_list = os.listdir(path)
+        except Exception as e:
+            return []
+
         thing_log_list = []
         for file in file_list:
             if not '.log' in file:

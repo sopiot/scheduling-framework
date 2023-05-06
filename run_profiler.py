@@ -16,6 +16,7 @@ def main():
     args = arg_parse()
 
     profiler = Profiler(root_log_folder_path=args.root_log_path)
+    print(profiler)
 
 
 if __name__ == '__main__':
