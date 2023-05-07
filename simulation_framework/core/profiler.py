@@ -40,7 +40,7 @@ class LogLine:
         return payload.replace('\n', '').replace(' ', '').strip()
 
     @property
-    def raw_log_data(self) -> dict:
+    def raw_log_data(self) -> str:
         return self._raw_log_data
 
     @raw_log_data.setter
@@ -63,11 +63,11 @@ class LogLine:
 
 class LogData:
     def __init__(self, log_path: str, timestamp_pattern: str, get_topic_func: Callable, get_payload_func: Callable, element_type: MXElementType) -> None:
-        self._log_path = log_path
-        self._log_line_list: List[LogLine] = []
-        self._element_type = element_type
+        self.log_path = log_path
+        self.log_line_list: List[LogLine] = []
+        self.element_type = element_type
 
-        self.load(self._log_path, timestamp_pattern=timestamp_pattern, get_topic_func=get_topic_func, get_payload_func=get_payload_func)
+        self.load(self.log_path, timestamp_pattern=timestamp_pattern, get_topic_func=get_topic_func, get_payload_func=get_payload_func)
 
     def load(self, log_path: str, timestamp_pattern: str, get_topic_func: Callable, get_payload_func: Callable):
         with open(log_path, 'r') as f:
@@ -77,19 +77,19 @@ class LogData:
         for i in range(0, len(log_line_strings), 2):
             timestamp = log_line_strings[i]
             message = log_line_strings[i+1]
-            log_line = LogLine(timestamp=timestamp, raw_log_data=message, get_topic_func=get_topic_func, get_payload_func=get_payload_func, element_type=self._element_type)
-            self._log_line_list.append(log_line)
+            log_line = LogLine(timestamp=timestamp, raw_log_data=message, get_topic_func=get_topic_func, get_payload_func=get_payload_func, element_type=self.element_type)
+            self.log_line_list.append(log_line)
 
 
 class MiddlewareLog:
     def __init__(self, log_path: str, level: int, name: str) -> None:
-        self._level = level
-        self._name = name
+        self.level = level
+        self.name = name
 
-        self._log_data = LogData(log_path, timestamp_pattern=r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]',
-                                 get_topic_func=self.get_topic_func,
-                                 get_payload_func=self.get_payload_func,
-                                 element_type=MXElementType.MIDDLEWARE)
+        self.log_data = LogData(log_path, timestamp_pattern=r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]',
+                                get_topic_func=self.get_topic_func,
+                                get_payload_func=self.get_payload_func,
+                                element_type=MXElementType.MIDDLEWARE)
 
     def get_topic_func(self, log_data: str) -> str:
         if not ('[RECEIVED]' in log_data or '[PUBLISH]' in log_data):
@@ -115,14 +115,14 @@ class MiddlewareLog:
 
 class ThingLog:
     def __init__(self, log_path: str, level: int, name: str, is_super: bool) -> None:
-        self._level = level
-        self._name = name
-        self._is_super = is_super
+        self.level = level
+        self.name = name
+        self.is_super = is_super
 
-        self._log_data = LogData(log_path, timestamp_pattern=r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]',
-                                 get_topic_func=self.get_topic_func,
-                                 get_payload_func=self.get_payload_func,
-                                 element_type=MXElementType.THING)
+        self.log_data = LogData(log_path, timestamp_pattern=r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]',
+                                get_topic_func=self.get_topic_func,
+                                get_payload_func=self.get_payload_func,
+                                element_type=MXElementType.THING)
 
     def get_topic_func(self, log_data: str) -> str:
         match = re.search(r'topic : (.+?) payload : (.+)', log_data)
@@ -145,11 +145,13 @@ class ThingLog:
 
 class Profiler:
     def __init__(self, root_log_folder_path: str):
-        self._root_log_folder_path = root_log_folder_path
-        self._middleware_log_list: List[MiddlewareLog] = []
-        self._thing_log_list: List[ThingLog] = []
+        self.root_log_folder_path = root_log_folder_path
+        self.middleware_log_list: List[MiddlewareLog] = []
+        self.thing_log_list: List[ThingLog] = []
+        self.super_service_table = {}
 
-        self.load(self._root_log_folder_path)
+        self.load(self.root_log_folder_path)
+        self.super_service_table = self.get_super_service_table()
 
     def get_middleware_log(self, path: str) -> MiddlewareLog:
         file_list = os.listdir(path)
@@ -191,8 +193,8 @@ class Profiler:
 
                 middleware_log = self.get_middleware_log(os.path.join(root, dir, 'middleware'))
                 thing_log_list = self.get_thing_log_list(os.path.join(root, dir, 'thing'))
-                self._middleware_log_list.append(middleware_log)
-                self._thing_log_list.extend(thing_log_list)
+                self.middleware_log_list.append(middleware_log)
+                self.thing_log_list.extend(thing_log_list)
 
     def export_to_one_file(self) -> List[LogLine]:
         topic_filter = [MXProtocolType.Super.MS_SCHEDULE,
@@ -214,11 +216,11 @@ class Profiler:
                         ]
 
         whole_log_data: List[LogLine] = []
-        for middleware_log in self._middleware_log_list:
-            whole_log_data.extend([log_line for log_line in middleware_log._log_data._log_line_list
+        for middleware_log in self.middleware_log_list:
+            whole_log_data.extend([log_line for log_line in middleware_log.log_data.log_line_list
                                    if isinstance(log_line.topic, str) and MXProtocolType.get(log_line.topic) in topic_filter])
-        for thing_log in self._thing_log_list:
-            whole_log_data.extend([log_line for log_line in thing_log._log_data._log_line_list
+        for thing_log in self.thing_log_list:
+            whole_log_data.extend([log_line for log_line in thing_log.log_data.log_line_list
                                    if isinstance(log_line.topic, str) and MXProtocolType.get(log_line.topic) in topic_filter])
 
         whole_log_data.sort(key=lambda x: x.timestamp)
@@ -228,3 +230,26 @@ class Profiler:
                 f.write(f'[{log_line.timestamp}][{"T" if log_line.element_type == MXElementType.THING else "M"}] {log_line.topic} {log_line.payload}\n')
 
         return whole_log_data
+
+    def get_super_service_table(self) -> Dict[str, List[str]]:
+        super_service_table = {}
+        super_thing_log_list = [thing_log for thing_log in self.thing_log_list if thing_log.is_super]
+        if len(super_thing_log_list) == 0:
+            return False
+
+        for super_thing_log in super_thing_log_list:
+            for log_line in super_thing_log.log_data.log_line_list:
+                if '✔✔✔' in log_line.raw_log_data:
+                    break
+
+                if "Detect super service" in log_line.raw_log_data:
+                    super_service = log_line.raw_log_data.split(":")[1].strip()
+                    super_service_table[super_service] = []
+                elif "sub_service" in log_line.raw_log_data:
+                    sub_service = log_line.raw_log_data.split(":")[1].strip()
+                    super_service_table[super_service].append(sub_service)
+
+        return super_service_table
+
+    def profile_super_service(self, super_service: str):
+        pass
