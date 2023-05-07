@@ -16,6 +16,7 @@ def main():
     args = arg_parse()
 
     profiler = Profiler(root_log_folder_path=args.root_log_path)
+    whole_log_file = profiler.export_to_one_file()
     print(profiler)
 
 
