@@ -20,6 +20,11 @@ middleware_config
 res
 result
 remote_logs
+!requirements.txt
+!CmakeLists
+!imgs
+*.txt
+.vscode/settings.json
 
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
 # should NOT be excluded as they contain compiler settings and other important

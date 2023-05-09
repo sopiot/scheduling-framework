@@ -159,7 +159,7 @@ class MXSimulatorExecutor:
         middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(simulation_env)
 
         pool_map(ssh_task, middleware_list)
-        pool_map(send_task, middleware_list)
+        pool_map(send_task, middleware_list, proc=1)
 
         return True
 

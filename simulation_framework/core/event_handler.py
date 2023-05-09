@@ -203,6 +203,9 @@ class MXEventHandler:
             remote_middleware_log_path = os.path.join(remote_home_dir, 'simulation_log')
             file_attr_list = ssh_client._sftp_client.listdir_attr(remote_middleware_log_path)
             for file_attr in file_attr_list:
+                file_base_name = file_attr.filename.split(".")[0]
+                if not (f'{file_base_name}' == f"{middleware.name}_middleware" or f'{file_base_name}' == middleware.name):
+                    continue
                 ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.log'), ext_filter='log')
                 ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
