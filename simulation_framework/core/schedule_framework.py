@@ -1,6 +1,7 @@
 from simulation_framework.core.simulation_executor import *
 from simulation_framework.core.simulation_generator import *
 from simulation_framework.core.simulation_evaluator import *
+from tqdm import tqdm, trange
 
 
 PREDEFINED_POLICY_FILE_NAME = 'my_scheduling_policies.cc'
@@ -83,16 +84,24 @@ class MXSchedulingFramework:
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
             # if not middleware.binary_sended:
             # result = ssh_client.send_command(f'rm -rf {home_dir_append(middleware_path, user)}')
+            send_request_list = []
             result = ssh_client.send_dir(SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
             if 'Ubuntu 20.04' in remote_device_os:
-                result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                send_request_list.append((f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware'))
+                # result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
             elif 'Ubuntu 22.04' in remote_device_os:
-                result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                send_request_list.append((f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware'))
+                # result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
             elif 'Raspbian' in remote_device_os:
-                result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                send_request_list.append((f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware'))
+                # result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
             # middleware.binary_sended = True
 
-            ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
+            # ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
+            send_request_list.append((policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}'))
+            for local_file, remote_file in tqdm(send_request_list, desc='send middleware files'):
+                result = ssh_client.send_file(local_path=local_file, remote_path=remote_file)
+
             ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)}; chmod +x sopiot_middleware;')
             middleware_cmake_result = ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)};cmake .; make -j; echo $?')[-1]
             if int(middleware_cmake_result[0]):
@@ -120,7 +129,7 @@ class MXSchedulingFramework:
 
             if any([thing.is_super for thing in middleware.thing_list]):
                 remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-                force_pip_install = True
+                force_pip_install = False
                 thing_install_command = f'pip install big-thing-py {"" if not force_pip_install else "--force-reinstall"}'
                 MXTEST_LOG_DEBUG(f'middleware {middleware.name} pip install start', MXTestLogLevel.INFO)
                 pip_install_result = ssh_client.send_command(thing_install_command)
@@ -246,10 +255,12 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                 simulation_result_list.append(simulation_result)
 
                 simulation_evaluator.export_txt(simulation_result=simulation_result, label=label, args=args)
-                simulation_evaluator.export_csv(simulation_result=simulation_result, label=label, args=args)
-
                 if args.download_logs:
                     simulation_executor.event_handler.download_log_file()
+
+                simulation_evaluator.export_txt(simulation_result=simulation_result, label=label, args=args)
+                simulation_evaluator.export_csv(simulation_result=simulation_result, label=label, args=args)
+
                 simulation_executor.event_handler.wrapup()
 
                 del simulation_executor

@@ -1,11 +1,28 @@
 from simulation_framework.core.elements import *
+from tqdm import tqdm
 
 import paramiko
 import stat
 
 
-def print_progress_status(transferred, toBeTransferred):
-    print(f'Progress: {(transferred / toBeTransferred):.2%}', end='\r')
+# def print_progress_status(transferred, toBeTransferred):
+#     print(f'Progress: {(transferred / toBeTransferred):.2%}', end='\r')
+
+
+def viewBar_no_tqdm(a, b):
+    res = a/int(b)*100
+    sys.stdout.write('\rComplete percent: %.2f %%' % (res))
+    sys.stdout.flush()
+
+
+def create_tqdm_callback(*args, **kwargs):
+    pbar = tqdm(*args, **kwargs)
+
+    def viewBar(a, b):
+        pbar.total = int(b)
+        pbar.update(a)
+
+    return viewBar
 
 
 class MXSSHClient:
@@ -35,7 +52,7 @@ class MXSSHClient:
             if 'tcp' in line:
                 parts = line.split()
                 local_address = parts[3]
-                forign_address = parts[4]
+                foreign_address = parts[4]
                 port_status = parts[5]
                 if 'TIME_WAIT' == port_status or 'ESTABLISHED' == port_status or 'CONNECTED' == port_status or 'LISTEN' == port_status:
                     local_port = int(local_address.split(':')[-1])
@@ -148,8 +165,7 @@ class MXSSHClient:
                             # NOTE: 그러나 해당 방법이 제대로 된 해결법인지는 잘 모르겠음
                             # NOTE: 반복적으로 send_command가 실행되면 생기는 것으로 보이나 while문으로 똑같은 명령을 반복했을 때는 문제가 생기지 않고 run_middleware를
                             # NOTE: 반복적으로 실행하면 문제가 생김
-                            # NOTE: -> mosquitto, middelware를 실행시킬때 백그라운드로 안 시켜서 ssh 세션을 계속 유지하는 것이 문제였다.
-
+                            # NOTE: -> mosquitto, middleware를 실행시킬때 백그라운드로 안 시켜서 ssh 세션을 계속 유지하는 것이 문제였다.
                             MXTEST_LOG_DEBUG(f'Send_command error: {e}', MXTestLogLevel.FAIL)
                             self.disconnect()
                             self.connect()
@@ -177,16 +193,17 @@ class MXSSHClient:
 
     # FIXME: parallel feature is not working
     def send_file(self, local_path: str, remote_path: str):
-        while not MXSSHClient.FILE_UPLOADING < 5:
-            time.sleep(THREAD_TIME_OUT)
+        # while not MXSSHClient.FILE_UPLOADING < 5:
+        #     time.sleep(THREAD_TIME_OUT)
 
         if not self.sftp_opened:
             self.open_sftp()
 
-        MXTEST_LOG_DEBUG(f'Send files: {local_path} -> {remote_path}', MXTestLogLevel.PASS)
+        # MXTEST_LOG_DEBUG(f'Send files: {local_path} -> {remote_path}', MXTestLogLevel.PASS)
         try:
             MXSSHClient.FILE_UPLOADING += 1
-            self._sftp_client.put(local_path, remote_path, callback=print_progress_status)
+            viewBar = create_tqdm_callback(unit='b', unit_scale=True, leave=False)
+            self._sftp_client.put(local_path, remote_path, callback=viewBar)
             return True
         except KeyboardInterrupt:
             return False
@@ -224,10 +241,11 @@ class MXSSHClient:
 
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         if remote_path.split('.')[-1] == ext_filter:
-            MXTEST_LOG_DEBUG(f'Download file: {local_path} <- {remote_path}')
+            # MXTEST_LOG_DEBUG(f'Download file: {local_path} <- {remote_path}')
             try:
                 MXSSHClient.FILE_DOWNLOADING += 1
-                self._sftp_client.get(remote_path, local_path, callback=print_progress_status)
+                viewBar = create_tqdm_callback(unit='b', unit_scale=True, leave=False)
+                self._sftp_client.get(remote_path, local_path, callback=viewBar)
                 return True
             except KeyboardInterrupt:
                 return False
@@ -236,7 +254,7 @@ class MXSSHClient:
             finally:
                 MXSSHClient.FILE_DOWNLOADING -= 1
         else:
-            MXTEST_LOG_DEBUG(f'{remote_path} is not {ext_filter} file. Skip download...', MXTestLogLevel.WARN)
+            # MXTEST_LOG_DEBUG(f'{remote_path} is not {ext_filter} file. Skip download...', MXTestLogLevel.WARN)
             return False
 
     # FIXME: 폴더자체를 받아오는 것이 아니라 폴더안의 파일만 받아오는 것으로 되어있음. 해당 부분을 폴더까지 같이 받아오는 것으로 수정해야함
