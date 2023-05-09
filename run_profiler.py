@@ -17,7 +17,7 @@ def main():
 
     profiler = Profiler(root_log_folder_path=args.root_log_path)
     log_path = profiler.export_integrated_log_file()
-    profiler.profile(ProfileType.SCHEDULE)
+    profiler.profile(ProfileType.EXECUTE)
     print(profiler)
 
 

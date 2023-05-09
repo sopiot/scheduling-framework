@@ -4,6 +4,17 @@ from datetime import datetime, timedelta
 TIMESTAMP_FORMAT = '%Y/%m/%d %H:%M:%S.%f'
 TIMESTAMP_REGEX = r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]'
 
+SUPER_PROTOCOL = [MXProtocolType.Super.MS_SCHEDULE, MXProtocolType.Super.MS_EXECUTE,
+                  MXProtocolType.Super.CP_SCHEDULE, MXProtocolType.Super.CP_EXECUTE]
+SUPER_RESULT_PROTOCOL = [MXProtocolType.Super.SM_RESULT_SCHEDULE, MXProtocolType.Super.SM_RESULT_EXECUTE,
+                         MXProtocolType.Super.PC_RESULT_SCHEDULE, MXProtocolType.Super.PC_RESULT_EXECUTE]
+SUB_PROTOCOL = [MXProtocolType.Super.SM_SCHEDULE, MXProtocolType.Super.SM_EXECUTE,
+                MXProtocolType.Super.PC_SCHEDULE, MXProtocolType.Super.PC_EXECUTE]
+SUB_RESULT_PROTOCOL = [MXProtocolType.Super.MS_RESULT_SCHEDULE, MXProtocolType.Super.MS_RESULT_EXECUTE,
+                       MXProtocolType.Super.CP_RESULT_SCHEDULE, MXProtocolType.Super.CP_RESULT_EXECUTE]
+SUB_EXECUTE_PROTOCOL = [MXProtocolType.Base.MT_EXECUTE]
+SUB_EXECUTE_RESULT_PROTOCOL = [MXProtocolType.Base.TM_RESULT_EXECUTE]
+
 
 class OverheadType(Enum):
     SUPER_THING_INNER = auto()
@@ -28,6 +39,16 @@ class Overhead:
         self.super_thing__middleware_comm_overhead_list = []
         self.target_thing__middleware_comm_overhead_list = []
         self.middleware__middleware_comm_overhead_list = []
+
+    def __add__(self, o: 'Overhead') -> 'Overhead':
+        self.super_thing_inner_overhead_list += o.super_thing_inner_overhead_list
+        self.middleware_inner_overhead_list += o.middleware_inner_overhead_list
+        self.target_thing_inner_overhead_list += o.target_thing_inner_overhead_list
+        self.super_thing__middleware_comm_overhead_list += o.super_thing__middleware_comm_overhead_list
+        self.target_thing__middleware_comm_overhead_list += o.target_thing__middleware_comm_overhead_list
+        self.middleware__middleware_comm_overhead_list += o.middleware__middleware_comm_overhead_list
+
+        return self
 
     def add(self, overhead: float, type: OverheadType):
         if type == OverheadType.SUPER_THING_INNER:
@@ -258,23 +279,7 @@ class Profiler:
                 self.thing_log_list.extend(thing_log_list)
 
     def make_integrated_log_list(self):
-        topic_filter = [MXProtocolType.Super.MS_SCHEDULE,
-                        MXProtocolType.Super.SM_SCHEDULE,
-                        MXProtocolType.Super.MS_RESULT_SCHEDULE,
-                        MXProtocolType.Super.SM_RESULT_SCHEDULE,
-                        MXProtocolType.Super.MS_EXECUTE,
-                        MXProtocolType.Super.SM_EXECUTE,
-                        MXProtocolType.Super.MS_RESULT_EXECUTE,
-                        MXProtocolType.Super.SM_RESULT_EXECUTE,
-                        MXProtocolType.Super.PC_SCHEDULE,
-                        MXProtocolType.Super.CP_SCHEDULE,
-                        MXProtocolType.Super.PC_RESULT_SCHEDULE,
-                        MXProtocolType.Super.CP_RESULT_SCHEDULE,
-                        MXProtocolType.Super.PC_EXECUTE,
-                        MXProtocolType.Super.CP_EXECUTE,
-                        MXProtocolType.Super.PC_RESULT_EXECUTE,
-                        MXProtocolType.Super.CP_RESULT_EXECUTE,
-                        ]
+        topic_filter = SUPER_PROTOCOL + SUPER_RESULT_PROTOCOL + SUB_PROTOCOL + SUB_RESULT_PROTOCOL + SUB_EXECUTE_PROTOCOL + SUB_EXECUTE_RESULT_PROTOCOL
 
         whole_log_line_list: List[LogLine] = []
         for middleware_log in self.middleware_log_list:
@@ -333,44 +338,60 @@ class Profiler:
         topic = log_line.topic
         payload = json_string_to_dict(log_line.payload)
         protocol = MXProtocolType.get(topic)
+        scenario = payload['scenario']
 
-        if protocol in [MXProtocolType.Super.MS_SCHEDULE, MXProtocolType.Super.MS_EXECUTE,
-                        MXProtocolType.Super.CP_SCHEDULE, MXProtocolType.Super.CP_EXECUTE]:
-            scenario = payload['scenario']
+        if protocol in SUPER_PROTOCOL:
             super_service = topic.split('/')[2]
             super_thing = topic.split('/')[3]
             super_middleware = topic.split('/')[4]
             requester_middleware = topic.split('/')[5]
-            key = '@'.join([scenario, super_service, requester_middleware])
-        elif protocol in [MXProtocolType.Super.SM_RESULT_SCHEDULE, MXProtocolType.Super.SM_RESULT_EXECUTE,
-                          MXProtocolType.Super.PC_RESULT_SCHEDULE, MXProtocolType.Super.PC_RESULT_EXECUTE]:
-            scenario = payload['scenario']
+            key = '@'.join([scenario, super_service, super_thing, super_middleware, requester_middleware])
+        elif protocol in SUPER_RESULT_PROTOCOL:
             super_service = topic.split('/')[3]
             super_thing = topic.split('/')[4]
             super_middleware = topic.split('/')[5]
             requester_middleware = topic.split('/')[6]
-            key = '@'.join([scenario, super_service, requester_middleware])
-        elif protocol in [MXProtocolType.Super.SM_SCHEDULE, MXProtocolType.Super.SM_EXECUTE,
-                          MXProtocolType.Super.PC_SCHEDULE, MXProtocolType.Super.PC_EXECUTE]:
-            scenario = payload['scenario']
+            key = '@'.join([scenario, super_service, super_thing, super_middleware, requester_middleware])
+        elif protocol in SUB_PROTOCOL:
             target_service = topic.split('/')[2]
             target_middleware = topic.split('/')[4]
             requester_middleware = topic.split('/')[5].split('@')[0]
             super_thing = topic.split('/')[5].split('@')[1]
             super_service = topic.split('/')[5].split('@')[2]
             request_order = topic.split('/')[5].split('@')[3]
-            key = '@'.join([scenario, super_service, requester_middleware])
-        elif protocol in [MXProtocolType.Super.MS_RESULT_SCHEDULE, MXProtocolType.Super.MS_RESULT_EXECUTE,
-                          MXProtocolType.Super.CP_RESULT_SCHEDULE, MXProtocolType.Super.CP_RESULT_EXECUTE]:
-            scenario = payload['scenario']
+            key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
+        elif protocol in SUB_RESULT_PROTOCOL:
             target_service = topic.split('/')[3]
             target_middleware = topic.split('/')[5]
             requester_middleware = topic.split('/')[6].split('@')[0]
             super_thing = topic.split('/')[6].split('@')[1]
             super_service = topic.split('/')[6].split('@')[2]
             request_order = topic.split('/')[6].split('@')[3]
-
-        key = '@'.join([scenario, super_service, requester_middleware])
+            key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
+        elif protocol in SUB_EXECUTE_PROTOCOL:
+            try:
+                target_service = topic.split('/')[2]
+                target_thing = topic.split('/')[3]
+                target_middleware = topic.split('/')[4]
+                requester_middleware = topic.split('/')[5].split('@')[0]
+                super_thing = topic.split('/')[5].split('@')[1]
+                super_service = topic.split('/')[5].split('@')[2]
+                request_order = topic.split('/')[5].split('@')[3]
+                key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
+            except Exception as e:
+                key = ''
+        elif protocol in SUB_EXECUTE_RESULT_PROTOCOL:
+            try:
+                target_service = topic.split('/')[3]
+                target_thing = topic.split('/')[4]
+                target_middleware = topic.split('/')[5]
+                requester_middleware = topic.split('/')[6].split('@')[0]
+                super_thing = topic.split('/')[6].split('@')[1]
+                super_service = topic.split('/')[6].split('@')[2]
+                request_order = topic.split('/')[6].split('@')[3]
+                key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
+            except Exception as e:
+                key = ''
 
         return key
 
@@ -385,6 +406,23 @@ class Profiler:
 
         return log_list
 
+    def get_sub_log_key_from_super_service(self, super_service: str, super_service_start_log: LogLine) -> List[str]:
+        super_log_key = super_service_start_log.log_key
+
+        scenario = super_log_key.split('@')[0]
+        super_service = super_log_key.split('@')[1]
+        super_thing = super_log_key.split('@')[2]
+        super_middleware = super_log_key.split('@')[3]
+        requester_middleware = super_log_key.split('@')[4]
+
+        sub_service_list = self.super_service_table[super_service]
+        sub_log_key_list = []
+        for target_service, request_order in sub_service_list:
+            sub_log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
+            sub_log_key_list.append(sub_log_key)
+
+        return sub_log_key_list
+
     def profile(self, type: ProfileType):
         if not type in [ProfileType.SCHEDULE, ProfileType.EXECUTE]:
             raise Exception(f"Invalid profile type: {type}")
@@ -396,20 +434,42 @@ class Profiler:
         overhead = Overhead()
 
         if type == ProfileType.SCHEDULE:
-            start_protocol = MXProtocolType.Super.MS_SCHEDULE
+            start_protocol = MXProtocolType.Super.CP_SCHEDULE
         elif type == ProfileType.EXECUTE:
-            start_protocol = MXProtocolType.Super.MS_EXECUTE
+            start_protocol = MXProtocolType.Super.CP_EXECUTE
 
+        # 같은 super service에 대한 요청이 여러개가 존재한다. 각 요청에 대해서 오버헤드를 계산한다.
         super_service_start_log_list = self.get_super_service_start_log_list(super_service, start_protocol)
-
+        super_service_start_log_list: List[LogLine] = sorted(super_service_start_log_list, key=lambda x: x.timestamp)
         for super_service_start_log in super_service_start_log_list:
-            super_service_log_list: List[LogLine] = []
+            request_log_list: List[LogLine] = []
             log_line_pool = self.get_logs_in_time_range(self.integrated_log_list,
                                                         start_time=super_service_start_log.timestamp - timedelta(milliseconds=3),
                                                         end_time=None)
+            sub_log_key_list = self.get_sub_log_key_from_super_service(super_service, super_service_start_log)
             for log_line in log_line_pool:
-                if log_line.log_key == super_service_start_log.log_key:
-                    super_service_log_list.append(log_line)
+                if log_line.log_key == super_service_start_log.log_key or log_line.log_key in sub_log_key_list:
+                    request_log_list.append(log_line)
+
+            for sub_service, i in self.super_service_table[super_service]:
+                with open(f'log_{super_service}_{sub_service}_{i}.txt', 'w') as f:
+                    for i, log_line in enumerate(request_log_list[:-1]):
+                        sub_service_check = (MXProtocolType.get(log_line.topic) in (SUB_PROTOCOL + SUB_RESULT_PROTOCOL +
+                                             SUB_EXECUTE_PROTOCOL + SUB_EXECUTE_RESULT_PROTOCOL)) and (sub_service in log_line.topic)
+                        super_service_check = (MXProtocolType.get(log_line.topic) in (SUPER_PROTOCOL + SUPER_RESULT_PROTOCOL)) and (super_service in log_line.topic)
+                        if not (sub_service_check or super_service_check):
+                            continue
+                        duration = (request_log_list[i].timestamp - request_log_list[i-1].timestamp) if i > 0 else timedelta(milliseconds=0)
+                        duration_ms = int(duration.total_seconds() * 1000)
+                        f.write(f'({duration_ms:>4}ms)[{log_line.timestamp_str()[:-3]}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
+
+            with open(f'log_{super_service}.txt', 'w') as f:
+                for i, log_line in enumerate(request_log_list):
+                    if not (sub_service_check or super_service_check):
+                        continue
+                    duration = (request_log_list[i].timestamp - request_log_list[i-1].timestamp) if i > 0 else timedelta(milliseconds=0)
+                    duration_ms = int(duration.total_seconds() * 1000)
+                    f.write(f'({duration_ms:>4}ms)[{log_line.timestamp_str()[:-3]}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
 
             for log_line in self.integrated_log_list:
                 if log_line.topic == MXProtocolType.Super.MS_SCHEDULE and super_service in log_line.payload:
