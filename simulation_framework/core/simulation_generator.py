@@ -69,7 +69,7 @@ class MXSimulationGenerator:
             f = open(device_pool_path, 'w')
             f.close()
 
-        # devcie_pool에 localhost에 대한 정보가 있는지 확인하고 없으면 생성
+        # device_pool에 localhost에 대한 정보가 있는지 확인하고 없으면 생성
         device_pool = load_yaml(device_pool_path)
         if not 'localhost' in device_pool:
             with open('/etc/ssh/sshd_config', 'r') as f:
@@ -274,7 +274,7 @@ class MXSimulationGenerator:
         event_timeline.append(
             MXEvent(event_type=MXEventType.REFRESH).dict())
 
-        # simualtion start
+        # simulation start
         event_timeline.append(
             MXEvent(event_type=MXEventType.START).dict())
 
@@ -324,11 +324,11 @@ class MXSimulationGenerator:
         scenario_list: List[MXScenarioElement] = get_scenario_list_recursive(
             simulation_env)
 
-        longest_scneario = max(scenario_list, key=lambda x: x.period)
-        if longest_scneario.period * 1.2 > self.simulation_config.running_time:
-            running_time = longest_scneario.period * 1.2
+        longest_scenario = max(scenario_list, key=lambda x: x.period)
+        if longest_scenario.period * 1.2 > self.simulation_config.running_time:
+            running_time = longest_scenario.period * 1.2
             MXTEST_LOG_DEBUG(
-                f'Longest scenario period is {longest_scneario.period} but simulation time is {self.simulation_config.running_time}. Set simulation time to {running_time}', MXTestLogLevel.WARN)
+                f'Longest scenario period is {longest_scenario.period} but simulation time is {self.simulation_config.running_time}. Set simulation time to {running_time}', MXTestLogLevel.WARN)
         else:
             running_time = self.simulation_config.running_time
 
@@ -643,20 +643,20 @@ class MXServiceGenerator(MXElementGenerator):
 
     def generate_super(self, middleware: MXMiddlewareElement, thing_config: MXThingConfig = None) -> List[MXServiceElement]:
 
-        def get_candidate_subservice_list(super_middleware: MXMiddlewareElement):
-            candidate_subservice_list: List[MXServiceElement] = []
+        def get_candidate_sub_service_list(super_middleware: MXMiddlewareElement):
+            candidate_sub_service_list: List[MXServiceElement] = []
             for thing in super_middleware.thing_list:
-                candidate_subservice_list.extend(
+                candidate_sub_service_list.extend(
                     [service for service in thing.service_list if not service.is_super])
             for middleware in super_middleware.child_middleware_list:
-                candidate_subservice_list.extend(
-                    get_candidate_subservice_list(middleware))
+                candidate_sub_service_list.extend(
+                    get_candidate_sub_service_list(middleware))
 
-            return candidate_subservice_list
+            return candidate_sub_service_list
 
         # TODO: 다시 재작성할 것
-        def generate_super_service_property(candidate_subservice_list: List[MXServiceElement],
-                                            selected_subservice_list: List[MXServiceElement],
+        def generate_super_service_property(candidate_sub_service_list: List[MXServiceElement],
+                                            selected_sub_service_list: List[MXServiceElement],
                                             super_service_list: List[MXServiceElement]):
             while True:
                 super_service_name = f'super_function_{random.choice(self.super_service_name_pool)}'
@@ -665,35 +665,35 @@ class MXServiceGenerator(MXElementGenerator):
             tag_list = random.sample(self.tag_name_pool, random.randint(self.config.service_config.tag_per_service[0],
                                                                         self.config.service_config.tag_per_service[1]))
 
-            # NOTE: super service의 energy, execute_time은 subservice들의 합으로 계산된다. super service의 subservice 매핑상태는
+            # NOTE: super service의 energy, execute_time은 sub_service들의 합으로 계산된다. super service의 sub_service 매핑상태는
             # 미들웨어에 등록되기 전까지 알 수 없으므로 원칙적으로 energy, execute_time은 계산할 수 없다. 그러나 super service가 미들웨어에
-            # 붙을 때 예상 execute time을 제공하고 있으므로, execute_time은 super service가 고른 subservice중 가장 execute time이
+            # 붙을 때 예상 execute time을 제공하고 있으므로, execute_time은 super service가 고른 sub_service중 가장 execute time이
             # 긴 조합으로 execute time을 계산하여 초기값으로 둔다.
             energy = 0
             execute_time = 0
 
-            for subservice in selected_subservice_list:
-                same_name_subservice_list = [
-                    candidate_service for candidate_service in candidate_subservice_list if subservice.name == candidate_service.name]
+            for sub_service in selected_sub_service_list:
+                same_name_sub_service_list = [
+                    candidate_service for candidate_service in candidate_sub_service_list if sub_service.name == candidate_service.name]
                 execute_time += max(
-                    [subservice.execute_time for subservice in same_name_subservice_list])
+                    [sub_service.execute_time for sub_service in same_name_sub_service_list])
 
             return super_service_name, tag_list, energy, execute_time
 
         self.thing_config = thing_config
         super_service_num = random.randint(self.thing_config.super.service_per_thing[0],
                                            self.thing_config.super.service_per_thing[1])
-        candidate_service_list = get_candidate_subservice_list(middleware)
+        candidate_service_list = get_candidate_sub_service_list(middleware)
         super_service_list = []
         for _ in range(super_service_num):
-            # TODO: supservice를 누적하는 기능 완료하기
-            prev_subservice_num = 0
-            subservice_num = random.randint(self.config.service_config.super.service_per_super_service[0],
+            # TODO: sup_service를 누적하는 기능 완료하기
+            prev_sub_service_num = 0
+            sub_service_num = random.randint(self.config.service_config.super.service_per_super_service[0],
                                             self.config.service_config.super.service_per_super_service[1])
             selected_service_list: List[MXServiceElement] = random.sample(
-                candidate_service_list, subservice_num)
+                candidate_service_list, sub_service_num)
             super_service_name, tag_list, energy, execute_time = generate_super_service_property(
-                candidate_subservice_list=candidate_service_list, selected_subservice_list=selected_service_list, super_service_list=super_service_list)
+                candidate_sub_service_list=candidate_service_list, selected_sub_service_list=selected_service_list, super_service_list=super_service_list)
 
             super_service = MXServiceElement(name=super_service_name,
                                              element_type=MXElementType.SERVICE,
@@ -701,7 +701,7 @@ class MXServiceGenerator(MXElementGenerator):
                                              is_super=True,
                                              energy=energy,
                                              execute_time=execute_time,
-                                             subservice_list=selected_service_list)
+                                             sub_service_list=selected_service_list)
 
             super_service_list.append(super_service)
         return super_service_list
@@ -712,7 +712,7 @@ class MXThingGenerator(MXElementGenerator):
     def __init__(self, config: MXSimulationConfig = None, thing_device_pool: List[MXDeviceElement] = []) -> None:
         super().__init__(config)
 
-        self.thing_deivce_pool: List[MXDeviceElement] = thing_device_pool
+        self.thing_device_pool: List[MXDeviceElement] = thing_device_pool
 
     def make_thing_name(self, index: int, is_super: bool, middleware: MXMiddlewareElement):
         middleware_index = '_'.join(middleware.name.split('_')[1:])  # levelN_M
@@ -741,7 +741,7 @@ class MXThingGenerator(MXElementGenerator):
         if is_super:
             device = middleware.device
         else:
-            device = random.choice(self.thing_deivce_pool)
+            device = random.choice(self.thing_device_pool)
 
         if service_list:
             picked_service_list = random.sample(service_list, k=random.randint(self.config.thing_config.normal.service_per_thing[0],

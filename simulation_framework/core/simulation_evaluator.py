@@ -348,10 +348,10 @@ class MXSimulationEvaluator:
                                    execute_cycle[-1].service_element.name == last_service.name)
         else:
             first_service = scenario.service_list[0]
-            last_service = scenario.service_list[-1].subservice_list[-1]
+            last_service = scenario.service_list[-1].sub_service_list[-1]
 
             scenario_service_pattern = sorted(
-                [service.name for service in scenario.service_list[0].subservice_list] + [scenario.service_list[0].name])
+                [service.name for service in scenario.service_list[0].sub_service_list] + [scenario.service_list[0].name])
             target_service_pattern = sorted(
                 [event.service_element.name for event in execute_cycle])
 
@@ -440,11 +440,11 @@ class MXSimulationEvaluator:
                 [event.duration for event in super_execute_cycle])
 
         execute_cycle_result = MXExecuteCycleResult(cycle_latency=cycle_latency,
-                                                     cycle_energy=cycle_energy,
-                                                     avg_execute_time=avg_execute_time,
-                                                     execute_cycle=execute_cycle,
-                                                     overhead=overhead,
-                                                     error=MXExecuteCycleErrorType.SUCCESS)
+                                                    cycle_energy=cycle_energy,
+                                                    avg_execute_time=avg_execute_time,
+                                                    execute_cycle=execute_cycle,
+                                                    overhead=overhead,
+                                                    error=MXExecuteCycleErrorType.SUCCESS)
         if execute_cycle_result.cycle_latency > scenario.period:
             # 시나리오 상태가 stucked는 아니지만 total service execute time이 period를 넘어서는 경우
             MXTEST_LOG_DEBUG(
@@ -494,15 +494,15 @@ class MXSimulationEvaluator:
                     start_index = 0
                     for j in range(super_service_num):
                         super_service_slot = sliced_service_list[start_index:start_index + len(
-                            super_service_pattern[j].subservice_list) + 1]
+                            super_service_pattern[j].sub_service_list) + 1]
                         super_service_name_check = (super_service_slot[0].name ==
                                                     super_service_pattern[j].name)
-                        subservice_name_check = (sorted([service.name for service in super_service_slot[1:]]) ==
-                                                 sorted([service.name for service in super_service_pattern[j].subservice_list]))
-                        super_service_slot_check = super_service_name_check and subservice_name_check
+                        sub_service_name_check = (sorted([service.name for service in super_service_slot[1:]]) ==
+                                                 sorted([service.name for service in super_service_pattern[j].sub_service_list]))
+                        super_service_slot_check = super_service_name_check and sub_service_name_check
                         check_list.append(super_service_slot_check)
                         start_index += len(
-                            super_service_pattern[j].subservice_list) + 1
+                            super_service_pattern[j].sub_service_list) + 1
 
                     service_instance_name_check = all(check_list)
                 else:
@@ -518,8 +518,8 @@ class MXSimulationEvaluator:
             service_pattern = []
             for service in scenario.service_list:
                 service_pattern.append(service)
-                for subservice in service.subservice_list:
-                    service_pattern.append(subservice)
+                for sub_service in service.sub_service_list:
+                    service_pattern.append(sub_service)
             return service_pattern
 
         whole_execute_event_list: List[MXEvent] = [
@@ -535,7 +535,7 @@ class MXSimulationEvaluator:
                     f'scenario {scenario.name} is super, but super schedule event is found')
             if MXEventType.SUPER_FUNCTION_EXECUTE in event_type_list or MXEventType.SUB_FUNCTION_EXECUTE in event_type_list:
                 raise Exception(
-                    f'scenario {scenario.name} is local, but subservice event is not found')
+                    f'scenario {scenario.name} is local, but sub_service event is not found')
 
         if scenario.schedule_timeout:
             return MXScenarioResult(scenario_element=scenario, error=MXScenarioErrorType.SCHEDULE_TIMEOUT)
@@ -558,19 +558,19 @@ class MXSimulationEvaluator:
                 execute_cycle_result)
 
         scenario_result = MXScenarioResult(scenario_element=scenario,
-                                            execute_cycle_result_list=execute_cycle_result_list,
-                                            schedule_event_list=schedule_event_list,
-                                            avg_schedule_latency=avg(
-                                                [schedule_event.duration for schedule_event in schedule_event_list]),
-                                            avg_latency=avg(
-                                                [execute_cycle_result.cycle_latency for execute_cycle_result in execute_cycle_result_list]),
-                                            avg_energy=avg(
-                                                [execute_cycle_result.cycle_energy for execute_cycle_result in execute_cycle_result_list]),
-                                            avg_exeucte_time=avg(
-                                                [execute_cycle_result.avg_execute_time for execute_cycle_result in execute_cycle_result_list]),
-                                            avg_overhead=avg(
-                                                [execute_cycle_result.overhead for execute_cycle_result in execute_cycle_result_list]),
-                                            error=MXScenarioErrorType.SUCCESS)
+                                           execute_cycle_result_list=execute_cycle_result_list,
+                                           schedule_event_list=schedule_event_list,
+                                           avg_schedule_latency=avg(
+                                               [schedule_event.duration for schedule_event in schedule_event_list]),
+                                           avg_latency=avg(
+                                               [execute_cycle_result.cycle_latency for execute_cycle_result in execute_cycle_result_list]),
+                                           avg_energy=avg(
+                                               [execute_cycle_result.cycle_energy for execute_cycle_result in execute_cycle_result_list]),
+                                           avg_exeucte_time=avg(
+                                               [execute_cycle_result.avg_execute_time for execute_cycle_result in execute_cycle_result_list]),
+                                           avg_overhead=avg(
+                                               [execute_cycle_result.overhead for execute_cycle_result in execute_cycle_result_list]),
+                                           error=MXScenarioErrorType.SUCCESS)
         return scenario_result
 
     def evaluate_middleware(self, middleware: MXMiddlewareElement) -> MXMiddlewareResult:
@@ -621,18 +621,18 @@ class MXSimulationEvaluator:
             avg([scenario_result.avg_overhead for scenario_result in super_scenario_result_list])]
 
         return MXMiddlewareResult(middleware_element=middleware,
-                                   scenario_result_list=scenario_result_list,
-                                   local_scenario_result_list=local_scenario_result_list,
-                                   super_scenario_result_list=super_scenario_result_list,
-                                   total_scenario_num=total_scenario_num,
-                                   timeout_scenario_num=timeout_scenario_num,
-                                   denied_scenario_num=denied_scenario_num,
-                                   failed_scenario_num=failed_scenario_num,
-                                   avg_schedule_latency=avg_schedule_latency,
-                                   avg_execute_time=avg_execute_time,
-                                   avg_latency=avg_latency,
-                                   avg_energy=avg_energy,
-                                   avg_overhead=avg_overhead)
+                                  scenario_result_list=scenario_result_list,
+                                  local_scenario_result_list=local_scenario_result_list,
+                                  super_scenario_result_list=super_scenario_result_list,
+                                  total_scenario_num=total_scenario_num,
+                                  timeout_scenario_num=timeout_scenario_num,
+                                  denied_scenario_num=denied_scenario_num,
+                                  failed_scenario_num=failed_scenario_num,
+                                  avg_schedule_latency=avg_schedule_latency,
+                                  avg_execute_time=avg_execute_time,
+                                  avg_latency=avg_latency,
+                                  avg_energy=avg_energy,
+                                  avg_overhead=avg_overhead)
 
     def evaluate_simulation(self) -> MXSimulationResult:
 

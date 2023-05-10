@@ -536,7 +536,7 @@ def %s(self) -> str:
 
     def __init__(self, name: str = '', level: int = -1, element_type: MXElementType = None,
                  tag_list: List[str] = [], is_super: bool = False, energy: float = 0, execute_time: float = 0, return_value: int = 0,
-                 subservice_list: List['MXServiceElement'] = []) -> None:
+                 sub_service_list: List['MXServiceElement'] = []) -> None:
         super().__init__(name, level, element_type)
 
         self.tag_list = tag_list
@@ -545,7 +545,7 @@ def %s(self) -> str:
         self.execute_time = execute_time
         self.return_value = return_value
 
-        self.subservice_list = subservice_list
+        self.sub_service_list = sub_service_list
 
     def tag_code(self) -> str:
         tag_code = ', '.join([f'MXTag("{tag}")' for tag in self.tag_list])
@@ -564,7 +564,7 @@ elif thing_start_time == 1:
 
     def req_code(self) -> str:
         req_code_list = []
-        for sub_service in self.subservice_list:
+        for i, sub_service in enumerate(self.sub_service_list):
             picked_tag_list = random.sample(sub_service.tag_list, random.randint(
                 1, len(sub_service.tag_list)))
             if len(picked_tag_list) != len(set(picked_tag_list)):
@@ -574,7 +574,6 @@ elif thing_start_time == 1:
 
             # TODO: range_type(ALL, SINGLE) 비율을 조정할 수 있도록 수정하면 좋을 것 같다. (현재는 1:1로 고정)
             range_type = random.choice(['SINGLE'])
-
             req_code_list.append(self.SUBFUNCTION_TEMPLATE % (sub_service.name,
                                                               picked_tag_list,
                                                               f'MXType.{MXType.STRING}',
@@ -623,8 +622,7 @@ elif thing_start_time == 1:
         self.execute_time = data['execute_time']
         self.return_value = data['return_value']
 
-        self.subservice_list = [MXServiceElement().load(
-            service_info) for service_info in data['subfunction_list']]
+        self.sub_service_list = [MXServiceElement().load(service_info) for service_info in data['subfunction_list']]
 
         return self
 
@@ -635,7 +633,7 @@ elif thing_start_time == 1:
                     energy=self.energy,
                     execute_time=self.execute_time,
                     return_value=self.return_value,
-                    subfunction_list=[subfunction.dict() for subfunction in self.subservice_list])
+                    subfunction_list=[subfunction.dict() for subfunction in self.sub_service_list])
 
     def event(self, event_type: MXEventType, timestamp: float = 0.0, **kwargs) -> MXEvent:
         return super().event(event_type, timestamp, **kwargs)
