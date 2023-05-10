@@ -129,11 +129,12 @@ class MXSchedulingFramework:
 
             if any([thing.is_super for thing in middleware.thing_list]):
                 remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-                force_pip_install = False
-                thing_install_command = f'pip install big-thing-py {"" if not force_pip_install else "--force-reinstall"}'
+                force_pip_install = True
+                thing_install_command = f'pip install big-thing-py {"" if not force_pip_install else "--force-reinstall"}; echo $?'
+
                 MXTEST_LOG_DEBUG(f'middleware {middleware.name} pip install start', MXTestLogLevel.INFO)
                 pip_install_result = ssh_client.send_command(thing_install_command)
-                if not int(ramdisk_check_result[0]):
+                if not int(pip_install_result[-1]):
                     MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} pip install result: True', MXTestLogLevel.INFO)
                 else:
                     raise Exception(f'device {middleware.device.name} middleware {middleware.name} pip install result: False')
