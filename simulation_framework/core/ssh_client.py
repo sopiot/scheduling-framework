@@ -135,8 +135,6 @@ class SoPSSHClient:
         while not SoPSSHClient.COMMAND_SENDING < 2:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.COMMAND_SENDING += 1
-
         if isinstance(command, str):
             command = [command]
         if not self.connected:
@@ -151,6 +149,7 @@ class SoPSSHClient:
                         channel.exec_command(item)
                     else:
                         try:
+                            SoPSSHClient.COMMAND_SENDING += 1
                             stdin, stdout, stderr = self._ssh_client.exec_command(
                                 item)
                         except Exception as e:
@@ -191,14 +190,13 @@ class SoPSSHClient:
         while not SoPSSHClient.FILE_UPLOADING < 10:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.FILE_UPLOADING += 1
-
         if not self.sftp_opened:
             self.open_sftp()
 
         SOPTEST_LOG_DEBUG(
             f'Send files: {local_path} -> {remote_path}', SoPTestLogLevel.PASS)
         try:
+            SoPSSHClient.FILE_UPLOADING += 1
             self._sftp_client.put(local_path, remote_path,
                                   callback=print_progress_status)
             return True
@@ -235,8 +233,6 @@ class SoPSSHClient:
         while not SoPSSHClient.FILE_DOWNLOADING < 20:
             time.sleep(THREAD_TIME_OUT)
 
-        SoPSSHClient.FILE_DOWNLOADING += 1
-
         if not self.sftp_opened:
             self.open_sftp()
 
@@ -245,6 +241,7 @@ class SoPSSHClient:
             SOPTEST_LOG_DEBUG(
                 f'Download file: {local_path} <- {remote_path}')
             try:
+                SoPSSHClient.FILE_DOWNLOADING += 1
                 self._sftp_client.get(remote_path, local_path,
                                       callback=print_progress_status)
                 return True

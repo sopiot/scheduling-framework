@@ -679,7 +679,7 @@ def main():
     value_list = []
     thing = SoPBigThing(name=args.name, service_list=function_list + value_list,
                         alive_cycle=args.alive_cycle, is_super=False, is_parallel=%s, ip=args.host, port=args.port,
-                        ssl_ca_path=None, ssl_enable=None, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.ABBR,
+                        ssl_ca_path=None, ssl_enable=None, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.FULL,
                         retry_register=args.retry_register)
     thing.setup(avahi_enable=False)
     thing.run()
@@ -699,7 +699,7 @@ thing_start_time = 0
 class SoPBasicSuperThing(SoPSuperThing):
 
     def __init__(self, name: str, service_list: List[SoPService] = ..., alive_cycle: float = 600, is_super: bool = False, is_parallel: bool = True,
-                 ip: str = None, port: int = None, ssl_ca_path: str = None, ssl_enable: bool = False, log_name: str = None, log_enable: bool = True, log_mode: SoPPrintMode = SoPPrintMode.ABBR, append_mac_address: bool = True,
+                 ip: str = None, port: int = None, ssl_ca_path: str = None, ssl_enable: bool = False, log_name: str = None, log_enable: bool = True, log_mode: SoPPrintMode = SoPPrintMode.FULL, append_mac_address: bool = True,
                  refresh_cycle: float = 10, retry_register: bool = False):
         value_list = []
         function_list = \\
@@ -740,7 +740,7 @@ def arg_parse():
 
 def generate_thing(args):
     super_thing = SoPBasicSuperThing(name=args.name, ip=args.host, port=args.port, is_super=True, is_parallel=%s, ssl_ca_path=None, ssl_enable=None,
-                                     alive_cycle=args.alive_cycle, refresh_cycle=args.refresh_cycle, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.ABBR,
+                                     alive_cycle=args.alive_cycle, refresh_cycle=args.refresh_cycle, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.FULL,
                                      retry_register=args.retry_register)
     return super_thing
 

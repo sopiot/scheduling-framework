@@ -182,7 +182,7 @@ class SoPSimulatorExecutor:
             simulation_env)
 
         pool_map(ssh_task, middleware_list)
-        pool_map(send_task, middleware_list, proc=1)
+        pool_map(send_task, middleware_list)
 
         return True
 
