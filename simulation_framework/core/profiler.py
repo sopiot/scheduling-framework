@@ -488,7 +488,7 @@ class Profiler:
             request_start_log_list.append(log_line)
 
         if len(request_start_log_list) == 0:
-            raise Exception(f"Cannot find super service start log for {super_service}")
+            SOPLOG_DEBUG(f"Cannot find super service start log for {super_service}", 'yellow')
 
         return request_start_log_list
 
@@ -546,9 +546,10 @@ class Profiler:
             log_file_name = f'log_{super_service}_request_{i}.txt'
             with open(log_file_name, 'w') as f:
                 for i, log_line in enumerate(same_request_log_list):
-                    duration = (same_request_log_list[i].timestamp - same_request_log_list[i-1].timestamp) if i > 0 else timedelta(milliseconds=0)
-                    duration_ms = int(duration.total_seconds() * 1000)
-                    f.write(f'({duration_ms:>4}ms)[{log_line.timestamp_str()[:-3]}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
+                    duration = (same_request_log_list[i].timestamp - same_request_log_list[i-1].timestamp) if i > 0 else timedelta(seconds=0)
+                    duration_ms = int(duration.total_seconds() * 1e3)
+                    duration_us = int(duration.total_seconds() * 1e6)
+                    f.write(f'({f"{duration_ms:>4}.{int(duration_us - duration_ms * 1e3):<3}"} ms)[{log_line.timestamp_str()}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
             SOPLOG_DEBUG(f'Write {log_file_name}...', 'yellow')
 
             # for sub_service, i in self.super_service_table[super_service]:
