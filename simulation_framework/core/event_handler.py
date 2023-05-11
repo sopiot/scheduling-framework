@@ -194,25 +194,25 @@ class SoPEventHandler:
             ssh_client.open_sftp()
 
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            target_middleware_log_path = os.path.join(
-                target_simulation_log_path, f'middleware.level{middleware.level}.{middleware.name}')
+            target_middleware_log_path = os.path.join(target_simulation_log_path, f'middleware.level{middleware.level}.{middleware.name}')
 
-            fileattr_list = ssh_client._sftp_client.listdir_attr(
+            file_attr_list = ssh_client._sftp_client.listdir_attr(
                 middleware.remote_middleware_config_path)
-            for fileattr in fileattr_list:
-                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, fileattr.filename),
+            for file_attr in file_attr_list:
+                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.cfg'), ext_filter='cfg')
-                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, fileattr.filename),
+                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.mosquitto.conf'), ext_filter='conf')
 
-            remote_middleware_log_path = os.path.join(
-                remote_home_dir, 'simulation_log')
-            fileattr_list = ssh_client._sftp_client.listdir_attr(
-                remote_middleware_log_path)
-            for fileattr in fileattr_list:
-                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, fileattr.filename),
+            remote_middleware_log_path = os.path.join(remote_home_dir, 'simulation_log')
+            file_attr_list = ssh_client._sftp_client.listdir_attr(remote_middleware_log_path)
+            for file_attr in file_attr_list:
+                file_base_name = file_attr.filename.split(".")[0]
+                if not (f'{file_base_name}' == f"{middleware.name}_middleware" or f'{file_base_name}' == middleware.name):
+                    continue
+                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.log'), ext_filter='log')
-                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, fileattr.filename),
+                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.stdout'), ext_filter='stdout')
 
             for thing in middleware.thing_list:
@@ -221,23 +221,20 @@ class SoPEventHandler:
 
                 target_thing_log_file_name = f'base_thing.{thing.name}.log' if not thing.is_super else f'super_thing.{thing.name}.log'
 
-                thing_log_path = os.path.join(os.path.dirname(
-                    thing.remote_thing_file_path), 'log')
+                thing_log_path = os.path.join(os.path.dirname(thing.remote_thing_file_path), 'log')
 
-                fileattr_list = thing_ssh_client._sftp_client.listdir_attr(
-                    thing_log_path)
-                for fileattr in fileattr_list:
-                    if not thing.name in fileattr.filename:
+                file_attr_list = thing_ssh_client._sftp_client.listdir_attr(thing_log_path)
+                for file_attr in file_attr_list:
+                    if not thing.name in file_attr.filename:
                         continue
-                    thing_ssh_client.get_file(remote_path=os.path.join(thing_log_path, fileattr.filename),
+                    thing_ssh_client.get_file(remote_path=os.path.join(thing_log_path, file_attr.filename),
                                               local_path=os.path.join(target_middleware_log_path, 'thing', target_thing_log_file_name), ext_filter='log')
 
             return True
 
-        target_simulation_log_path = home_dir_append(
-            f'remote_logs/simulation_log_{get_current_time(mode=TimeFormat.DATETIME2)}')
+        target_simulation_log_path = home_dir_append(f'remote_logs/simulation_log_{get_current_time(mode=TimeFormat.DATETIME2)}')
 
-        pool_map(task, self.middleware_list)
+        pool_map(task, self.middleware_list, proc=1)
 
         return True
 
