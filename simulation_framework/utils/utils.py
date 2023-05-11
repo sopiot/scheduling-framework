@@ -127,12 +127,12 @@ def exception_wrapper(func: Callable = None,
                     'Select exit mode[1].\n1. Just exit\n2. Download remote logs\n') or '1'
                 if user_input == '1':
                     cprint(f'Exit whole simulation...', 'red')
-                    exit(0)
                 elif user_input == '2':
                     cprint(f'Download remote logs...', 'yellow')
                     self.event_handler.download_log_file()
                 else:
-                    pass
+                    cprint(f'Unknown input. Exit whole simulation...', 'red')
+                exit(0)
         except Exception as e:
             if e is Empty:
                 print_error(e)

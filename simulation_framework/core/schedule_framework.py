@@ -83,22 +83,20 @@ class SoPSchedulingFramework:
             remote_device_os = ssh_client.send_command(
                 'lsb_release -a')[1].split('\t')[1].strip()
 
+            # result = ssh_client.send_command(
+            #     f'rm -rf {home_dir_append(middleware_path, user)}')
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
-            if not middleware.binary_sended:
-                result = ssh_client.send_command(
-                    f'rm -rf {home_dir_append(middleware_path, user)}')
-                result = ssh_client.send_dir(
-                    SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
-                if 'Ubuntu 20.04' in remote_device_os:
-                    result = ssh_client.send_file(
-                        f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-                elif 'Ubuntu 22.04' in remote_device_os:
-                    result = ssh_client.send_file(
-                        f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-                elif 'Raspbian' in remote_device_os:
-                    result = ssh_client.send_file(
-                        f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-                middleware.binary_sended = True
+            result = ssh_client.send_dir(
+                SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
+            if 'Ubuntu 20.04' in remote_device_os:
+                result = ssh_client.send_file(
+                    f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+            elif 'Ubuntu 22.04' in remote_device_os:
+                result = ssh_client.send_file(
+                    f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+            elif 'Raspbian' in remote_device_os:
+                result = ssh_client.send_file(
+                    f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
 
             ssh_client.send_file(
                 policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
@@ -126,7 +124,8 @@ class SoPSchedulingFramework:
 
             if any([thing.is_super for thing in middleware.thing_list]):
                 remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-                thing_install_command = f'pip install big-thing-py'
+                force_install = False
+                thing_install_command = f'pip install big-thing-py {"--force-reinstall" if force_install else ""}'
                 ssh_client.send_command(thing_install_command)
 
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(

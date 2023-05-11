@@ -356,7 +356,6 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.super_scenario_num = super_scenario_num
 
         self.online = False
-        self.binary_sended = False
 
         self.event_log: List[SoPEvent] = []
         self.recv_queue: Queue = Queue()
