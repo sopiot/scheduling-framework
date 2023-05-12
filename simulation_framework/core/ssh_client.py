@@ -132,7 +132,7 @@ class SoPSSHClient:
         return target_pid_list
 
     def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
-        while not SoPSSHClient.COMMAND_SENDING < 5:
+        while not SoPSSHClient.COMMAND_SENDING < 2:
             time.sleep(THREAD_TIME_OUT)
 
         if isinstance(command, str):
