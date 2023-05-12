@@ -29,7 +29,7 @@
       ]
     },
     {
-      "name": "run experiment simulation(wide_type_H10_sub4)",
+      "name": "run experiment simulation(long_type_H10_sub4)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/run.py",
@@ -38,7 +38,7 @@
       "justMyCode": false,
       "args": [
         "-e",
-        "./sim_env_samples/paper_experiments/wide_type_H10_sub4/config.yml",
+        "./sim_env_samples/paper_experiments/long_type_H10_sub4/config.yml",
         "-p",
         "./scheduling_algorithm/samples/default.cc"
       ]

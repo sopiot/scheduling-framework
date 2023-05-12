@@ -70,68 +70,110 @@ class SoPSchedulingFramework:
                                 middleware_path: str = '~/middleware',
                                 policy_file_path: str = ''):
 
-        def task(middleware: SoPMiddlewareElement):
-            ssh_client = simulation_executor.event_handler.find_ssh_client(
-                middleware)
-            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            user = os.path.basename(remote_home_dir)
-            ssh_client.send_command('sudo apt install lsb-release -y')
-            result = ssh_client.send_command('echo $?')
-            if int(result[0]):
-                raise Exception(
-                    f'Install lsb-release failed to {middleware.name}')
-            remote_device_os = ssh_client.send_command(
-                'lsb_release -a')[1].split('\t')[1].strip()
+        def get_os_version(ssh_client: SoPSSHClient) -> str:
+            lsb_release_install_check = ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True)
+            if not lsb_release_install_check:
+                install_result = ssh_client.send_command_with_check_success('sudo apt install lsb-release -y;', get_pty=True)
+                if not install_result:
+                    raise Exception(f'Install lsb-release failed to {ssh_client.device.name}')
 
+            remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
+            return remote_device_os
+
+        def install_remote_middleware(ssh_client: SoPSSHClient, user: str):
             # result = ssh_client.send_command(
             #     f'rm -rf {home_dir_append(middleware_path, user)}')
+            remote_device_os = get_os_version(ssh_client)
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
-            result = ssh_client.send_dir(
-                SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
+            ssh_client.send_dir(SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
             if 'Ubuntu 20.04' in remote_device_os:
-                result = ssh_client.send_file(
-                    f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64',
+                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
             elif 'Ubuntu 22.04' in remote_device_os:
-                result = ssh_client.send_file(
-                    f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64',
+                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
             elif 'Raspbian' in remote_device_os:
-                result = ssh_client.send_file(
-                    f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86',
+                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+            ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
+            middleware_update_result = ssh_client.send_command_with_check_success(f'cd {home_dir_append(middleware_path, user)};'
+                                                                                  'chmod +x sopiot_middleware;'
+                                                                                  'cmake .;'
+                                                                                  'make -j')
+            if not middleware_update_result:
+                raise Exception(f'Install middleware to {ssh_client.device.name} failed')
 
-            ssh_client.send_file(
-                policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
-            middleware_update_result = ssh_client.send_command(
-                f'cd {home_dir_append(middleware_path, user)}; chmod +x sopiot_middleware;cmake .; make -j; echo $?')[-1]
+            SOPTEST_LOG_DEBUG(f'Install middleware to {ssh_client.device.name} success', SoPTestLogLevel.INFO)
+            return True
 
-            if not int(middleware_update_result[0]):
-                SOPTEST_LOG_DEBUG(
-                    f'device {middleware.device.name} middleware {middleware.name} update result: True', SoPTestLogLevel.INFO)
-            else:
-                raise Exception(
-                    f'device {middleware.device.name} middleware {middleware.name} update result: False')
+        def install_remote_thing(ssh_client: SoPSSHClient, force_install: bool = True):
+            # if not any([thing.is_super for thing in middleware.thing_list]):
+            #     SOPTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} is not have Super Thing', SoPTestLogLevel.INFO)
+            #     return True
+            thing_install_command = f'pip install big-thing-py {"--force-reinstall --no-deps" if force_install else ""}'
+            SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} start', SoPTestLogLevel.INFO)
+            pip_install_result = ssh_client.send_command_with_check_success(thing_install_command)
+            if not pip_install_result:
+                raise Exception(f'Install big-thing-py failed to {ssh_client.device.name}')
 
+            SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} end', SoPTestLogLevel.INFO)
+            return True
+
+        def init_ramdisk(ssh_client: SoPSSHClient) -> None:
             # TODO: not tested yet
-            randisk_check_command = f'ls /mnt/ramdisk'
-            ssh_client.send_command(randisk_check_command)
-            randisk_check_result = ssh_client.send_command('echo $?')
-            if int(randisk_check_result[0]):
-                ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
-                                                 f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
-                                                 f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
-                                                 f'sudo chmod 777 /mnt/ramdisk']
+            ramdisk_check_command = 'ls /mnt/ramdisk'
+            ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
+                                             f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
+                                             f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
+                                             f'sudo chmod 777 /mnt/ramdisk']
+            ramdisk_check_result = ssh_client.send_command_with_check_success(ramdisk_check_command)
+            if not ramdisk_check_result:
                 for ramdisk_generate_command in ramdisk_generate_command_list:
-                    ssh_client.send_command(ramdisk_generate_command)
+                    result = ssh_client.send_command_with_check_success(ramdisk_generate_command)
+                    if not result:
+                        raise Exception(f'Generate ramdisk failed to {ssh_client.device.name}')
 
-            if any([thing.is_super for thing in middleware.thing_list]):
-                remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-                force_install = False
-                thing_install_command = f'pip install big-thing-py {"--force-reinstall" if force_install else ""}'
-                ssh_client.send_command(thing_install_command)
+            return True
 
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
-            simulation_executor.simulation_env)
+        def time_sync(ssh_client: SoPSSHClient) -> None:
+            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
+            remote_shell_path = ssh_client.send_command('echo $SHELL')
+            remote_shell_name = remote_shell_path[0].split('/')[-1].strip()
+            ntp_install_result = ssh_client.send_command_with_check_success(f'source {remote_home_dir}/.{remote_shell_name}rc; command -v ntpdate', get_pty=True)
+            if not ntp_install_result:
+                ntp_install_success_result = ssh_client.send_command_with_check_success('sudo apt install ntpdate -y')
+                if not ntp_install_success_result:
+                    raise Exception(f'Install ntpdate failed to {ssh_client.device.name}')
 
-        pool_map(task, middleware_list, proc=1)
+            # time_sync_command = 'sudo service ntp restart; ntpq -p'
+            time_sync_command = (f'source {remote_home_dir}/.{remote_shell_name}rc;'
+                                 f'sudo service ntp stop;'
+                                 f'sudo ntpdate time.google.com')
+            SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} start', SoPTestLogLevel.INFO)
+            time_sync_result = ssh_client.send_command_with_check_success(time_sync_command, get_pty=True)
+            if not time_sync_result:
+                SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} failed!', SoPTestLogLevel.FAIL)
+                return False
+
+            SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} end', SoPTestLogLevel.INFO)
+            return True
+
+        def send_task(ssh_client: SoPSSHClient):
+            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
+            user = os.path.basename(remote_home_dir)
+            install_remote_middleware(ssh_client=ssh_client, user=user)
+
+        def task(ssh_client: SoPSSHClient):
+            install_remote_thing(ssh_client=ssh_client, force_install=True)
+            init_ramdisk(ssh_client=ssh_client)
+            time_sync(ssh_client=ssh_client)
+
+        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(simulation_executor.simulation_env)
+        ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list] +
+                               [simulation_executor.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
+
+        pool_map(task, ssh_client_list)
+        pool_map(send_task, ssh_client_list, proc=1)
 
         return True
 
@@ -142,13 +184,13 @@ class SoPSchedulingFramework:
 
         simulation_result_list_sort_by_policy: Dict[str, List[SoPSimulationResult]] = {
         }
-        for simualtion_result in raw_simulation_result_list:
-            if simualtion_result.policy in simulation_result_list_sort_by_policy:
-                simulation_result_list_sort_by_policy[simualtion_result.policy].append(
-                    simualtion_result)
+        for simulation_result in raw_simulation_result_list:
+            if simulation_result.policy in simulation_result_list_sort_by_policy:
+                simulation_result_list_sort_by_policy[simulation_result.policy].append(
+                    simulation_result)
             else:
-                simulation_result_list_sort_by_policy[simualtion_result.policy] = [
-                    simualtion_result]
+                simulation_result_list_sort_by_policy[simulation_result.policy] = [
+                    simulation_result]
         simulation_result_list: List[SoPSimulationResult] = []
         for policy, result_list in simulation_result_list_sort_by_policy.items():
             simulation_result_avg = SoPSimulationResult(policy=policy,
