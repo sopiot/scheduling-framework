@@ -118,10 +118,12 @@ class LogLine:
         self._timestamp = datetime.strptime(timestamp, TIMESTAMP_FORMAT)
         self.topic = self.get_topic(self.raw_log_data)
         self.payload = self.get_payload(self.raw_log_data)
+        self.direction = self.get_direction(self.raw_log_data)
         self.protocol = SoPProtocolType.get(self.topic) if self.topic else None
 
         self.scenario = ''
         self.requester_middleware = ''
+        self.target_middleware = ''
         self.log_key = ''
 
     def topic_slice(self, order: int):
@@ -156,6 +158,16 @@ class LogLine:
         payload = match.group()
         return payload.replace('\n', '').replace(' ', '').strip()
 
+    def get_direction(self, log_data: str) -> Direction:
+        if Direction.PUBLISH.value in log_data:
+            direction = Direction.PUBLISH
+        elif Direction.RECEIVED.value in log_data:
+            direction = Direction.RECEIVED
+        else:
+            direction = None
+
+        return direction
+
     @property
     def raw_log_data(self) -> str:
         return self._raw_log_data
@@ -165,14 +177,20 @@ class LogLine:
         self._raw_log_data = raw_log_data
         self.topic = self.get_topic(self._raw_log_data)
         self.payload = self.get_payload(self._raw_log_data)
+        self.direction = self.get_direction(self._raw_log_data)
 
     @property
     def timestamp(self) -> dict:
         return self._timestamp
 
     @timestamp.setter
-    def timestamp(self, timestamp: str):
-        self._timestamp = datetime.strptime(timestamp, TIMESTAMP_FORMAT)
+    def timestamp(self, timestamp: Union[str, datetime]):
+        if isinstance(timestamp, str):
+            self._timestamp = datetime.strptime(timestamp, TIMESTAMP_FORMAT)
+        elif isinstance(timestamp, datetime):
+            self._timestamp = timestamp
+        else:
+            raise TypeError('timestamp type must be str or datetime')
 
     def timestamp_str(self) -> str:
         return self._timestamp.strftime(TIMESTAMP_FORMAT)
@@ -247,7 +265,7 @@ class ThingLog:
                                 element_name=self.name)
 
     def get_topic_func(self, log_data: str) -> str:
-        match = re.search(r'topic : (.+?) payload : ([\s\S]*)', log_data)
+        match = re.search(r'topic: (.+?) payload: ([\s\S]*)', log_data)
         if match:
             topic = match.group(1)
         else:
@@ -256,7 +274,7 @@ class ThingLog:
         return topic
 
     def get_payload_func(self, log_data: str) -> str:
-        match = re.search(r'topic : (.+?) payload : ([\s\S]*)', log_data)
+        match = re.search(r'topic: (.+?) payload: ([\s\S]*)', log_data)
         if match:
             payload = match.group(2)
         else:
@@ -357,10 +375,11 @@ class Profiler:
             whole_mqtt_msg_log_line_list.append(log_line)
 
         for log_line in whole_mqtt_msg_log_line_list:
-            log_key, scenario, requester_middleware = self.make_log_line_info(log_line)
+            log_key, scenario, requester_middleware, target_middleware = self.make_log_line_info(log_line)
             log_line.log_key = log_key
             log_line.scenario = scenario
             log_line.requester_middleware = requester_middleware
+            log_line.target_middleware = target_middleware
 
         return whole_mqtt_msg_log_line_list
 
@@ -409,6 +428,7 @@ class Profiler:
     def make_log_line_info(self, log_line: LogLine) -> Tuple[str, str, str]:
         topic = log_line.topic
         payload = json_string_to_dict(log_line.payload)
+        target_middleware = ''
 
         if log_line.protocol in SUPER_PROTOCOL:
             super_service = topic.split('/')[2]
@@ -426,16 +446,16 @@ class Profiler:
             requester_middleware = topic.split('/')[5].split('@')[0]
             super_thing = topic.split('/')[5].split('@')[1]
             super_service = topic.split('/')[5].split('@')[2]
+            target_middleware = topic.split('/')[4]
             # target_service = topic.split('/')[2]
-            # target_middleware = topic.split('/')[4]
             # request_order = topic.split('/')[5].split('@')[3]
             # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
         elif log_line.protocol in SUB_RESULT_PROTOCOL:
             requester_middleware = topic.split('/')[6].split('@')[0]
             super_thing = topic.split('/')[6].split('@')[1]
             super_service = topic.split('/')[6].split('@')[2]
+            target_middleware = topic.split('/')[5]
             # target_service = topic.split('/')[3]
-            # target_middleware = topic.split('/')[5]
             # request_order = topic.split('/')[6].split('@')[3]
             # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
         elif log_line.protocol in SUB_EXECUTE_PROTOCOL:
@@ -443,9 +463,9 @@ class Profiler:
                 requester_middleware = topic.split('/')[5].split('@')[0]
                 super_thing = topic.split('/')[5].split('@')[1]
                 super_service = topic.split('/')[5].split('@')[2]
+                target_middleware = topic.split('/')[4]
                 # target_service = topic.split('/')[2]
                 # target_thing = topic.split('/')[3]
-                # target_middleware = topic.split('/')[4]
                 # request_order = topic.split('/')[5].split('@')[3]
                 # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
             except Exception as e:
@@ -455,9 +475,9 @@ class Profiler:
                 requester_middleware = topic.split('/')[6].split('@')[0]
                 super_thing = topic.split('/')[6].split('@')[1]
                 super_service = topic.split('/')[6].split('@')[2]
+                target_middleware = topic.split('/')[5]
                 # target_service = topic.split('/')[3]
                 # target_thing = topic.split('/')[4]
-                # target_middleware = topic.split('/')[5]
                 # request_order = topic.split('/')[6].split('@')[3]
                 # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
             except Exception as e:
@@ -467,7 +487,7 @@ class Profiler:
         requester_middleware = '_'.join(requester_middleware.split('_')[:-1])
         log_key = '@'.join([scenario, super_service, super_thing, requester_middleware])
 
-        return log_key, scenario, requester_middleware
+        return log_key, scenario, requester_middleware, target_middleware
 
     def get_request_start_log_list(self, super_service: str, profile_type: ProfileType) -> List[LogLine]:
         '''
@@ -503,17 +523,23 @@ class Profiler:
         else:
             raise Exception(f"Invalid profile type: {profile_type}")
 
-        same_request_log_list = []
+        request_log_list = []
         for log_line in self.integrated_mqtt_msg_log_list:
             if not log_line.protocol in protocol_filter:
                 continue
             if log_line.log_key != super_service_start_log.log_key:
                 continue
-            if ('middleware' in log_line.element_name) and (not log_line.element_name in log_line.requester_middleware):
-                continue
 
-            same_request_log_list.append(log_line)
+            if log_line.element_type == SoPElementType.MIDDLEWARE:
+                if log_line.protocol in SUPER_PROTOCOL + SUPER_RESULT_PROTOCOL and not log_line.element_name in log_line.requester_middleware:
+                    continue
+                elif log_line.protocol in SUB_PROTOCOL + SUB_RESULT_PROTOCOL and not log_line.element_name in log_line.target_middleware:
+                    continue
 
+            request_log_list.append(log_line)
+
+        same_request_log_list = self.check_log_line_sequence(request_log_list)
+        # same_request_log_list = request_log_list
         return same_request_log_list
 
     def profile_type_to_protocol(self, profile_type: ProfileType) -> SoPProtocolType:
@@ -523,6 +549,22 @@ class Profiler:
             return SoPProtocolType.Super.CP_EXECUTE
         else:
             raise Exception(f"Invalid profile type: {profile_type}")
+
+    def check_log_line_sequence(self, request_log_list: List[LogLine]) -> List[LogLine]:
+        for i, log_line in enumerate(request_log_list[1:]):
+            prev_element_type = request_log_list[i-1].element_type
+            prev_protocol = request_log_list[i-1].protocol
+            curr_element_type = request_log_list[i].element_type
+            curr_protocol = request_log_list[i].protocol
+            if (prev_element_type, curr_element_type) == (SoPElementType.THING, SoPElementType.MIDDLEWARE) \
+                    and (prev_protocol, curr_protocol) == (SoPProtocolType.Super.MS_RESULT_EXECUTE, SoPProtocolType.Super.SM_EXECUTE):
+                tmp_log_line = request_log_list[i-1]
+                request_log_list[i-1] = request_log_list[i]
+                request_log_list[i] = tmp_log_line
+
+                request_log_list[i].timestamp = request_log_list[i-1].timestamp
+
+        return request_log_list
 
     def profile(self, type: ProfileType) -> Overhead:
         whole_overhead = Overhead()
@@ -536,7 +578,7 @@ class Profiler:
         return whole_overhead
 
     def profile_super_service(self, super_service: str, profile_type: ProfileType) -> Overhead:
-        overhead = Overhead()
+        super_service_overhead = Overhead()
 
         # 같은 super service에 대한 요청이 여러개가 존재한다. 각 요청에 대해서 오버헤드를 계산한다.
         request_start_log_list = self.get_request_start_log_list(super_service, profile_type=profile_type)
@@ -549,27 +591,11 @@ class Profiler:
                     duration = (same_request_log_list[i].timestamp - same_request_log_list[i-1].timestamp) if i > 0 else timedelta(seconds=0)
                     duration_ms = int(duration.total_seconds() * 1e3)
                     duration_us = int(duration.total_seconds() * 1e6)
-                    f.write(f'({f"{duration_ms:>4}.{int(duration_us - duration_ms * 1e3):<3}"} ms)[{log_line.timestamp_str()}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
+                    f.write(
+                        f'({f"{duration_ms:>4}.{int(duration_us - duration_ms * 1e3):0>3}"} ms)[{log_line.timestamp_str()}][{log_line.direction.value:<8}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
             SOPLOG_DEBUG(f'Write {log_file_name}...', 'yellow')
 
-            # for sub_service, i in self.super_service_table[super_service]:
-            #     with open(f'log_{super_service}_{sub_service}_{i}.txt', 'w') as f:
-            #         for i, log_line in enumerate(request_log_list[:-1]):
-            #             sub_service_check = (log_line.protocol in (SUB_PROTOCOL + SUB_RESULT_PROTOCOL + SUB_EXECUTE_PROTOCOL + SUB_EXECUTE_RESULT_PROTOCOL)) and (sub_service in log_line.topic)
-            #             super_service_check = (log_line.protocol in (SUPER_PROTOCOL + SUPER_RESULT_PROTOCOL)) and (super_service in log_line.topic)
-            #             middleware_check = (log_line.element_type == SoPElementType.MIDDLEWARE and super_service_start_log.element_name in super_service_start_log.requester_middleware)
-            #             if not (sub_service_check or super_service_check) and middleware_check:
-            #                 continue
-            #             duration = (request_log_list[i].timestamp - request_log_list[i-1].timestamp) if i > 0 else timedelta(milliseconds=0)
-            #             duration_ms = int(duration.total_seconds() * 1000)
-            #             f.write(f'({duration_ms:>4}ms)[{log_line.timestamp_str()[:-3]}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
+        return super_service_overhead
 
-            # with open(f'log_{super_service}.txt', 'w') as f:
-            #     for i, log_line in enumerate(request_log_list):
-            #         if super_service_start_log.log_key != log_line.log_key:
-            #             continue
-            #         duration = (request_log_list[i].timestamp - request_log_list[i-1].timestamp) if i > 0 else timedelta(milliseconds=0)
-            #         duration_ms = int(duration.total_seconds() * 1000)
-            #         f.write(f'({duration_ms:>4}ms)[{log_line.timestamp_str()[:-3]}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
-
-        return overhead
+    def profile_target(self, target: str, profile_type: ProfileType) -> Overhead:
+        target_overhead = Overhead()
