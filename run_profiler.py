@@ -16,7 +16,7 @@ def main():
     args = arg_parse()
 
     profiler = Profiler(root_log_folder_path=args.root_log_path)
-    profiler.profile(ProfileType.EXECUTE)
+    profiler.profile(ProfileType.EXECUTE, export=False)
     overhead1 = profiler.get_avg_overhead()
     overhead2 = profiler.get_avg_overhead(OverheadType.INNER)
     overhead3 = profiler.get_avg_overhead(OverheadType.COMM)

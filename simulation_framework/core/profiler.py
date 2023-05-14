@@ -835,25 +835,26 @@ class Profiler:
                 whole_overhead += overhead
             return whole_overhead.avg(overhead_type)
 
-    def profile(self, profile_type: ProfileType) -> Tuple[Overhead, float]:
+    def profile(self, profile_type: ProfileType, export: bool = False) -> Tuple[Overhead, float]:
         if not profile_type in [ProfileType.SCHEDULE, ProfileType.EXECUTE]:
             raise Exception(f"Invalid profile type: {profile_type}")
 
         for super_service in self.super_service_table:
-            request_overhead_list = self.profile_super_service(super_service, profile_type)
+            request_overhead_list = self.profile_super_service(super_service, profile_type, export=export)
             self.whole_request_overhead_list.extend(request_overhead_list)
 
-    def profile_super_service(self, super_service: str, profile_type: ProfileType) -> List[Overhead]:
+    def profile_super_service(self, super_service: str, profile_type: ProfileType, export: bool = False) -> List[Overhead]:
         # 같은 super service에 대한 request가 여러개가 존재한다. 각 요청에 대해서 오버헤드를 계산한다.
         request_start_log_list = self.collect_request_start_log_list(super_service, profile_type=profile_type)
         request_overhead_list: List[Overhead] = []
         for i, request_start_log in enumerate(request_start_log_list):
             request_log_list: List[LogLine] = self.get_request_log_list(request_start_log, profile_type=profile_type)
-
-            self.export_to_file(log_file_name=f'log_{super_service}_request_{i}.txt', request_log_list=request_log_list)
             request_overhead = self.profile_request(request_log_list=request_log_list, profile_type=profile_type)
-
             request_overhead_list.append(request_overhead)
+
+            if export:
+                self.export_to_file(log_file_name=f'log_{super_service}_request_{i}.txt', request_log_list=request_log_list)
+
 
         return request_overhead_list
 
