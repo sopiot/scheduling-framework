@@ -124,7 +124,11 @@ class LogLine:
         self.scenario = ''
         self.requester_middleware = ''
         self.target_middleware = ''
-        self.log_key = ''
+
+        # request_key = scenario@super_service@super_thing@requester_middleware
+        self.request_key = ''
+        # target_key = target_service@target_thing
+        self.target_key = ''
 
     def topic_slice(self, order: int):
         if not self.topic:
@@ -375,21 +379,14 @@ class Profiler:
             whole_mqtt_msg_log_line_list.append(log_line)
 
         for log_line in whole_mqtt_msg_log_line_list:
-            log_key, scenario, requester_middleware, target_middleware = self.make_log_line_info(log_line)
-            log_line.log_key = log_key
+            request_key, target_key, scenario, requester_middleware, target_middleware = self.make_log_line_info(log_line)
+            log_line.request_key = request_key
+            log_line.target_key = target_key
             log_line.scenario = scenario
             log_line.requester_middleware = requester_middleware
             log_line.target_middleware = target_middleware
 
         return whole_mqtt_msg_log_line_list
-
-    # def export_integrated_log_file(self, file_name: str = 'whole_log_file.txt') -> str:
-    #     with open(file_name, 'w') as f:
-    #         for log_line in self.integrated_log_list:
-    #             f.write(f'[{log_line.timestamp_str()[:-3]}][{"THING     " if log_line.element_type == SoPElementType.THING else "MIDDLEWARE"}]'
-    #                     f'[{log_line.element_name}][{log_line.log_key}] '
-    #                     f'{log_line.topic} {log_line.payload}\n')
-    #     return os.path.abspath(file_name)
 
     def make_super_service_table(self) -> Dict[str, List[str]]:
         '''
@@ -425,69 +422,68 @@ class Profiler:
 
         return [log_line for log_line in log_data if start_time <= log_line.timestamp <= end_time]
 
-    def make_log_line_info(self, log_line: LogLine) -> Tuple[str, str, str]:
+    def make_log_line_info(self, log_line: LogLine) -> Tuple[str, str, str, str, str]:
         topic = log_line.topic
         payload = json_string_to_dict(log_line.payload)
         target_middleware = ''
+        target_thing = ''
+        target_service = ''
+        request_key = ''
+        target_key = ''
 
         if log_line.protocol in SUPER_PROTOCOL:
             super_service = topic.split('/')[2]
             super_thing = topic.split('/')[3]
             requester_middleware = topic.split('/')[5]
             # super_middleware = topic.split('/')[4]
-            # log_key = '@'.join([scenario, super_service, super_thing, super_middleware, requester_middleware])
         elif log_line.protocol in SUPER_RESULT_PROTOCOL:
             super_service = topic.split('/')[3]
             super_thing = topic.split('/')[4]
             requester_middleware = topic.split('/')[6]
             # super_middleware = topic.split('/')[5]
-            # log_key = '@'.join([scenario, super_service, super_thing, super_middleware, requester_middleware])
         elif log_line.protocol in SUB_PROTOCOL:
             requester_middleware = topic.split('/')[5].split('@')[0]
             super_thing = topic.split('/')[5].split('@')[1]
             super_service = topic.split('/')[5].split('@')[2]
             target_middleware = topic.split('/')[4]
-            # target_service = topic.split('/')[2]
+            target_service = topic.split('/')[2]
             # request_order = topic.split('/')[5].split('@')[3]
-            # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
         elif log_line.protocol in SUB_RESULT_PROTOCOL:
             requester_middleware = topic.split('/')[6].split('@')[0]
             super_thing = topic.split('/')[6].split('@')[1]
             super_service = topic.split('/')[6].split('@')[2]
             target_middleware = topic.split('/')[5]
-            # target_service = topic.split('/')[3]
+            target_service = topic.split('/')[3]
             # request_order = topic.split('/')[6].split('@')[3]
-            # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
         elif log_line.protocol in SUB_EXECUTE_PROTOCOL:
-            try:
+            if len(topic.split('/')) <= 5:
+                request_key = ''
+            else:
                 requester_middleware = topic.split('/')[5].split('@')[0]
                 super_thing = topic.split('/')[5].split('@')[1]
                 super_service = topic.split('/')[5].split('@')[2]
                 target_middleware = topic.split('/')[4]
-                # target_service = topic.split('/')[2]
-                # target_thing = topic.split('/')[3]
+                target_service = topic.split('/')[2]
+                target_thing = topic.split('/')[3]
                 # request_order = topic.split('/')[5].split('@')[3]
-                # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
-            except Exception as e:
-                log_key = ''
         elif log_line.protocol in SUB_EXECUTE_RESULT_PROTOCOL:
-            try:
+            if len(topic.split('/')) <= 5:
+                request_key = ''
+            else:
                 requester_middleware = topic.split('/')[6].split('@')[0]
                 super_thing = topic.split('/')[6].split('@')[1]
                 super_service = topic.split('/')[6].split('@')[2]
                 target_middleware = topic.split('/')[5]
-                # target_service = topic.split('/')[3]
-                # target_thing = topic.split('/')[4]
+                target_service = topic.split('/')[3]
+                target_thing = topic.split('/')[4]
                 # request_order = topic.split('/')[6].split('@')[3]
-                # log_key = '@'.join([scenario, target_service, requester_middleware, super_thing, super_service, str(request_order)])
-            except Exception as e:
-                log_key = ''
 
         scenario = payload['scenario']
         requester_middleware = '_'.join(requester_middleware.split('_')[:-1])
-        log_key = '@'.join([scenario, super_service, super_thing, requester_middleware])
+        request_key = '@'.join([scenario, super_service, super_thing, requester_middleware])
+        target_key = '@'.join([target_service, target_thing])
 
-        return log_key, scenario, requester_middleware, target_middleware
+        return request_key, target_key, scenario, requester_middleware, target_middleware
 
     def get_request_start_log_list(self, super_service: str, profile_type: ProfileType) -> List[LogLine]:
         '''
@@ -527,7 +523,7 @@ class Profiler:
         for log_line in self.integrated_mqtt_msg_log_list:
             if not log_line.protocol in protocol_filter:
                 continue
-            if log_line.log_key != super_service_start_log.log_key:
+            if log_line.request_key != super_service_start_log.request_key:
                 continue
 
             if log_line.element_type == SoPElementType.MIDDLEWARE:
