@@ -187,7 +187,7 @@ class SoPEventHandler:
     def event_listener_stop(self):
         self.event_listener_event.set()
 
-    def download_log_file(self):
+    def download_log_file(self) -> str:
 
         def task(middleware: SoPMiddlewareElement):
             ssh_client = self.find_ssh_client(middleware)
@@ -236,7 +236,7 @@ class SoPEventHandler:
 
         pool_map(task, self.middleware_list, proc=1)
 
-        return True
+        return target_simulation_log_path
 
     def event_trigger(self, event: SoPEvent):
         # wait until timestamp is reached

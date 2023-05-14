@@ -839,6 +839,7 @@ class Profiler:
         if not profile_type in [ProfileType.SCHEDULE, ProfileType.EXECUTE]:
             raise Exception(f"Invalid profile type: {profile_type}")
 
+        self.whole_request_overhead_list = []
         for super_service in self.super_service_table:
             request_overhead_list = self.profile_super_service(super_service, profile_type, export=export)
             self.whole_request_overhead_list.extend(request_overhead_list)
@@ -854,7 +855,6 @@ class Profiler:
 
             if export:
                 self.export_to_file(log_file_name=f'log_{super_service}_request_{i}.txt', request_log_list=request_log_list)
-
 
         return request_overhead_list
 
