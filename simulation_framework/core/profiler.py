@@ -79,12 +79,33 @@ class Overhead:
         self.middleware__middleware_comm_overhead_list: List[timedelta] = []
 
     def __str__(self):
-        return f'Super Thing      Average Inner Overhead                   : {self.avg(OverheadType.SUPER_THING_INNER) * 1e3:5.3f} ms\n' \
-               f'Middleware       Average Inner Overhead                   : {self.avg(OverheadType.MIDDLEWARE_INNER) * 1e3:5.3f} ms\n' \
-               f'Target Thing     Average Inner Overhead                   : {self.avg(OverheadType.TARGET_THING_INNER) * 1e3:5.3f} ms\n' \
-               f'Super Thing  <-> Average Middleware Communication Overhead: {self.avg(OverheadType.SUPER_THING__MIDDLEWARE_COMM) * 1e3:5.3f} ms\n' \
-               f'Target Thing <-> Average Middleware Communication Overhead: {self.avg(OverheadType.TARGET_THING__MIDDLEWARE_COMM) * 1e3:5.3f} ms\n' \
-               f'Middleware   <-> Average Middleware Communication Overhead: {self.avg(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM) * 1e3:5.3f} ms\n'
+        super_thing_inner_overhead_total, super_thing_inner_overhead_avg = self.sum(OverheadType.SUPER_THING_INNER) * 1e3, self.avg(OverheadType.SUPER_THING_INNER) * 1e3
+        target_thing_inner_overhead_total, target_thing_inner_overhead_avg = self.sum(OverheadType.TARGET_THING_INNER) * 1e3, self.avg(OverheadType.TARGET_THING_INNER) * 1e3
+        middleware_inner_overhead_total, middleware_inner_overhead_avg = self.sum(OverheadType.MIDDLEWARE_INNER) * 1e3, self.avg(OverheadType.MIDDLEWARE_INNER) * 1e3
+        super_thing_middleware_comm_overhead_total, super_thing_middleware_comm_overhead_avg = self.sum(
+            OverheadType.SUPER_THING__MIDDLEWARE_COMM) * 1e3, self.avg(OverheadType.SUPER_THING__MIDDLEWARE_COMM) * 1e3
+        target_thing_middleware_comm_overhead_total, target_thing_middleware_comm_overhead_avg = self.sum(
+            OverheadType.TARGET_THING__MIDDLEWARE_COMM) * 1e3, self.avg(OverheadType.TARGET_THING__MIDDLEWARE_COMM) * 1e3
+        middleware_middleware_comm_overhead_total, middleware_middleware_comm_overhead_avg = self.sum(
+            OverheadType.MIDDLEWARE__MIDDLEWARE_COMM) * 1e3, self.avg(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM) * 1e3
+
+        return (f'Super Thing                 Inner Overhead         - '
+                f'total: {super_thing_inner_overhead_total:8.3f} ms, average: {super_thing_inner_overhead_avg:8.3f} ms\n'
+                f'Target Thing                Target Service Execute - '
+                f'total: {target_thing_inner_overhead_total:8.3f} ms, average: {target_thing_inner_overhead_avg:8.3f} ms\n'
+                f'Middleware                  Inner Overhead         - '
+                f'total: {middleware_inner_overhead_total:8.3f} ms, average: {middleware_inner_overhead_avg:8.3f} ms\n'
+                f'Super Thing <-> Middleware  Communication Overhead - '
+                f'total: {super_thing_middleware_comm_overhead_total:8.3f} ms, average: {super_thing_middleware_comm_overhead_avg:8.3f} ms\n'
+                f'Target Thing <-> Middleware Communication Overhead - '
+                f'total: {target_thing_middleware_comm_overhead_total:8.3f} ms, average: {target_thing_middleware_comm_overhead_avg:8.3f} ms\n'
+                f'Middleware <-> Middleware   Communication Overhead - '
+                f'total: {middleware_middleware_comm_overhead_total:8.3f} ms, average: {middleware_middleware_comm_overhead_avg:8.3f} ms\n'
+                ''
+                f'                            Total Inner Overhead         - '
+                f'{sum([super_thing_inner_overhead_total, middleware_inner_overhead_total]):8.3f} ms\n'
+                f'                            Total Communication Overhead - '
+                f'{sum([super_thing_middleware_comm_overhead_total, target_thing_middleware_comm_overhead_total, middleware_middleware_comm_overhead_total]):8.3f} ms, ')
 
     def __add__(self, o: 'Overhead') -> 'Overhead':
         self.super_thing_inner_overhead_list += o.super_thing_inner_overhead_list
@@ -109,6 +130,20 @@ class Overhead:
             self.target_thing__middleware_comm_overhead_list.append(overhead)
         elif type == OverheadType.MIDDLEWARE__MIDDLEWARE_COMM:
             self.middleware__middleware_comm_overhead_list.append(overhead)
+
+    def sum(self, type: OverheadType) -> float:
+        if type == OverheadType.SUPER_THING_INNER:
+            return sum([overhead.total_seconds() for overhead in self.super_thing_inner_overhead_list])
+        elif type == OverheadType.TARGET_THING_INNER:
+            return sum([overhead.total_seconds() for overhead in self.target_thing_inner_overhead_list])
+        elif type == OverheadType.MIDDLEWARE_INNER:
+            return sum([overhead.total_seconds() for overhead in self.middleware_inner_overhead_list])
+        elif type == OverheadType.SUPER_THING__MIDDLEWARE_COMM:
+            return sum([overhead.total_seconds() for overhead in self.super_thing__middleware_comm_overhead_list])
+        elif type == OverheadType.TARGET_THING__MIDDLEWARE_COMM:
+            return sum([overhead.total_seconds() for overhead in self.target_thing__middleware_comm_overhead_list])
+        elif type == OverheadType.MIDDLEWARE__MIDDLEWARE_COMM:
+            return sum([overhead.total_seconds() for overhead in self.middleware__middleware_comm_overhead_list])
 
     def avg(self, type: OverheadType) -> float:
         if type == OverheadType.SUPER_THING_INNER:
@@ -679,14 +714,15 @@ class Profiler:
     def second_to_millisecond(self, second: float) -> int:
         return float(second * 1e3)
 
-    def make_print_string(self, duration: float, log_line: LogLine) -> str:
+    def make_print_string(self, duration: timedelta, log_line: LogLine) -> str:
         timestamp = log_line.timestamp_str()
         direction = log_line.direction.value
         element_name = log_line.element_name
         topic = log_line.topic
         payload = log_line.payload
 
-        return f'({duration:5.3f} ms)[{timestamp}][{direction:<8}] {element_name} {topic} {payload}\n'
+        log_string = f'({duration.total_seconds()*1e3:8.3f} ms)[{timestamp}][{direction:<8}] {element_name} {topic} {payload}\n'
+        return log_string
 
     def profile(self, type: ProfileType) -> Overhead:
         whole_overhead = Overhead()
@@ -703,8 +739,8 @@ class Profiler:
         with open(log_file_name, 'w') as f:
             for i, log_line in enumerate(request_log_list):
                 duration = (request_log_list[i].timestamp - request_log_list[i-1].timestamp) if i > 0 else timedelta(seconds=0)
-                print_string = self.make_print_string(duration, log_line)
-                f.write(f'{print_string}\n')
+                log_string = self.make_print_string(duration, log_line)
+                f.write(log_string)
 
         SOPLOG_DEBUG(f'Write {log_file_name}...', 'yellow')
 
