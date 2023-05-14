@@ -21,8 +21,6 @@ SUB_RESULT_PROTOCOL = [SoPProtocolType.Super.MS_RESULT_SCHEDULE,
                        SoPProtocolType.Super.MS_RESULT_EXECUTE,
                        SoPProtocolType.Super.CP_RESULT_SCHEDULE,
                        SoPProtocolType.Super.CP_RESULT_EXECUTE]
-SUB_EXECUTE_PROTOCOL = [SoPProtocolType.Base.MT_EXECUTE]
-SUB_EXECUTE_RESULT_PROTOCOL = [SoPProtocolType.Base.TM_RESULT_EXECUTE]
 
 EXECUTE_PROTOCOL = [SoPProtocolType.Super.MS_EXECUTE,
                     SoPProtocolType.Super.CP_EXECUTE,
@@ -43,6 +41,18 @@ SCHEDULE_PROTOCOL = [SoPProtocolType.Super.MS_SCHEDULE,
                      SoPProtocolType.Super.MS_RESULT_SCHEDULE,
                      SoPProtocolType.Super.CP_RESULT_SCHEDULE]
 
+MS_PROTOCOL = [SoPProtocolType.Super.MS_SCHEDULE, SoPProtocolType.Super.MS_EXECUTE]
+MS_RESULT_PROTOCOL = [SoPProtocolType.Super.MS_RESULT_SCHEDULE, SoPProtocolType.Super.MS_RESULT_EXECUTE]
+SM_PROTOCOL = [SoPProtocolType.Super.SM_SCHEDULE, SoPProtocolType.Super.SM_EXECUTE]
+SM_RESULT_PROTOCOL = [SoPProtocolType.Super.SM_RESULT_SCHEDULE, SoPProtocolType.Super.SM_RESULT_EXECUTE]
+CP_PROTOCOL = [SoPProtocolType.Super.CP_SCHEDULE, SoPProtocolType.Super.CP_EXECUTE]
+CP_RESULT_PROTOCOL = [SoPProtocolType.Super.CP_RESULT_SCHEDULE, SoPProtocolType.Super.CP_RESULT_EXECUTE]
+PC_PROTOCOL = [SoPProtocolType.Super.PC_SCHEDULE, SoPProtocolType.Super.PC_EXECUTE]
+PC_RESULT_PROTOCOL = [SoPProtocolType.Super.PC_RESULT_SCHEDULE, SoPProtocolType.Super.PC_RESULT_EXECUTE]
+
+SUB_EXECUTE_PROTOCOL = [SoPProtocolType.Base.MT_EXECUTE]
+SUB_EXECUTE_RESULT_PROTOCOL = [SoPProtocolType.Base.TM_RESULT_EXECUTE]
+
 
 class OverheadType(Enum):
     SUPER_THING_INNER = auto()
@@ -61,17 +71,25 @@ class ProfileType(Enum):
 class Overhead:
 
     def __init__(self) -> None:
-        self.super_thing_inner_overhead_list = []
-        self.middleware_inner_overhead_list = []
-        self.target_thing_inner_overhead_list = []
-        self.super_thing__middleware_comm_overhead_list = []
-        self.target_thing__middleware_comm_overhead_list = []
-        self.middleware__middleware_comm_overhead_list = []
+        self.super_thing_inner_overhead_list: List[timedelta] = []
+        self.target_thing_inner_overhead_list: List[timedelta] = []
+        self.middleware_inner_overhead_list: List[timedelta] = []
+        self.super_thing__middleware_comm_overhead_list: List[timedelta] = []
+        self.target_thing__middleware_comm_overhead_list: List[timedelta] = []
+        self.middleware__middleware_comm_overhead_list: List[timedelta] = []
+
+    def __str__(self):
+        return f'Super Thing      Average Inner Overhead                   : {self.avg(OverheadType.SUPER_THING_INNER) * 1e3:5.3f} ms\n' \
+               f'Middleware       Average Inner Overhead                   : {self.avg(OverheadType.MIDDLEWARE_INNER) * 1e3:5.3f} ms\n' \
+               f'Target Thing     Average Inner Overhead                   : {self.avg(OverheadType.TARGET_THING_INNER) * 1e3:5.3f} ms\n' \
+               f'Super Thing  <-> Average Middleware Communication Overhead: {self.avg(OverheadType.SUPER_THING__MIDDLEWARE_COMM) * 1e3:5.3f} ms\n' \
+               f'Target Thing <-> Average Middleware Communication Overhead: {self.avg(OverheadType.TARGET_THING__MIDDLEWARE_COMM) * 1e3:5.3f} ms\n' \
+               f'Middleware   <-> Average Middleware Communication Overhead: {self.avg(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM) * 1e3:5.3f} ms\n'
 
     def __add__(self, o: 'Overhead') -> 'Overhead':
         self.super_thing_inner_overhead_list += o.super_thing_inner_overhead_list
-        self.middleware_inner_overhead_list += o.middleware_inner_overhead_list
         self.target_thing_inner_overhead_list += o.target_thing_inner_overhead_list
+        self.middleware_inner_overhead_list += o.middleware_inner_overhead_list
         self.super_thing__middleware_comm_overhead_list += o.super_thing__middleware_comm_overhead_list
         self.target_thing__middleware_comm_overhead_list += o.target_thing__middleware_comm_overhead_list
         self.middleware__middleware_comm_overhead_list += o.middleware__middleware_comm_overhead_list
@@ -92,19 +110,103 @@ class Overhead:
         elif type == OverheadType.MIDDLEWARE__MIDDLEWARE_COMM:
             self.middleware__middleware_comm_overhead_list.append(overhead)
 
-    def get(self, type: OverheadType) -> float:
+    def avg(self, type: OverheadType) -> float:
         if type == OverheadType.SUPER_THING_INNER:
-            return avg(self.super_thing_inner_overhead_list)
+            return avg([overhead.total_seconds() for overhead in self.super_thing_inner_overhead_list])
         elif type == OverheadType.TARGET_THING_INNER:
-            return avg(self.target_thing_inner_overhead_list)
+            return avg([overhead.total_seconds() for overhead in self.target_thing_inner_overhead_list])
         elif type == OverheadType.MIDDLEWARE_INNER:
-            return avg(self.middleware_inner_overhead_list)
+            return avg([overhead.total_seconds() for overhead in self.middleware_inner_overhead_list])
         elif type == OverheadType.SUPER_THING__MIDDLEWARE_COMM:
-            return avg(self.super_thing__middleware_comm_overhead_list)
+            return avg([overhead.total_seconds() for overhead in self.super_thing__middleware_comm_overhead_list])
         elif type == OverheadType.TARGET_THING__MIDDLEWARE_COMM:
-            return avg(self.target_thing__middleware_comm_overhead_list)
+            return avg([overhead.total_seconds() for overhead in self.target_thing__middleware_comm_overhead_list])
         elif type == OverheadType.MIDDLEWARE__MIDDLEWARE_COMM:
-            return avg(self.middleware__middleware_comm_overhead_list)
+            return avg([overhead.total_seconds() for overhead in self.middleware__middleware_comm_overhead_list])
+
+
+LOG_ORDER_MAP = {
+    ProfileType.SCHEDULE: {
+        SoPProtocolType.Super.CP_SCHEDULE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.MS_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.MS_SCHEDULE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.MS_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.SM_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING_INNER},
+        ],
+        SoPProtocolType.Super.SM_SCHEDULE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.SM_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        'fill it': [],
+        SoPProtocolType.Super.CP_RESULT_SCHEDULE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_RESULT_SCHEDULE, 'overhead_type': OverheadType.TARGET_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_RESULT_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_RESULT_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.MS_RESULT_SCHEDULE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.MS_RESULT_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.SM_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING_INNER},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.SM_RESULT_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING_INNER},
+        ],
+        SoPProtocolType.Super.SM_RESULT_SCHEDULE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.SM_RESULT_SCHEDULE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_RESULT_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.PC_RESULT_SCHEDULE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_RESULT_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_RESULT_SCHEDULE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+    },
+    ProfileType.EXECUTE: {
+        SoPProtocolType.Super.CP_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.MS_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.MS_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.MS_EXECUTE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.SM_EXECUTE, 'overhead_type': OverheadType.SUPER_THING_INNER},
+        ],
+        SoPProtocolType.Super.SM_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.SM_EXECUTE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.PC_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Base.MT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Base.MT_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Base.MT_EXECUTE, 'overhead_type': OverheadType.TARGET_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Base.TM_RESULT_EXECUTE, 'overhead_type': OverheadType.TARGET_THING_INNER},
+        ],
+        SoPProtocolType.Base.TM_RESULT_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Base.TM_RESULT_EXECUTE, 'overhead_type': OverheadType.TARGET_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_RESULT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.CP_RESULT_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_RESULT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.CP_RESULT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.MS_RESULT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.MS_RESULT_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.MS_RESULT_EXECUTE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.SM_EXECUTE, 'overhead_type': OverheadType.SUPER_THING_INNER},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.THING, 'protocol': SoPProtocolType.Super.SM_RESULT_EXECUTE, 'overhead_type': OverheadType.SUPER_THING_INNER},
+        ],
+        SoPProtocolType.Super.SM_RESULT_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.SM_RESULT_EXECUTE, 'overhead_type': OverheadType.SUPER_THING__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_RESULT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+        SoPProtocolType.Super.PC_RESULT_EXECUTE: [
+            {'direction': Direction.RECEIVED, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_RESULT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE__MIDDLEWARE_COMM},
+            {'direction': Direction.PUBLISH, 'element_type': SoPElementType.MIDDLEWARE, 'protocol': SoPProtocolType.Super.PC_RESULT_EXECUTE, 'overhead_type': OverheadType.MIDDLEWARE_INNER},
+        ],
+    }
+}
 
 
 class LogLine:
@@ -122,6 +224,7 @@ class LogLine:
         self.protocol = SoPProtocolType.get(self.topic) if self.topic else None
 
         self.scenario = ''
+        self.super_middleware = ''
         self.requester_middleware = ''
         self.target_middleware = ''
 
@@ -379,10 +482,11 @@ class Profiler:
             whole_mqtt_msg_log_line_list.append(log_line)
 
         for log_line in whole_mqtt_msg_log_line_list:
-            request_key, target_key, scenario, requester_middleware, target_middleware = self.make_log_line_info(log_line)
+            request_key, target_key, scenario, super_middleware, requester_middleware, target_middleware = self.make_log_line_info(log_line)
             log_line.request_key = request_key
             log_line.target_key = target_key
             log_line.scenario = scenario
+            log_line.super_middleware = super_middleware
             log_line.requester_middleware = requester_middleware
             log_line.target_middleware = target_middleware
 
@@ -422,9 +526,18 @@ class Profiler:
 
         return [log_line for log_line in log_data if start_time <= log_line.timestamp <= end_time]
 
+    def get_logs_in_index_range(self, log_data: List[LogLine], start_index: int = None, end_time: datetime = None) -> List[LogLine]:
+        if start_time == None:
+            start_time = datetime.min
+        if end_time == None:
+            end_time = datetime.max
+
+        return [log_line for log_line in log_data if start_time <= log_line.timestamp <= end_time]
+
     def make_log_line_info(self, log_line: LogLine) -> Tuple[str, str, str, str, str]:
         topic = log_line.topic
         payload = json_string_to_dict(log_line.payload)
+        super_middleware = ''
         target_middleware = ''
         target_thing = ''
         target_service = ''
@@ -435,12 +548,12 @@ class Profiler:
             super_service = topic.split('/')[2]
             super_thing = topic.split('/')[3]
             requester_middleware = topic.split('/')[5]
-            # super_middleware = topic.split('/')[4]
+            super_middleware = topic.split('/')[4]
         elif log_line.protocol in SUPER_RESULT_PROTOCOL:
             super_service = topic.split('/')[3]
             super_thing = topic.split('/')[4]
             requester_middleware = topic.split('/')[6]
-            # super_middleware = topic.split('/')[5]
+            super_middleware = topic.split('/')[5]
         elif log_line.protocol in SUB_PROTOCOL:
             requester_middleware = topic.split('/')[5].split('@')[0]
             super_thing = topic.split('/')[5].split('@')[1]
@@ -483,7 +596,7 @@ class Profiler:
         request_key = '@'.join([scenario, super_service, super_thing, requester_middleware])
         target_key = '@'.join([target_service, target_thing])
 
-        return request_key, target_key, scenario, requester_middleware, target_middleware
+        return request_key, target_key, scenario, super_middleware, requester_middleware, target_middleware
 
     def get_request_start_log_list(self, super_service: str, profile_type: ProfileType) -> List[LogLine]:
         '''
@@ -506,9 +619,10 @@ class Profiler:
         if len(request_start_log_list) == 0:
             SOPLOG_DEBUG(f"Cannot find super service start log for {super_service}", 'yellow')
 
-        return request_start_log_list
+        # first & last loop of request is not valid
+        return request_start_log_list[1:-1]
 
-    def get_same_request_log_list(self, super_service_start_log: LogLine, profile_type: ProfileType) -> List[LogLine]:
+    def get_request_log_list(self, super_service_start_log: LogLine, profile_type: ProfileType) -> List[LogLine]:
         '''
             전체 로그에서 특정 super service 요청에 대한 로그 리스트를 가져온다
         '''
@@ -519,13 +633,15 @@ class Profiler:
         else:
             raise Exception(f"Invalid profile type: {profile_type}")
 
-        request_log_list = []
-        for log_line in self.integrated_mqtt_msg_log_list:
+        log_range = self.get_logs_in_time_range(self.integrated_mqtt_msg_log_list, super_service_start_log.timestamp - timedelta(milliseconds=3))
+        request_log_list: List[LogLine] = []
+        for log_line in log_range:
             if not log_line.protocol in protocol_filter:
                 continue
+            # get same request log list
             if log_line.request_key != super_service_start_log.request_key:
                 continue
-
+            # exclude irrelevant logs with this request
             if log_line.element_type == SoPElementType.MIDDLEWARE:
                 if log_line.protocol in SUPER_PROTOCOL + SUPER_RESULT_PROTOCOL and not log_line.element_name in log_line.requester_middleware:
                     continue
@@ -534,9 +650,20 @@ class Profiler:
 
             request_log_list.append(log_line)
 
-        same_request_log_list = self.check_log_line_sequence(request_log_list)
-        # same_request_log_list = request_log_list
-        return same_request_log_list
+        cut_request_log_list: List[LogLine] = []
+        for log_line in request_log_list:
+            cut_request_log_list.append(log_line)
+            if log_line.protocol in PC_RESULT_PROTOCOL and log_line.requester_middleware == log_line.element_name:
+                break
+
+        return cut_request_log_list
+
+    def get_windowed_log_list(self, request_log_list: List[LogLine], target_log_line, before: int = 3, after: int = 3) -> List[LogLine]:
+        target_log_index = request_log_list.index(target_log_line)
+        index1 = target_log_index-before if target_log_index-before >= 0 else 0
+        index2 = target_log_index+after+1 if target_log_index+after+1 <= len(request_log_list) else len(request_log_list)
+        log_window = request_log_list[index1:index2]
+        return log_window
 
     def profile_type_to_protocol(self, profile_type: ProfileType) -> SoPProtocolType:
         if profile_type == ProfileType.SCHEDULE:
@@ -546,21 +673,20 @@ class Profiler:
         else:
             raise Exception(f"Invalid profile type: {profile_type}")
 
-    def check_log_line_sequence(self, request_log_list: List[LogLine]) -> List[LogLine]:
-        for i, log_line in enumerate(request_log_list[1:]):
-            prev_element_type = request_log_list[i-1].element_type
-            prev_protocol = request_log_list[i-1].protocol
-            curr_element_type = request_log_list[i].element_type
-            curr_protocol = request_log_list[i].protocol
-            if (prev_element_type, curr_element_type) == (SoPElementType.THING, SoPElementType.MIDDLEWARE) \
-                    and (prev_protocol, curr_protocol) == (SoPProtocolType.Super.MS_RESULT_EXECUTE, SoPProtocolType.Super.SM_EXECUTE):
-                tmp_log_line = request_log_list[i-1]
-                request_log_list[i-1] = request_log_list[i]
-                request_log_list[i] = tmp_log_line
+    def second_to_microsecond(self, second: float) -> int:
+        return float(second * 1e6)
 
-                request_log_list[i].timestamp = request_log_list[i-1].timestamp
+    def second_to_millisecond(self, second: float) -> int:
+        return float(second * 1e3)
 
-        return request_log_list
+    def make_print_string(self, duration: float, log_line: LogLine) -> str:
+        timestamp = log_line.timestamp_str()
+        direction = log_line.direction.value
+        element_name = log_line.element_name
+        topic = log_line.topic
+        payload = log_line.payload
+
+        return f'({duration:5.3f} ms)[{timestamp}][{direction:<8}] {element_name} {topic} {payload}\n'
 
     def profile(self, type: ProfileType) -> Overhead:
         whole_overhead = Overhead()
@@ -573,25 +699,73 @@ class Profiler:
 
         return whole_overhead
 
+    def export_to_file(self, log_file_name: str, request_log_list: List[LogLine]):
+        with open(log_file_name, 'w') as f:
+            for i, log_line in enumerate(request_log_list):
+                duration = (request_log_list[i].timestamp - request_log_list[i-1].timestamp) if i > 0 else timedelta(seconds=0)
+                print_string = self.make_print_string(duration, log_line)
+                f.write(f'{print_string}\n')
+
+        SOPLOG_DEBUG(f'Write {log_file_name}...', 'yellow')
+
     def profile_super_service(self, super_service: str, profile_type: ProfileType) -> Overhead:
         super_service_overhead = Overhead()
 
         # 같은 super service에 대한 요청이 여러개가 존재한다. 각 요청에 대해서 오버헤드를 계산한다.
         request_start_log_list = self.get_request_start_log_list(super_service, profile_type=profile_type)
         for i, request_start_log in enumerate(request_start_log_list):
-            same_request_log_list: List[LogLine] = self.get_same_request_log_list(request_start_log, profile_type=profile_type)
+            request_log_list: List[LogLine] = self.get_request_log_list(request_start_log, profile_type=profile_type)
+            request_overhead = self.profile_request(request_log_list=request_log_list, profile_type=profile_type)
 
-            log_file_name = f'log_{super_service}_request_{i}.txt'
-            with open(log_file_name, 'w') as f:
-                for i, log_line in enumerate(same_request_log_list):
-                    duration = (same_request_log_list[i].timestamp - same_request_log_list[i-1].timestamp) if i > 0 else timedelta(seconds=0)
-                    duration_ms = int(duration.total_seconds() * 1e3)
-                    duration_us = int(duration.total_seconds() * 1e6)
-                    f.write(
-                        f'({f"{duration_ms:>4}.{int(duration_us - duration_ms * 1e3):0>3}"} ms)[{log_line.timestamp_str()}][{log_line.direction.value:<8}] {log_line.element_name} {log_line.topic} {log_line.payload}\n')
-            SOPLOG_DEBUG(f'Write {log_file_name}...', 'yellow')
+            self.export_to_file(log_file_name=f'log_{super_service}_request_{i}.txt', request_log_list=request_log_list)
+
+            super_service_overhead += request_overhead
 
         return super_service_overhead
 
-    def profile_target(self, target: str, profile_type: ProfileType) -> Overhead:
-        target_overhead = Overhead()
+    # 1. 현재 로그의 다음에 와야하는 로그를 찾는다.
+    # 2. 찾은 로그와의 시간차이를 구한다.
+    # 3. 해당 오버헤드가 어떤 종류의 오버헤드인지 확인하여 적절히 add 한다.
+    def check_next_log(self, curr_log_line: LogLine, next_log_line: LogLine, profile_type: ProfileType) -> Union[OverheadType, bool]:
+        '''
+            현재 로그와 다음 로그를 비교하여 오버헤드의 타입을 확인한다. 
+        '''
+
+        filter_list = LOG_ORDER_MAP[profile_type][curr_log_line.protocol]
+        for filter in filter_list:
+            direction_check = (filter['direction'] == next_log_line.direction)
+            element_type_check = (filter['element_type'] == next_log_line.element_type)
+            protocol_check = (filter['protocol'] == next_log_line.protocol)
+
+            overhead_type = filter['overhead_type']
+            if direction_check and element_type_check and protocol_check:
+                return overhead_type
+
+        return False
+
+    def find_next_log_line(self, curr_log_line: LogLine, request_log_list: List[LogLine], profile_type: ProfileType) -> LogLine:
+        log_window = self.get_windowed_log_list(request_log_list=request_log_list, target_log_line=curr_log_line, before=3, after=3)
+        for log_line in log_window:
+            overhead_type = self.check_next_log(curr_log_line=curr_log_line, next_log_line=log_line, profile_type=profile_type)
+            if overhead_type:
+                return log_line
+
+    def profile_request(self, request_log_list: List[LogLine], profile_type: ProfileType) -> Overhead:
+        request_overhead = Overhead()
+
+        for i, log_line in enumerate(request_log_list[:-1]):
+            curr_log_line = log_line
+            next_log_line = request_log_list[i+1]
+            overhead_type = self.check_next_log(curr_log_line=curr_log_line, next_log_line=next_log_line, profile_type=profile_type)
+
+            if not overhead_type:
+                # 다음 인덱스의 로그가 올바르지 않은 로그인 경우(순서가 제대로 되어있지 않는 경우) 짝에 맞는 로그를 window 범위에서 찾는다.
+                next_log_line = self.find_next_log_line(curr_log_line=curr_log_line, request_log_list=request_log_list, profile_type=profile_type)
+                overhead_type = self.check_next_log(curr_log_line=curr_log_line, next_log_line=next_log_line, profile_type=profile_type)
+
+            overhead = next_log_line.timestamp - curr_log_line.timestamp
+            request_overhead.add(overhead=overhead, type=overhead_type)
+
+        SOPLOG_DEBUG(f'Profile request: {request_log_list[0].request_key} complete!', 'yellow')
+        SOPLOG_DEBUG(f'=== Result=== \n{str(request_overhead)}', 'green')
+        return request_overhead
