@@ -16,7 +16,7 @@ def main():
     args = arg_parse()
 
     profiler = Profiler(root_log_folder_path=args.root_log_path)
-    profiler.profile(ProfileType.EXECUTE, export=False)
+    profiler.profile(ProfileType.EXECUTE, export=True)
     overhead1 = profiler.get_avg_overhead()
     overhead2 = profiler.get_avg_overhead(OverheadType.INNER)
     overhead3 = profiler.get_avg_overhead(OverheadType.COMM)
@@ -26,6 +26,7 @@ def main():
     overhead7 = profiler.get_avg_overhead(OverheadType.SUPER_THING__MIDDLEWARE_COMM)
     overhead8 = profiler.get_avg_overhead(OverheadType.TARGET_THING__MIDDLEWARE_COMM)
     overhead9 = profiler.get_avg_overhead(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM)
+    print()
 
 
 if __name__ == '__main__':

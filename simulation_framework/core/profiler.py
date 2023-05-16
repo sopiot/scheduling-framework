@@ -347,7 +347,7 @@ class LogLine:
         self.direction = self.get_direction(self._raw_log_data)
 
     @property
-    def timestamp(self) -> dict:
+    def timestamp(self) -> datetime:
         return self._timestamp
 
     @timestamp.setter
@@ -668,6 +668,7 @@ class Profiler:
         return log_string
 
     def export_to_file(self, log_file_name: str, request_log_list: List[LogLine]):
+        os.makedirs(os.path.dirname(log_file_name), exist_ok=True)
         with open(log_file_name, 'w') as f:
             for i, log_line in enumerate(request_log_list):
                 duration = (request_log_list[i].timestamp - request_log_list[i-1].timestamp) if i > 0 else timedelta(seconds=0)
@@ -680,9 +681,9 @@ class Profiler:
 
     def collect_request_start_log_list(self, super_service: str, profile_type: ProfileType) -> List[LogLine]:
         if profile_type == ProfileType.SCHEDULE:
-            start_protocol = SoPProtocolType.Super.CP_SCHEDULE
+            start_protocol = SoPProtocolType.Super.MS_SCHEDULE
         elif profile_type == ProfileType.EXECUTE:
-            start_protocol = SoPProtocolType.Super.CP_EXECUTE
+            start_protocol = SoPProtocolType.Super.MS_EXECUTE
         else:
             raise Exception(f"Invalid profile type: {profile_type}")
 
@@ -729,13 +730,14 @@ class Profiler:
             target_start_log_list.append(log_line)
 
         if len(target_start_log_list) == 0:
-            SOPLOG_DEBUG(f"Cannot find target start log for {target_key}", 'yellow')
+            SOPLOG_DEBUG(f"Cannot find target start log for {target_service}", 'yellow')
             return []
 
         return target_start_log_list
 
     ##########################################################################################################################################
 
+    # FIXME:
     def get_request_log_list(self, super_service_start_log: LogLine, profile_type: ProfileType) -> List[LogLine]:
         if profile_type == ProfileType.SCHEDULE:
             protocol_filter = SCHEDULE_PROTOCOL
@@ -744,7 +746,7 @@ class Profiler:
         else:
             raise Exception(f"Invalid profile type: {profile_type}")
 
-        log_range = self.get_logs_time_range(self.integrated_mqtt_msg_log_list, super_service_start_log.timestamp - timedelta(milliseconds=3))
+        log_range = self.get_logs_time_range(self.integrated_mqtt_msg_log_list, super_service_start_log.timestamp - timedelta(milliseconds=5))
         request_log_list: List[LogLine] = []
         for log_line in log_range:
             if not log_line.protocol in protocol_filter:
@@ -760,12 +762,15 @@ class Profiler:
                     continue
 
             request_log_list.append(log_line)
+            log_str = self.make_log_string(duration=timedelta(seconds=0), log_line=log_line)
+            SOPTEST_LOG_DEBUG(f'[DEBUG] request_key_check: {log_line.request_key != super_service_start_log.request_key} {log_str}', 'yellow')
 
         cut_request_log_list: List[LogLine] = []
-        for log_line in request_log_list:
-            cut_request_log_list.append(log_line)
-            if log_line.protocol in PC_RESULT_PROTOCOL and log_line.requester_middleware == log_line.element_name:
+        for i, log_line in enumerate(request_log_list):
+            if self.is_request_end(log_line):
+                cut_request_log_list.extend(request_log_list[i:i+10])
                 break
+            cut_request_log_list.append(log_line)
 
         return cut_request_log_list
 
@@ -788,8 +793,11 @@ class Profiler:
             start_time = datetime.min
         if end_time == None:
             end_time = datetime.max
+        if start_time > end_time:
+            raise Exception(f"Invalid time range: {start_time} ~ {end_time}")
 
-        return [log_line for log_line in log_data if start_time <= log_line.timestamp <= end_time]
+        log_range = [log_line for log_line in log_data if start_time <= log_line.timestamp <= end_time]
+        return log_range
 
     def get_windowed_log_list(self, request_log_list: List[LogLine], target_log_line, before: int = 3, after: int = 3) -> List[LogLine]:
         target_log_index = request_log_list.index(target_log_line)
@@ -801,6 +809,10 @@ class Profiler:
     ##########################################################################################################################################
 
     def check_next_log_valid(self, curr_log_line: LogLine, next_log_line: LogLine, profile_type: ProfileType) -> Union[OverheadType, bool]:
+        if curr_log_line == next_log_line:
+            SOPTEST_LOG_DEBUG(f'[DEBUG] Same log line: {curr_log_line}', 'yellow')
+            return False
+
         filter_list = LOG_ORDER_MAP[profile_type][curr_log_line.protocol]
         for filter in filter_list:
             direction_check = (filter['direction'] == next_log_line.direction)
@@ -813,9 +825,13 @@ class Profiler:
 
         return False
 
+    # FIXME: this is not work
     def find_valid_next_log(self, curr_log_line: LogLine, request_log_list: List[LogLine], profile_type: ProfileType) -> LogLine:
-        log_window = self.get_windowed_log_list(request_log_list=request_log_list, target_log_line=curr_log_line, before=3, after=3)
+        log_window = self.get_logs_time_range(request_log_list, curr_log_line.timestamp - timedelta(milliseconds=5))
         for log_line in log_window:
+            if log_line == curr_log_line:
+                continue
+
             overhead_type = self.check_next_log_valid(curr_log_line=curr_log_line, next_log_line=log_line, profile_type=profile_type)
             if overhead_type:
                 return log_line
@@ -850,11 +866,12 @@ class Profiler:
         request_overhead_list: List[Overhead] = []
         for i, request_start_log in enumerate(request_start_log_list):
             request_log_list: List[LogLine] = self.get_request_log_list(request_start_log, profile_type=profile_type)
-            request_overhead = self.profile_request(request_log_list=request_log_list, profile_type=profile_type)
-            request_overhead_list.append(request_overhead)
 
             if export:
-                self.export_to_file(log_file_name=f'log_{super_service}_request_{i}.txt', request_log_list=request_log_list)
+                self.export_to_file(log_file_name=f'./profile_result/log_{super_service}_request_{i}.txt', request_log_list=request_log_list)
+
+            request_overhead = self.profile_request(request_log_list=request_log_list, profile_type=profile_type)
+            request_overhead_list.append(request_overhead)
 
         return request_overhead_list
 
@@ -865,6 +882,9 @@ class Profiler:
             curr_log_line = log_line
             next_log_line = request_log_list[i+1]
 
+            if self.is_request_end(curr_log_line):
+                break
+
             if curr_log_line.protocol == SoPProtocolType.Super.SM_SCHEDULE:
                 target_start_log_list = self.collect_target_start_log_list(target_service=curr_log_line.target_service, request_log_list=request_log_list, profile_type=profile_type)
                 for target_start_log in target_start_log_list:
@@ -874,10 +894,13 @@ class Profiler:
                 overhead_type = self.check_next_log_valid(curr_log_line=curr_log_line, next_log_line=next_log_line, profile_type=profile_type)
                 if not overhead_type:
                     # 다음 인덱스의 로그가 올바르지 않은 로그인 경우(순서가 제대로 되어있지 않는 경우) 짝에 맞는 로그를 window 범위에서 찾는다.
-                    next_log_line = self.find_valid_next_log(curr_log_line=curr_log_line, request_log_list=request_log_list, profile_type=profile_type)
+                    confirmed_next_log_line = self.find_valid_next_log(curr_log_line=curr_log_line, request_log_list=request_log_list, profile_type=profile_type)
                     overhead_type = self.check_next_log_valid(curr_log_line=curr_log_line, next_log_line=next_log_line, profile_type=profile_type)
+                else:
+                    confirmed_next_log_line = next_log_line
+                    # self.integrated_mqtt_msg_log_list
 
-                overhead = next_log_line.timestamp - curr_log_line.timestamp
+                overhead = confirmed_next_log_line.timestamp - curr_log_line.timestamp
                 request_overhead.add(overhead=overhead, overhead_type=overhead_type)
 
         SOPLOG_DEBUG(f'Profile request: {request_log_list[0].request_key} complete!', 'yellow')
@@ -890,3 +913,6 @@ class Profiler:
         # TODO
 
         return target_overhead
+
+    def is_request_end(self, log_line: LogLine) -> bool:
+        return log_line.protocol in SM_RESULT_PROTOCOL and log_line.element_type == SoPElementType.MIDDLEWARE

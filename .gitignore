@@ -18,7 +18,8 @@ thing
 middleware_config
 
 res
-result
+sim_result
+profile_result
 remote_logs
 
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`

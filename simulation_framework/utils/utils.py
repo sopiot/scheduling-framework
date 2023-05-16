@@ -29,7 +29,7 @@ def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, c
     WARN_emoji = b'\xe2\x9a\xa0\xef\xb8\x8f'.decode()
     progress_status = ''
     if progress:
-        progress_status = f'[{progress*100:.3f}%]'
+        progress_status = f'[{progress*100:8.3f}%]'
 
     if error == SoPTestLogLevel.PASS:
         log_msg = f'{progress_status} [PASS✅] {msg} --> {str(e)}'

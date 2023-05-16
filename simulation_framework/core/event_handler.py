@@ -257,7 +257,7 @@ class SoPEventHandler:
         elif event.event_type == SoPEventType.END:
             self.simulation_duration = get_current_time() - self.simulation_start_time
             SOPTEST_LOG_DEBUG(
-                f'Simulation End. duration: {self.simulation_duration:.3f} sec', SoPTestLogLevel.PASS, 'yellow')
+                f'Simulation End. duration: {self.simulation_duration:8.3f} sec', SoPTestLogLevel.PASS, 'yellow')
 
             # NOTE: 시뮬레이션이 끝날 때 시나리오를 stop하면 안된다. 끝나는 시점에서 그대로의 시나리오 state를 알아야 한다.
             # for middleware in self.middleware_list:

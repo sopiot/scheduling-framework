@@ -701,7 +701,7 @@ class SoPServiceGenerator(SoPElementGenerator):
                                               is_super=True,
                                               energy=energy,
                                               execute_time=execute_time,
-                                              subservice_list=selected_service_list)
+                                              sub_service_list=selected_service_list)
 
             super_service_list.append(super_service)
         return super_service_list

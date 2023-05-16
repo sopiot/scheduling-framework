@@ -533,7 +533,7 @@ def %s(self, key) -> str:
 
     def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
                  tag_list: List[str] = [], is_super: bool = False, energy: float = 0, execute_time: float = 0, return_value: int = 0,
-                 subservice_list: List['SoPServiceElement'] = []) -> None:
+                 sub_service_list: List['SoPServiceElement'] = []) -> None:
         super().__init__(name, level, element_type)
 
         self.tag_list = tag_list
@@ -542,7 +542,7 @@ def %s(self, key) -> str:
         self.execute_time = execute_time
         self.return_value = return_value
 
-        self.subservice_list = subservice_list
+        self.sub_service_list = sub_service_list
 
     def tag_code(self) -> str:
         tag_code = ', '.join([f'SoPTag("{tag}")' for tag in self.tag_list])
@@ -561,7 +561,7 @@ elif thing_start_time == 1:
 
     def reqline_code(self) -> str:
         reqline_code_list = []
-        for subfunction in self.subservice_list:
+        for subfunction in self.sub_service_list:
             picked_tag_list = random.sample(subfunction.tag_list, random.randint(
                 1, len(subfunction.tag_list)))
             if len(picked_tag_list) != len(set(picked_tag_list)):
@@ -619,7 +619,7 @@ elif thing_start_time == 1:
         self.execute_time = data['execute_time']
         self.return_value = data['return_value']
 
-        self.subservice_list = [SoPServiceElement().load(
+        self.sub_service_list = [SoPServiceElement().load(
             service_info) for service_info in data['subfunction_list']]
 
         return self
@@ -631,7 +631,7 @@ elif thing_start_time == 1:
                     energy=self.energy,
                     execute_time=self.execute_time,
                     return_value=self.return_value,
-                    subfunction_list=[subfunction.dict() for subfunction in self.subservice_list])
+                    subfunction_list=[subfunction.dict() for subfunction in self.sub_service_list])
 
     def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
         return super().event(event_type, timestamp, **kwargs)
