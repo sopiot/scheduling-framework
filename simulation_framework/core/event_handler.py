@@ -183,7 +183,7 @@ class MXEventHandler:
     def event_listener_stop(self):
         self.event_listener_event.set()
 
-    def download_log_file(self):
+    def download_log_file(self) -> str:
 
         def task(middleware: MXMiddlewareElement):
             ssh_client = self.find_ssh_client(middleware)
@@ -232,7 +232,7 @@ class MXEventHandler:
 
         pool_map(task, self.middleware_list, proc=1)
 
-        return True
+        return target_simulation_log_path
 
     def event_trigger(self, event: MXEvent):
         # wait until timestamp is reached
@@ -250,7 +250,7 @@ class MXEventHandler:
             MXTEST_LOG_DEBUG(f'Simulation Start', MXTestLogLevel.PASS, 'yellow')
         elif event.event_type == MXEventType.END:
             self.simulation_duration = get_current_time() - self.simulation_start_time
-            MXTEST_LOG_DEBUG(f'Simulation End. duration: {self.simulation_duration:.3f} sec', MXTestLogLevel.PASS, 'yellow')
+            MXTEST_LOG_DEBUG(f'Simulation End. duration: {self.simulation_duration:8.3f} sec', MXTestLogLevel.PASS, 'yellow')
 
             # NOTE: 시뮬레이션이 끝날 때 시나리오를 stop하면 안된다. 끝나는 시점에서 그대로의 시나리오 state를 알아야 한다.
             # for middleware in self.middleware_list:

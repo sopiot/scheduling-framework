@@ -140,36 +140,38 @@ class MXSSHClient:
         return target_pid_list
 
     # FIXME: parallel feature is not working
-    def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False) -> Union[bool, List[str]]:
-        while not MXSSHClient.COMMAND_SENDING < 1:
+    def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
+        while not MXSSHClient.COMMAND_SENDING < 2:
             time.sleep(THREAD_TIME_OUT)
 
         if isinstance(command, str):
-            command = [command]
+            command_list = [command]
         if not self.connected:
             self.connect()
 
         try:
             MXSSHClient.COMMAND_SENDING += 1
-            for item in command:
+            for command in command_list:
                 if self.connected:
                     if background:
                         transport = self._ssh_client.get_transport()
                         channel = transport.open_session()
-                        channel.exec_command(item)
+                        channel.exec_command(command)
                     else:
                         try:
-                            stdin, stdout, stderr = self._ssh_client.exec_command(item)
+                            stdin, stdout, stderr = self._ssh_client.exec_command(command, get_pty=get_pty)
                         except Exception as e:
                             # NOTE: `Secsh channel <int num> open FAILED: open failed: Connect failed` 에러가 발생하여 연결을 다시 수립하는 방식으로 해결
                             # NOTE: 그러나 해당 방법이 제대로 된 해결법인지는 잘 모르겠음
                             # NOTE: 반복적으로 send_command가 실행되면 생기는 것으로 보이나 while문으로 똑같은 명령을 반복했을 때는 문제가 생기지 않고 run_middleware를
                             # NOTE: 반복적으로 실행하면 문제가 생김
                             # NOTE: -> mosquitto, middleware를 실행시킬때 백그라운드로 안 시켜서 ssh 세션을 계속 유지하는 것이 문제였다.
-                            MXTEST_LOG_DEBUG(f'Send_command error: {e}', MXTestLogLevel.FAIL)
+
+                            MXTEST_LOG_DEBUG(
+                                f'Send_command error: {e}', MXTestLogLevel.FAIL)
                             self.disconnect()
                             self.connect()
-                            stdin, stdout, stderr = self._ssh_client.exec_command(item)
+                            stdin, stdout, stderr = self._ssh_client.exec_command(command, get_pty=get_pty)
 
                     if ignore_result:
                         return True
@@ -182,7 +184,7 @@ class MXSSHClient:
                         # self.disconnect()
                         return [line.strip() for line in stdout_result]
                 else:
-                    result = os.popen(item)
+                    result = os.popen(command)
                     # MXTEST_LOG_DEBUG(f'command execute -> {item}', MXTestLogLevel.PASS)
                     if ignore_result:
                         return True
@@ -190,6 +192,13 @@ class MXSSHClient:
                         return result.read().split('\n')
         finally:
             MXSSHClient.COMMAND_SENDING -= 1
+
+    def send_command_with_check_success(self, command: Union[List[str], str], background: bool = False, get_pty: bool = False) -> bool:
+        result = self.send_command(command=f'{command.strip(";")}; echo $?', ignore_result=False, background=background, get_pty=get_pty)
+        if not int(result[-1]):
+            return True
+        else:
+            return False
 
     # FIXME: parallel feature is not working
     def send_file(self, local_path: str, remote_path: str):

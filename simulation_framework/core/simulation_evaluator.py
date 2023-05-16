@@ -1,4 +1,5 @@
 from simulation_framework.core.elements import *
+from simulation_framework.core.profiler import Profiler, ProfileType, OverheadType
 
 import csv
 from itertools import zip_longest
@@ -498,7 +499,7 @@ class MXSimulationEvaluator:
                         super_service_name_check = (super_service_slot[0].name ==
                                                     super_service_pattern[j].name)
                         sub_service_name_check = (sorted([service.name for service in super_service_slot[1:]]) ==
-                                                 sorted([service.name for service in super_service_pattern[j].sub_service_list]))
+                                                  sorted([service.name for service in super_service_pattern[j].sub_service_list]))
                         super_service_slot_check = super_service_name_check and sub_service_name_check
                         check_list.append(super_service_slot_check)
                         start_index += len(
@@ -782,24 +783,20 @@ class MXSimulationEvaluator:
                           str(event.return_type) if event.return_type else ''])
         return table, header
 
-    def export_txt(self, simulation_result: MXSimulationResult, label: str = '', args: dict = None):
-        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
-            self.simulation_env)
-        # scenario_list: List[MXScenarioElement] = get_scenario_list_recursive(
+    def export_txt(self, simulation_result: MXSimulationResult, profiler: Profiler = None, label: str = '', args: dict = None):
+        middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
+        # scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(
         #     self.simulation_env)
 
-        scenario_result_header = [
-            '', 'avg accept ratio(%)', 'avg success ratio(%)', 'avg latency', 'avg energy', 'avg execute time', 'avg schedule time', 'avg overhead']
-        count_result_header = ['', 'total', 'success',
-                               'fail', 'accept', 'accept fail', 'timeout num']
-        policy_result_header = [
-            'total execute count', 'total execute time', 'total application cycle num', 'total avg application latency']
+        scenario_result_header = ['', 'avg accept ratio(%)', 'avg success ratio(%)', 'avg latency', 'avg energy', 'avg execute time', 'avg schedule time', 'avg overhead']
+        count_result_header = ['', 'total', 'success', 'fail', 'accept', 'accept fail', 'timeout num']
+        policy_result_header = ['total execute count', 'total execute time', 'total application cycle num', 'total avg application latency']
         acceptance_ratio_meter_header = ['acceptance_ratio_meter']
+        if profiler:
+            profile_result_header = ['overhead type', 'overhead']
 
         scenario_result_table = []
         count_result_table = []
-
-        acceptance_score = MXAcceptanceScore(middleware_list)
 
         scenario_result_table.append([f'total',
                                       f'{simulation_result.get_avg_acceptance_ratio()[0] * 100:.3f}',
@@ -825,7 +822,6 @@ class MXSimulationEvaluator:
                                       f'{simulation_result.get_avg_execute_time()[2]:.3f}',
                                       f'{simulation_result.get_avg_schedule_time()[2]:.3f}',
                                       f'{simulation_result.get_avg_overhead()[2]:.3f}'])
-
         count_result_table.append([f'total',
                                    f'{simulation_result.get_total_scenario_num()[0]}',
                                    f'{simulation_result.get_success_scenario_num()[0]}',
@@ -847,61 +843,74 @@ class MXSimulationEvaluator:
                                    f'{simulation_result.get_accepted_scenario_num()[2]}',
                                    f'{simulation_result.get_denied_scenario_num()[2]}',
                                    f'{simulation_result.get_timeout_scenario_num()[2]}'])
-
         policy_result_table = [[simulation_result.total_execute_count,
                                 simulation_result.total_execute_time,
                                 simulation_result.total_scenario_cycle_num,
                                 f'{(simulation_result.total_execute_time / simulation_result.total_scenario_cycle_num if simulation_result.total_scenario_cycle_num != 0 else 0):0.2f}']]
+        acceptance_score = MXAcceptanceScore(middleware_list)
+        acceptance_ratio_meter_table = [[''.join(acceptance_score.acceptance_ratio_meter)]]
 
-        acceptance_ratio_meter_table = [
-            [''.join(acceptance_score.acceptance_ratio_meter)]]
+        if profiler:
+            profile_result_table = []
+            profile_result_table.append(['total', f'{profiler.get_avg_overhead():8.3f}'])
+            profile_result_table.append(['inner', f'{profiler.get_avg_overhead(OverheadType.INNER):8.3f}'])
+            profile_result_table.append(['comm', f'{profiler.get_avg_overhead(OverheadType.COMM):8.3f}'])
+            profile_result_table.append(['super_thing_inner', f'{profiler.get_avg_overhead(OverheadType.SUPER_THING_INNER):8.3f}'])
+            profile_result_table.append(['middleware_inner', f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE_INNER):8.3f}'])
+            profile_result_table.append(['super_thing_middleware_comm', f'{profiler.get_avg_overhead(OverheadType.SUPER_THING__MIDDLEWARE_COMM):8.3f}'])
+            profile_result_table.append(['target_thing_middleware_comm', f'{profiler.get_avg_overhead(OverheadType.TARGET_THING__MIDDLEWARE_COMM):8.3f}'])
+            profile_result_table.append(['middleware_middleware_comm', f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM):8.3f}'])
 
         # print simulation score
-        thing_list: List[MXThingElement] = get_thing_list_recursive(
-            self.simulation_env)
+        thing_list: List[MXThingElement] = get_thing_list_recursive(self.simulation_env)
         thing_list = [thing for thing in thing_list if thing.is_super == False]
-        main_title = f'Simulation result of label "{label}" is_parallel={thing_list[0].is_parallel} {get_current_time(mode=TimeFormat.DATETIME1)}\n'
-        scenario_result_title = f'==== Scenario Result ====\n'
-        count_result_title = f'==== Count Result ====\n'
-        policy_result_title = f'==== Policy Result ====\n'
-        acceptance_title = f'==== Acceptance Result ====\n'
+        main_title = f'Simulation result of label "{label}" is_parallel={thing_list[0].is_parallel} {get_current_time(mode=TimeFormat.DATETIME1)}'
+        scenario_result_title = f'==== Scenario Result ===='
+        count_result_title = f'==== Count Result ===='
+        policy_result_title = f'==== Policy Result ===='
+        acceptance_title = f'==== Acceptance Result ===='
+        if profiler:
+            profile_result_title = f'==== Profile Overhead Result ===='
 
-        print(main_title, end='')
-        print(scenario_result_title, end='')
-        scenario_result_table_str = print_table(
-            scenario_result_table, scenario_result_header)
-        print(count_result_title, end='')
-        count_result_table_str = print_table(
-            count_result_table, count_result_header)
-        print(policy_result_title, end='')
-        policy_result_table_str = print_table(
-            policy_result_table, policy_result_header)
-        print(acceptance_title, end='')
-        acceptance_result_table_str = print_table(
-            acceptance_ratio_meter_table, acceptance_ratio_meter_header)
+        print(main_title)
+        print(scenario_result_title)
+        scenario_result_table_str = print_table(scenario_result_table, scenario_result_header)
+        print(count_result_title)
+        count_result_table_str = print_table(count_result_table, count_result_header)
+        print(policy_result_title)
+        policy_result_table_str = print_table(policy_result_table, policy_result_header)
+        print(acceptance_title)
+        acceptance_result_table_str = print_table(acceptance_ratio_meter_table, acceptance_ratio_meter_header)
+        if profiler:
+            print(profile_result_title)
+            profile_result_table_str = print_table(profile_result_table, profile_result_header)
 
         if not args.filename:
             filename = f'result_{os.path.basename(os.path.dirname(args.config_path))}'
         else:
             filename = args.filename
 
-        os.makedirs('result', exist_ok=True)
-        with open(f'./result/{filename}.txt', 'a+') as f:
-            f.write(main_title)
-            f.write(scenario_result_title)
+        os.makedirs('sim_result', exist_ok=True)
+        with open(f'./sim_result/{filename}.txt', 'a+') as f:
+            f.write(main_title + '\n')
+            f.write(scenario_result_title + '\n')
             f.write(scenario_result_table_str)
             f.write('\n')
-            f.write(count_result_title)
+            f.write(count_result_title + '\n')
             f.write(count_result_table_str)
             f.write('\n')
-            f.write(policy_result_title)
+            f.write(policy_result_title + '\n')
             f.write(policy_result_table_str)
             f.write('\n')
-            f.write(acceptance_title)
+            f.write(acceptance_title + '\n')
             f.write(acceptance_result_table_str)
             f.write('\n')
+            if profiler:
+                f.write(profile_result_title + '\n')
+                f.write(profile_result_table_str)
+                f.write('\n')
 
-    def export_csv(self, simulation_result: MXSimulationResult, label: str, args: dict):
+    def export_csv(self, simulation_result: MXSimulationResult,  profiler: Profiler = None, label: str = '', args: dict = None):
         middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(
             self.simulation_env)
         acceptance_score = MXAcceptanceScore(middleware_list)
@@ -911,57 +920,70 @@ class MXSimulationEvaluator:
         else:
             filename = args.filename
 
-        os.makedirs('result', exist_ok=True)
-        with open(f'./result/{filename}.csv', 'a+') as f:
+        os.makedirs('sim_result', exist_ok=True)
+        with open(f'./sim_result/{filename}.csv', 'a+') as f:
             wr = csv.writer(f)
-            wr.writerow(['simulation name'] +
-                        ['avg accept ratio(%) (all)', 'avg success ratio(%) (all)', 'avg latency (all)', 'avg energy (all)', 'avg execute time (all)', 'avg schedule time (all)',  'avg overhead (all)', 'total (all)', 'success (all)', 'fail (all)', 'accept (all)', 'accept fail (all)', 'timeout num (all)'] +
-                        ['avg accept ratio(%) (local)', 'avg success ratio(%) (local)', 'avg latency (local)', 'avg energy (local)', 'avg execute time (local)', 'avg schedule time (local)',  'avg overhead (local)', 'total (local)', 'success (local)', 'fail (local)', 'accept (local)', 'accept fail (local)', 'timeout num (local)'] +
-                        ['avg accept ratio(%) (super)', 'avg success ratio(%) (super)', 'avg latency (super)', 'avg energy (super)', 'avg execute time (super)', 'avg schedule time (super)',  'avg overhead (super)', 'total (super)', 'success (super)', 'fail (super)', 'accept (super)', 'accept fail (super)', 'timeout num (super)'] +
-                        ['total execute count', 'total execute time', 'total application cycle num', 'total avg application latency'])
-            wr.writerow(
-                [f'{label}'] +
-                [f'{simulation_result.get_avg_acceptance_ratio()[0] * 100:.3f}',
-                 f'{simulation_result.get_avg_success_ratio()[0] * 100:.3f}',
-                 f'{simulation_result.get_avg_latency()[0]:.3f}',
-                 f'{simulation_result.get_avg_energy()[0]:.3f}',
-                 f'{simulation_result.get_avg_execute_time()[0]:.3f}',
-                 f'{simulation_result.get_avg_schedule_time()[0]:.3f}',
-                 f'{simulation_result.get_avg_overhead()[0]:.3f}'] +
-                [f'{simulation_result.get_total_scenario_num()[0]}',
-                 f'{simulation_result.get_success_scenario_num()[0]}',
-                 f'{simulation_result.get_failed_scenario_num()[0]}',
-                 f'{simulation_result.get_accepted_scenario_num()[0]}',
-                 f'{simulation_result.get_denied_scenario_num()[0]}',
-                 f'{simulation_result.get_timeout_scenario_num()[0]}'] +
-                [f'{simulation_result.get_avg_acceptance_ratio()[1] * 100:.3f}',
-                 f'{simulation_result.get_avg_success_ratio()[1] * 100:.3f}',
-                 f'{simulation_result.get_avg_latency()[1]:.3f}',
-                 f'{simulation_result.get_avg_energy()[1]:.3f}',
-                 f'{simulation_result.get_avg_execute_time()[1]:.3f}',
-                 f'{simulation_result.get_avg_schedule_time()[1]:.3f}',
-                 f'{simulation_result.get_avg_overhead()[1]:.3f}'] +
-                [f'{simulation_result.get_total_scenario_num()[1]}',
-                 f'{simulation_result.get_success_scenario_num()[1]}',
-                 f'{simulation_result.get_failed_scenario_num()[1]}',
-                 f'{simulation_result.get_accepted_scenario_num()[1]}',
-                 f'{simulation_result.get_denied_scenario_num()[1]}',
-                 f'{simulation_result.get_timeout_scenario_num()[1]}'] +
-                [f'{simulation_result.get_avg_acceptance_ratio()[2] * 100:.3f}',
-                 f'{simulation_result.get_avg_success_ratio()[2] * 100:.3f}',
-                 f'{simulation_result.get_avg_latency()[2]:.3f}',
-                 f'{simulation_result.get_avg_energy()[2]:.3f}',
-                 f'{simulation_result.get_avg_execute_time()[2]:.3f}',
-                 f'{simulation_result.get_avg_schedule_time()[2]:.3f}',
-                 f'{simulation_result.get_avg_overhead()[2]:.3f}'] +
-                [f'{simulation_result.get_total_scenario_num()[2]}',
-                 f'{simulation_result.get_success_scenario_num()[2]}',
-                 f'{simulation_result.get_failed_scenario_num()[2]}',
-                 f'{simulation_result.get_accepted_scenario_num()[2]}',
-                 f'{simulation_result.get_denied_scenario_num()[2]}',
-                 f'{simulation_result.get_timeout_scenario_num()[2]}'] +
-                [f'{simulation_result.total_execute_count}',
-                 f'{simulation_result.total_execute_time}',
-                 f'{simulation_result.total_scenario_cycle_num}',
-                 f'{(simulation_result.total_execute_time / simulation_result.total_scenario_cycle_num if simulation_result.total_scenario_cycle_num != 0 else 0):0.2f}'] +
-                acceptance_score.acceptance_ratio_by_cumulative)
+            header = (['simulation name'] +
+                      ['avg accept ratio(%) (all)', 'avg success ratio(%) (all)', 'avg latency (all)', 'avg energy (all)', 'avg execute time (all)', 'avg schedule time (all)',  'avg overhead (all)', 'total (all)', 'success (all)', 'fail (all)', 'accept (all)', 'accept fail (all)', 'timeout num (all)'] +
+                      ['avg accept ratio(%) (local)', 'avg success ratio(%) (local)', 'avg latency (local)', 'avg energy (local)', 'avg execute time (local)', 'avg schedule time (local)',  'avg overhead (local)', 'total (local)', 'success (local)', 'fail (local)', 'accept (local)', 'accept fail (local)', 'timeout num (local)'] +
+                      ['avg accept ratio(%) (super)', 'avg success ratio(%) (super)', 'avg latency (super)', 'avg energy (super)', 'avg execute time (super)', 'avg schedule time (super)',  'avg overhead (super)', 'total (super)', 'success (super)', 'fail (super)', 'accept (super)', 'accept fail (super)', 'timeout num (super)'] +
+                      ['total execute count', 'total execute time', 'total application cycle num', 'total avg application latency'])
+            if profiler:
+                header += ['avg overhead', 'inner overhead', 'comm overhead', 'super thing inner', 'middleware inner',
+                           'super thing - middleware comm overhead', 'target thing - middleware comm overhead', 'middleware - middleware comm overhead']
+            wr.writerow(header)
+            data = ([f'{label}'] +
+                    [f'{simulation_result.get_avg_acceptance_ratio()[0] * 100:.3f}',
+                     f'{simulation_result.get_avg_success_ratio()[0] * 100:.3f}',
+                     f'{simulation_result.get_avg_latency()[0]:.3f}',
+                     f'{simulation_result.get_avg_energy()[0]:.3f}',
+                     f'{simulation_result.get_avg_execute_time()[0]:.3f}',
+                     f'{simulation_result.get_avg_schedule_time()[0]:.3f}',
+                     f'{simulation_result.get_avg_overhead()[0]:.3f}'] +
+                    [f'{simulation_result.get_total_scenario_num()[0]}',
+                     f'{simulation_result.get_success_scenario_num()[0]}',
+                     f'{simulation_result.get_failed_scenario_num()[0]}',
+                     f'{simulation_result.get_accepted_scenario_num()[0]}',
+                     f'{simulation_result.get_denied_scenario_num()[0]}',
+                     f'{simulation_result.get_timeout_scenario_num()[0]}'] +
+                    [f'{simulation_result.get_avg_acceptance_ratio()[1] * 100:.3f}',
+                     f'{simulation_result.get_avg_success_ratio()[1] * 100:.3f}',
+                     f'{simulation_result.get_avg_latency()[1]:.3f}',
+                     f'{simulation_result.get_avg_energy()[1]:.3f}',
+                     f'{simulation_result.get_avg_execute_time()[1]:.3f}',
+                     f'{simulation_result.get_avg_schedule_time()[1]:.3f}',
+                     f'{simulation_result.get_avg_overhead()[1]:.3f}'] +
+                    [f'{simulation_result.get_total_scenario_num()[1]}',
+                     f'{simulation_result.get_success_scenario_num()[1]}',
+                     f'{simulation_result.get_failed_scenario_num()[1]}',
+                     f'{simulation_result.get_accepted_scenario_num()[1]}',
+                     f'{simulation_result.get_denied_scenario_num()[1]}',
+                     f'{simulation_result.get_timeout_scenario_num()[1]}'] +
+                    [f'{simulation_result.get_avg_acceptance_ratio()[2] * 100:.3f}',
+                     f'{simulation_result.get_avg_success_ratio()[2] * 100:.3f}',
+                     f'{simulation_result.get_avg_latency()[2]:.3f}',
+                     f'{simulation_result.get_avg_energy()[2]:.3f}',
+                     f'{simulation_result.get_avg_execute_time()[2]:.3f}',
+                     f'{simulation_result.get_avg_schedule_time()[2]:.3f}',
+                     f'{simulation_result.get_avg_overhead()[2]:.3f}'] +
+                    [f'{simulation_result.get_total_scenario_num()[2]}',
+                     f'{simulation_result.get_success_scenario_num()[2]}',
+                     f'{simulation_result.get_failed_scenario_num()[2]}',
+                     f'{simulation_result.get_accepted_scenario_num()[2]}',
+                     f'{simulation_result.get_denied_scenario_num()[2]}',
+                     f'{simulation_result.get_timeout_scenario_num()[2]}'] +
+                    [f'{simulation_result.total_execute_count}',
+                     f'{simulation_result.total_execute_time}',
+                     f'{simulation_result.total_scenario_cycle_num}',
+                     f'{(simulation_result.total_execute_time / simulation_result.total_scenario_cycle_num if simulation_result.total_scenario_cycle_num != 0 else 0):0.2f}'] +
+                    acceptance_score.acceptance_ratio_by_cumulative)
+            if profiler:
+                data += [f'{profiler.get_avg_overhead():.3f}',
+                         f'{profiler.get_avg_overhead(OverheadType.INNER):.3f}',
+                         f'{profiler.get_avg_overhead(OverheadType.COMM):.3f}',
+                         f'{profiler.get_avg_overhead(OverheadType.SUPER_THING_INNER):.3f}',
+                         f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE_INNER):.3f}',
+                         f'{profiler.get_avg_overhead(OverheadType.SUPER_THING__MIDDLEWARE_COMM):.3f}',
+                         f'{profiler.get_avg_overhead(OverheadType.TARGET_THING__MIDDLEWARE_COMM):.3f}',
+                         f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM):.3f}']
+            wr.writerow(data)

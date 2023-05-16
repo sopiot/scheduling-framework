@@ -23,6 +23,8 @@ def arg_parse():
                         required=False, help="middleware debug mode")
     parser.add_argument("--download_logs", '-dl', action='store_true',
                         required=False, help="download simulation log files")
+    parser.add_argument("--profile", '-pf', action='store_true',
+                        required=False, help="profile detailed overhead")
     arg_list, unknown = parser.parse_known_args()
 
     return arg_list

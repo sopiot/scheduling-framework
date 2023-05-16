@@ -71,76 +71,141 @@ class MXSchedulingFramework:
                                 middleware_path: str = '~/middleware',
                                 policy_file_path: str = ''):
 
-        def task(middleware: MXMiddlewareElement):
-            ssh_client = simulation_executor.event_handler.find_ssh_client(middleware)
+        simulator_ip = ''
+
+        def get_os_version(ssh_client: MXSSHClient) -> str:
+            lsb_release_install_check = ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True)
+            if not lsb_release_install_check:
+                install_result = ssh_client.send_command_with_check_success('sudo apt install lsb-release -y;', get_pty=True)
+                if not install_result:
+                    raise Exception(f'Install lsb-release failed to {ssh_client.device.name}')
+
+            remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
+            return remote_device_os
+
+        def install_remote_middleware(ssh_client: MXSSHClient, user: str):
+            # result = ssh_client.send_command(
+            #     f'rm -rf {home_dir_append(middleware_path, user)}')
+            remote_device_os = get_os_version(ssh_client)
+            ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
+            ssh_client.send_dir(SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
+            if 'Ubuntu 20.04' in remote_device_os:
+                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64',
+                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+            elif 'Ubuntu 22.04' in remote_device_os:
+                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64',
+                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+            elif 'Raspbian' in remote_device_os:
+                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86',
+                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
+            ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
+            middleware_update_result = ssh_client.send_command_with_check_success(f'cd {home_dir_append(middleware_path, user)};'
+                                                                                  'chmod +x sopiot_middleware;'
+                                                                                  'cmake .;'
+                                                                                  'make -j')
+            if not middleware_update_result:
+                raise Exception(f'Install middleware to {ssh_client.device.name} failed')
+
+            MXTEST_LOG_DEBUG(f'Install middleware to {ssh_client.device.name} success', MXTestLogLevel.INFO)
+            return True
+
+        def install_remote_thing(ssh_client: MXSSHClient, force_install: bool = True):
+            # if not any([thing.is_super for thing in middleware.thing_list]):
+            #     MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} is not have Super Thing', MXTestLogLevel.INFO)
+            #     return True
+            thing_install_command = f'pip install big-thing-py {"--force-reinstall --no-deps" if force_install else ""}'
+            MXTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} start', MXTestLogLevel.INFO)
+            pip_install_result = ssh_client.send_command_with_check_success(thing_install_command)
+            if not pip_install_result:
+                raise Exception(f'Install big-thing-py failed to {ssh_client.device.name}')
+
+            MXTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} end', MXTestLogLevel.INFO)
+            return True
+
+        def init_ramdisk(ssh_client: MXSSHClient) -> None:
+            # TODO: not tested yet
+            ramdisk_check_command = 'ls /mnt/ramdisk'
+            ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
+                                             f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
+                                             f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
+                                             f'sudo chmod 777 /mnt/ramdisk']
+            ramdisk_check_result = ssh_client.send_command_with_check_success(ramdisk_check_command)
+            if not ramdisk_check_result:
+                for ramdisk_generate_command in ramdisk_generate_command_list:
+                    result = ssh_client.send_command_with_check_success(ramdisk_generate_command)
+                    if not result:
+                        raise Exception(f'Generate ramdisk failed to {ssh_client.device.name}')
+
+            return True
+
+        def time_sync(ssh_client: MXSSHClient) -> None:
+            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
+            remote_shell_path = ssh_client.send_command('echo $SHELL')
+            remote_shell_name = remote_shell_path[0].split('/')[-1].strip()
+            ntp_install_result = ssh_client.send_command_with_check_success(f'source {remote_home_dir}/.{remote_shell_name}rc; command -v ntpdate', get_pty=True)
+            if not ntp_install_result:
+                ntp_install_success_result = ssh_client.send_command_with_check_success('sudo apt install ntpdate -y')
+                if not ntp_install_success_result:
+                    raise Exception(f'Install ntpdate failed to {ssh_client.device.name}')
+
+            # sudo sed -i -E 's/^pool 0\.(.*)\.pool\.ntp\.org iburst/pool time1.google.com iburst/g' /etc/ntp.conf
+            # sudo sed -i -E 's/^pool 1\.(.*)\.pool\.ntp\.org iburst/pool time2.google.com iburst/g' /etc/ntp.conf
+            # sudo sed -i -E 's/^pool 2\.(.*)\.pool\.ntp\.org iburst/pool time3.google.com iburst/g' /etc/ntp.conf
+            # sudo sed -i -E 's/^pool 3\.(.*)\.pool\.ntp\.org iburst/pool time4.google.com iburst/g' /etc/ntp.conf
+            # cat /etc/ntp.conf | grep "time1.google.com"
+            # ntp_conf_check_command = ('cat /etc/ntp.conf | grep "time1.google.com"'
+            #                           'cat /etc/ntp.conf | grep "time2.google.com"'
+            #                           'cat /etc/ntp.conf | grep "time3.google.com"'
+            #                           'cat /etc/ntp.conf | grep "time4.google.com"')
+            # ntp_conf_check_command_result = ssh_client.send_command(ntp_conf_check_command, get_pty=True)
+            # time_sync_command = ("sudo sed -i -E 's/^pool 0\.(.*)\.pool\.ntp\.org iburst/pool time1.google.com iburst/g' /etc/ntp.conf"
+            #                      "sudo sed -i -E 's/^pool 1\.(.*)\.pool\.ntp\.org iburst/pool time2.google.com iburst/g' /etc/ntp.conf"
+            #                      "sudo sed -i -E 's/^pool 2\.(.*)\.pool\.ntp\.org iburst/pool time3.google.com iburst/g' /etc/ntp.conf"
+            #                      "sudo sed -i -E 's/^pool 3\.(.*)\.pool\.ntp\.org iburst/pool time4.google.com iburst/g' /etc/ntp.conf"
+            #                      'sudo service ntp restart;'
+            #                      'ntpq -p')
+
+            # time_sync_command = (f'source {remote_home_dir}/.{remote_shell_name}rc;'
+            #                      f'sudo service ntp stop;'
+            #                      f'sudo ntpdate {simulator_ip}')
+            time_sync_command = ('sudo service ntp restart;'
+                                 'ntpq -p')
+            MXTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} start', MXTestLogLevel.INFO)
+            time_sync_result = ssh_client.send_command_with_check_success(time_sync_command, get_pty=True)
+            if not time_sync_result:
+                MXTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} failed!', MXTestLogLevel.FAIL)
+                return False
+
+            MXTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} end', MXTestLogLevel.INFO)
+            return True
+
+        def send_task(ssh_client: MXSSHClient):
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
             user = os.path.basename(remote_home_dir)
-            ssh_client.send_command('sudo apt install lsb-release -y')
-            result = ssh_client.send_command('echo $?')
-            if int(result[0]):
-                raise Exception(f'Install lsb-release failed to {middleware.name}')
-            remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
+            install_remote_middleware(ssh_client=ssh_client, user=user)
 
-            ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
-            # if not middleware.binary_sended:
-            # result = ssh_client.send_command(f'rm -rf {home_dir_append(middleware_path, user)}')
-            send_request_list = []
-            result = ssh_client.send_dir(SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
-            if 'Ubuntu 20.04' in remote_device_os:
-                send_request_list.append((f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware'))
-                # result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-            elif 'Ubuntu 22.04' in remote_device_os:
-                send_request_list.append((f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware'))
-                # result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-            elif 'Raspbian' in remote_device_os:
-                send_request_list.append((f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware'))
-                # result = ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86', f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-            # middleware.binary_sended = True
-
-            # ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
-            send_request_list.append((policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}'))
-            for local_file, remote_file in tqdm(send_request_list, desc='send middleware files'):
-                result = ssh_client.send_file(local_path=local_file, remote_path=remote_file)
-
-            ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)}; chmod +x sopiot_middleware;')
-            middleware_cmake_result = ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)};cmake .; make -j; echo $?')[-1]
-            if int(middleware_cmake_result[0]):
-                raise Exception(f'Cmake is not installed at device {middleware.device.name} middleware {middleware.name}...')
-
-            MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} update start', MXTestLogLevel.INFO)
-            middleware_update_result = ssh_client.send_command(f'cd {home_dir_append(middleware_path, user)};cmake .; make -j; echo $?')[-1]
-
-            if not int(middleware_update_result[0]):
-                MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} update result: True', MXTestLogLevel.INFO)
-            else:
-                raise Exception(f'device {middleware.device.name} middleware {middleware.name} update result: False')
-
-            # TODO: not tested yet
-            ramdisk_check_command = f'ls /mnt/ramdisk'
-            ssh_client.send_command(ramdisk_check_command)
-            ramdisk_check_result = ssh_client.send_command('echo $?')
-            if int(ramdisk_check_result[0]):
-                ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
-                                                 f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
-                                                 f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
-                                                 f'sudo chmod 777 /mnt/ramdisk']
-                for ramdisk_generate_command in ramdisk_generate_command_list:
-                    ssh_client.send_command(ramdisk_generate_command)
-
-            if any([thing.is_super for thing in middleware.thing_list]):
-                remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-                force_pip_install = True
-                thing_install_command = f'pip install big-thing-py {"" if not force_pip_install else "--force-reinstall"}; echo $?'
-
-                MXTEST_LOG_DEBUG(f'middleware {middleware.name} pip install start', MXTestLogLevel.INFO)
-                pip_install_result = ssh_client.send_command(thing_install_command)
-                if not int(pip_install_result[-1]):
-                    MXTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} pip install result: True', MXTestLogLevel.INFO)
-                else:
-                    raise Exception(f'device {middleware.device.name} middleware {middleware.name} pip install result: False')
+        def task(ssh_client: MXSSHClient):
+            install_remote_thing(ssh_client=ssh_client, force_install=True)
+            init_ramdisk(ssh_client=ssh_client)
+            time_sync(ssh_client=ssh_client)
 
         middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(simulation_executor.simulation_env)
-        pool_map(task, middleware_list, proc=1)
+        ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list] +
+                               [simulation_executor.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
+        local_ssh_client = None
+        for ssh_client in ssh_client_list:
+            if ssh_client.device.name == 'localhost':
+                local_ssh_client = ssh_client
+                break
+
+        ip_list = local_ssh_client.send_command('hostname -I')[0].split(' ')
+        for ip in ip_list:
+            if not '192.168' in ip:
+                continue
+            simulator_ip = ip
+            break
+        pool_map(task, ssh_client_list)
+        pool_map(send_task, ssh_client_list, proc=1)
 
         return True
 
@@ -158,26 +223,22 @@ class MXSchedulingFramework:
         simulation_result_list: List[MXSimulationResult] = []
         for policy, result_list in simulation_result_list_sort_by_policy.items():
             simulation_result_avg = MXSimulationResult(policy=policy,
-                                                       avg_latency=avg([result.get_avg_latency()[0] for result in result_list]),
-                                                       avg_energy=avg([result.get_avg_energy()[0] for result in result_list]),
-                                                       avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
+                                                        avg_latency=avg([result.get_avg_latency()[0] for result in result_list]),
+                                                        avg_energy=avg([result.get_avg_energy()[0] for result in result_list]),
+                                                        avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
             simulation_result_list.append(simulation_result_avg)
 
         simulation_result_list_sort_by_application_latency = sorted(simulation_result_list, key=lambda x: x.avg_latency)
         simulation_result_list_sort_by_application_energy = sorted(simulation_result_list, key=lambda x: x.avg_energy)
         simulation_result_list_sort_by_success_ratio = sorted(simulation_result_list, key=lambda x: x.avg_success_ratio, reverse=True)
 
-        # TODO: policy에 대한 랭킹으로만 나와야한다. 같은 config결과는 평균을 내든지 해야한다.
         rank_header = ['Rank', 'QoS', 'Energy Saving', 'Stability']
         print_table([[i+1,
-                      f'''\
-latency: {f'{simulation_result_list_sort_by_application_latency[i].avg_latency:.2f}'}
+                      f'''latency: {f'{simulation_result_list_sort_by_application_latency[i].avg_latency:.2f}'}
 policy: {simulation_result_list_sort_by_application_latency[i].policy}''',
-                      f'''\
-energy: {f'{simulation_result_list_sort_by_application_energy[i].avg_energy:.2f}'}
+                      f'''energy: {f'{simulation_result_list_sort_by_application_energy[i].avg_energy:.2f}'}
 policy: {simulation_result_list_sort_by_application_energy[i].policy}''',
-                      f'''\
-success_ratio: {f'{simulation_result_list_sort_by_success_ratio[i].avg_success_ratio * 100:.2f}'}
+                      f'''success_ratio: {f'{simulation_result_list_sort_by_success_ratio[i].avg_success_ratio * 100:.2f}'}
 policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in range(len(simulation_result_list))], rank_header)
 
         return True
@@ -188,8 +249,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
 
         for config_path in self.config_path_list:
             device_pool_path = MXPath(project_root_path=get_project_root(),
-                                      config_path=config_path,
-                                      path=load_yaml(config_path)['device_pool_path'])
+                                       config_path=config_path,
+                                       path=load_yaml(config_path)['device_pool_path'])
             device_list: List[dict] = load_yaml(device_pool_path.abs_path())
             valid_device_list = [device for device in device_list if device != 'localhost']
 
@@ -229,14 +290,13 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
 
         if self.simulation_file_path:
             simulation_executor = MXSimulatorExecutor(simulation_file_path=self.simulation_file_path,
-                                                      mqtt_debug=self.mqtt_debug,
-                                                      middleware_debug=self.middleware_debug,
-                                                      args=args)
+                                                       mqtt_debug=self.mqtt_debug,
+                                                       middleware_debug=self.middleware_debug,
+                                                       args=args)
 
             for policy_file_path in policy_file_path_list:
                 label = f'simulation_file_{self.simulation_file_path}_policy_{os.path.basename(policy_file_path).split(".")[0]}'
-                MXTEST_LOG_DEBUG(
-                    f'==== Start simulation {label} ====', MXTestLogLevel.INFO)
+                MXTEST_LOG_DEBUG(f'==== Start simulation {label} ====', MXTestLogLevel.INFO)
 
                 self.update_middleware_thing(
                     simulation_executor=simulation_executor,
@@ -255,12 +315,16 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                 simulation_result.policy = os.path.basename(policy_file_path).split(".")[0]
                 simulation_result_list.append(simulation_result)
 
-                simulation_evaluator.export_txt(simulation_result=simulation_result, label=label, args=args)
+                profiler = None
                 if args.download_logs:
                     simulation_executor.event_handler.download_log_file()
+                if args.profile:
+                    root_log_path = simulation_executor.event_handler.download_log_file()
+                    profiler = Profiler(root_log_folder_path=root_log_path)
+                    profiler.profile(ProfileType.EXECUTE, export=False)
 
-                simulation_evaluator.export_txt(simulation_result=simulation_result, label=label, args=args)
-                simulation_evaluator.export_csv(simulation_result=simulation_result, label=label, args=args)
+                simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
+                simulation_evaluator.export_csv(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
 
                 simulation_executor.event_handler.wrapup()
 
@@ -296,11 +360,17 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     simulation_result.policy = os.path.basename(policy_file_path).split('.')[0]
                     simulation_result_list.append(simulation_result)
 
-                    simulation_evaluator.export_txt(simulation_result=simulation_result, label=label, args=args)
-                    simulation_evaluator.export_csv(simulation_result=simulation_result, label=label, args=args)
-
+                    profiler = None
                     if args.download_logs:
                         simulation_executor.event_handler.download_log_file()
+                    if args.profile:
+                        root_log_path = simulation_executor.event_handler.download_log_file()
+                        profiler = Profiler(root_log_folder_path=root_log_path)
+                        profiler.profile(ProfileType.EXECUTE, export=False)
+
+                    simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
+                    simulation_evaluator.export_csv(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
+
                     simulation_executor.event_handler.wrapup()
 
                     del simulation_executor
