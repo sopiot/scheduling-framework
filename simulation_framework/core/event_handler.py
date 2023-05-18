@@ -203,6 +203,8 @@ class SoPEventHandler:
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.cfg'), ext_filter='cfg')
                 ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.mosquitto.conf'), ext_filter='conf')
+                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
+                                    local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}_mosquitto.log'), ext_filter='log')
 
             remote_middleware_log_path = os.path.join(remote_home_dir, 'simulation_log')
             file_attr_list = ssh_client._sftp_client.listdir_attr(remote_middleware_log_path)
@@ -1530,7 +1532,7 @@ class SoPEventHandler:
                 super_function_name)
 
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == super_thing and event.service_element == super_service and event.scenario_element == scenario and event.event_type == SoPEventType.SUPER_FUNCTION_EXECUTE:
+                if event.event_type == SoPEventType.SUPER_FUNCTION_EXECUTE and event.middleware_element == middleware and event.thing_element == super_thing and event.service_element == super_service and event.scenario_element == scenario:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     event.return_type = return_type

@@ -1,4 +1,5 @@
 from simulation_framework.utils import *
+from string import Template
 
 from queue import Queue
 
@@ -257,11 +258,13 @@ log_file_path = "%s/simulation_log/%s_middleware.log"
 log_max_size = 300
 log_backup_num = 100'''
 
-    MOSQUITTO_CONF_TEMPLATE = '''set_tcp_nodelay true    
+    MOSQUITTO_CONF_TEMPLATE = Template('''set_tcp_nodelay true
+log_timestamp true
+log_timestamp_format %Y/%m/%d %H:%M:%S
 
-listener %d 0.0.0.0
+listener $port 0.0.0.0
 protocol mqtt
-allow_anonymous true'''
+allow_anonymous true''')
 
 #     MOSQUITTO_CONF_TEMPLATE = '''set_tcp_nodelay true
 
@@ -457,8 +460,8 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         # self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
         #                                                                       self.websocket_port,)
 
-        self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (
-            self.mqtt_port if self.mqtt_port else self.device.mqtt_port)
+        mosquitto_port = self.mqtt_port if self.mqtt_port else self.device.mqtt_port
+        self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
 
         return self.mosquitto_conf
 
@@ -492,10 +495,10 @@ if random.uniform(0, 1) < %f or service_fail_flag[f'{get_current_function_name()
 results += [self.req(key, subfunction_name='%s', tag_list=%s, arg_list=(), service_type=SoPServiceType.FUNCTION, policy=SoPPolicy.%s)]'''
 
     SERVICE_INSTANCE_TEMPLATE = '''\
-SoPFunction(func=%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%.3f, timeout=%.3f, energy=%d)'''
+SoPFunction(func=%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%8.3f, timeout=%8.3f, energy=%d)'''
 
     SUPER_SERVICE_INSTANCE_TEMPLATE = '''\
-SoPSuperFunction(func=self.%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%.3f, timeout=%.3f, energy=%d)'''
+SoPSuperFunction(func=self.%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%8.3f, timeout=%8.3f, energy=%d)'''
 
     FUNCTION_TEMPLATE = '''\
 def %s() -> str:
@@ -503,8 +506,8 @@ def %s() -> str:
     
 %s
     
-    time.sleep(%.3f)
-    return "execute_time: %.3f, energy: %d"
+    time.sleep(%8.3f)
+    return "execute_time: %8.3f, energy: %d"
 '''
 
     SUPER_FUNCTION_TEMPLATE = '''\
@@ -660,9 +663,9 @@ def arg_parse():
     parser.add_argument("--port", '-p', action='store', type=int,
                         required=False, default=%d, help="port")
     parser.add_argument("--alive_cycle", '-ac', action='store', type=int,
-                        required=False, default=%.3f, help="refresh_cycle")
+                        required=False, default=%8.3f, help="refresh_cycle")
     parser.add_argument("--refresh_cycle", '-rc', action='store', type=int,
-                        required=False, default=%.3f, help="refresh_cycle")
+                        required=False, default=%8.3f, help="refresh_cycle")
     parser.add_argument("--append_mac", '-am', action='%s',                         # store_true, store_false
                         required=False, help="append mac address to thing name")
     parser.add_argument("--retry_register", action='store_true',
@@ -719,9 +722,9 @@ def arg_parse():
     parser.add_argument("--port", '-p', action='store', type=int,
                         required=False, default=%d, help="port")
     parser.add_argument("--alive_cycle", '-ac', action='store', type=int,
-                        required=False, default=%.3f, help="alive cycle")
+                        required=False, default=%8.3f, help="alive cycle")
     parser.add_argument("--refresh_cycle", '-rc', action='store', type=int,
-                        required=False, default=%.3f, help="refresh cycle")
+                        required=False, default=%8.3f, help="refresh cycle")
     parser.add_argument("--auto_scan", '-as', action='%s',
                         required=False, help="middleware auto scan enable")
     parser.add_argument("--log", action='store_true',

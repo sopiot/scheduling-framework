@@ -186,7 +186,9 @@ class SoPSchedulingFramework:
         def task(ssh_client: SoPSSHClient):
             install_remote_thing(ssh_client=ssh_client, force_install=True)
             init_ramdisk(ssh_client=ssh_client)
-            time_sync(ssh_client=ssh_client)
+            if ssh_client.device.host != 'localhost':
+                time_sync(ssh_client=ssh_client)
+            # time_sync(ssh_client=ssh_client)
 
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(simulation_executor.simulation_env)
         ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list] +
@@ -320,7 +322,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                 if args.profile:
                     root_log_path = simulation_executor.event_handler.download_log_file()
                     profiler = Profiler(root_log_folder_path=root_log_path)
-                    profiler.profile(ProfileType.EXECUTE, export=False)
+                    profiler.profile(ProfileType.EXECUTE, export=True)
 
                 simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
                 simulation_evaluator.export_csv(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
@@ -365,7 +367,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     if args.profile:
                         root_log_path = simulation_executor.event_handler.download_log_file()
                         profiler = Profiler(root_log_folder_path=root_log_path)
-                        profiler.profile(ProfileType.EXECUTE, export=False)
+                        profiler.profile(ProfileType.EXECUTE, export=True)
 
                     simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
                     simulation_evaluator.export_csv(simulation_result=simulation_result, profiler=profiler, label=label, args=args)

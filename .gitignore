@@ -19,7 +19,7 @@ middleware_config
 
 res
 sim_result
-profile_result
+profile_result_*
 remote_logs
 
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
