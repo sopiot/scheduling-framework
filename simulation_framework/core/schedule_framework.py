@@ -254,22 +254,28 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                                        path=load_yaml(config_path)['device_pool_path'])
             device_list: List[dict] = load_yaml(device_pool_path.abs_path())
             valid_device_list = [device for device in device_list if device != 'localhost']
+            manual_middleware_tree = self.simulation_generator.simulation_config.middleware_config.manual
 
-            if not 'sim_env_samples' in config_path:
+            def count_middleware_num(root_middleware: SoPMiddlewareElement):
+                if root_middleware is None:
+                    return 0
+                if not root_middleware['child']:
+                    return 1
+
+                count = 1
+
+                for child in root_middleware['child']:
+                    count += count_middleware_num(child)
+                return count
+            middleware_num = count_middleware_num(manual_middleware_tree[0])
+
+            if self.simulation_generator.simulation_config.middleware_config.device_pool == ['localhost'] and self.simulation_generator.simulation_config.thing_config.device_pool == ['localhost']:
+                # if the simulation is running on a local device, skip check the number of devices in device.yaml
                 pass
-            elif 'paper_experiments' in config_path:
-                if len(valid_device_list) < 7:
-                    raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 10 devices)')
-            elif 'remote' in config_path:
-                if 'simple_home' in config_path:
-                    if len(valid_device_list) < 1:
-                        raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 1 devices)')
-                elif 'simple_building' in config_path:
-                    if len(valid_device_list) < 5:
-                        raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 5 devices)')
-                elif 'simple_campus' in config_path:
-                    if len(valid_device_list) < 7:
-                        raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 7 devices)')
+            elif len(valid_device_list) < middleware_num:
+                raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least {middleware_num} devices)')
+            else:
+                pass
 
             simulation_file_path, simulation_ID = self.simulation_generator.generate_simulation(simulation_ID=simulation_ID,
                                                                                                 config_path=config_path,
