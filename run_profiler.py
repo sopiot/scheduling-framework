@@ -61,15 +61,15 @@ def print_result(simulation_overhead: SimulationOverhead):
     SOPTEST_LOG_DEBUG(
         f'\n\
 ==== Request Avg Result =========\n\
-total overhead:                                {avg_total_overhead.total_seconds()*1e3:8.3f} ms\n\
-total inner overhead:                          {avg_inner_overhead.total_seconds()*1e3:8.3f} ms\n\
-total comm overhead:                           {avg_comm_overhead.total_seconds()*1e3:8.3f} ms\n\
-total MIDDLEWARE_INNER overhead:               {avg_overhead_middleware_inner_sum.total_seconds()*1e3:8.3f} ms\n\
-total SUPER_THING_INNER overhead:              {avg_overhead_super_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
-total TARGET_THING service execution:          {avg_overhead_target_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
-total MIDDLEWARE__MIDDLEWARE_COMM overhead:    {avg_overhead_middleware__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
-total SUPER_THING__MIDDLEWARE_COMM overhead:   {avg_overhead_super_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
-total TARGET_THING__MIDDLEWARE_COMM overhead:  {avg_overhead_target_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms')
+total overhead:                                             {avg_total_overhead.total_seconds()*1e3:8.3f} ms\n\
+total inner overhead:                                       {avg_inner_overhead.total_seconds()*1e3:8.3f} ms\n\
+total comm overhead:                                        {avg_comm_overhead.total_seconds()*1e3:8.3f} ms\n\
+total MIDDLEWARE_INNER overhead:                            {avg_overhead_middleware_inner_sum.total_seconds()*1e3:8.3f} ms\n\
+total SUPER_THING_INNER overhead:                           {avg_overhead_super_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
+total TARGET_THING service execution:                       {avg_overhead_target_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
+total MIDDLEWARE__MIDDLEWARE_COMM overhead:                 {avg_overhead_middleware__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
+total SUPER_THING__MIDDLEWARE_COMM overhead:                {avg_overhead_super_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
+total TARGET_THING__MIDDLEWARE_COMM overhead:               {avg_overhead_target_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms')
 
 
 def print_detail_result(simulation_overhead: SimulationOverhead):
