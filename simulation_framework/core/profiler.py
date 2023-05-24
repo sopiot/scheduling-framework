@@ -213,9 +213,11 @@ class RequestOverhead:
         overhead_type_filter = filter.get('type')
         element_name_from_filter = filter.get('element_name_from')
         element_type_from_filter = filter.get('element_type_from')
+        protocol_from_filter = filter.get('protocol_from')
         level_from_filter = filter.get('level_from')
         element_name_to_filter = filter.get('element_name_to')
         element_type_to_filter = filter.get('element_type_to')
+        protocol_to_filter = filter.get('protocol_to')
         level_to_filter = filter.get('level_to')
 
         if overhead_type_filter == OverheadType.ALL:
@@ -235,11 +237,15 @@ class RequestOverhead:
                 continue
             if element_type_from_filter and overhead.element_type_from != element_type_from_filter:
                 continue
+            if protocol_from_filter and overhead.protocol_from != protocol_from_filter:
+                continue
             if level_from_filter and overhead.level_from != level_from_filter:
                 continue
             if element_name_to_filter and overhead.element_name_to != element_name_to_filter:
                 continue
             if element_type_to_filter and overhead.element_type_to != element_type_to_filter:
+                continue
+            if protocol_to_filter and overhead.protocol_to != protocol_to_filter:
                 continue
             if level_to_filter and overhead.level_to != level_to_filter:
                 continue

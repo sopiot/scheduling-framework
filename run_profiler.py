@@ -110,12 +110,12 @@ def print_detail_result(simulation_overhead: SimulationOverhead):
                                                                           protocol_from=SoPProtocolType.Super.MS_EXECUTE,
                                                                           level_from=3,
                                                                           element_type_to=SoPElementType.THING,
-                                                                          protocol_to=SoPProtocolType.Super.MS_EXECUTE,
+                                                                          protocol_to=SoPProtocolType.Super.SM_EXECUTE,
                                                                           level_to=3))
     # [ST(3) -> MW(3)    MW(2)    MW(1)    LT(1)]
     avg_SM_EXECUTE_comm_overhead_3_3 = simulation_overhead.avg_overhead(dict(type=OverheadType.SUPER_THING__MIDDLEWARE_COMM,
                                                                              element_type_from=SoPElementType.THING,
-                                                                             protocol_from=SoPProtocolType.Super.MS_EXECUTE,
+                                                                             protocol_from=SoPProtocolType.Super.SM_EXECUTE,
                                                                              level_from=3,
                                                                              element_type_to=SoPElementType.MIDDLEWARE,
                                                                              protocol_to=SoPProtocolType.Super.SM_EXECUTE,
@@ -187,7 +187,7 @@ def print_detail_result(simulation_overhead: SimulationOverhead):
     # [ST(3)    MW(3)    MW(2)    MW(↓)    LT(1)]
     avg_CP_RESULT_EXECUTE_inner_overhead_1 = simulation_overhead.avg_overhead(dict(type=OverheadType.MIDDLEWARE_INNER,
                                                                                    element_type_from=SoPElementType.MIDDLEWARE,
-                                                                                   protocol_from=SoPProtocolType.Super.CP_RESULT_EXECUTE,
+                                                                                   protocol_from=SoPProtocolType.Base.TM_RESULT_EXECUTE,
                                                                                    level_from=1,
                                                                                    element_type_to=SoPElementType.MIDDLEWARE,
                                                                                    protocol_to=SoPProtocolType.Super.CP_RESULT_EXECUTE,
@@ -238,7 +238,7 @@ def print_detail_result(simulation_overhead: SimulationOverhead):
                                                                                    protocol_from=SoPProtocolType.Super.MS_RESULT_EXECUTE,
                                                                                    level_from=3,
                                                                                    element_type_to=SoPElementType.THING,
-                                                                                   protocol_to=SoPProtocolType.Super.MS_RESULT_EXECUTE,
+                                                                                   protocol_to=SoPProtocolType.Super.SM_EXECUTE,
                                                                                    level_to=3))
     # [ST(↓)    MW(3)    MW(2)    MW(1)    LT(1)]
     avg_MS_RESULT_EXECUTE_inner_overhead_final = simulation_overhead.avg_overhead(dict(type=OverheadType.SUPER_THING_INNER,
