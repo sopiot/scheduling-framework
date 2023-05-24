@@ -137,7 +137,7 @@ class SoPSchedulingFramework:
 
             return True
 
-        def time_sync(ssh_client: SoPSSHClient) -> None:
+        def time_sync(ssh_client: SoPSSHClient):
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
             remote_shell_path = ssh_client.send_command('echo $SHELL')
             remote_shell_name = remote_shell_path[0].split('/')[-1].strip()
@@ -147,36 +147,43 @@ class SoPSchedulingFramework:
                 if not ntp_install_success_result:
                     raise Exception(f'Install ntpdate failed to {ssh_client.device.name}')
 
-            # sudo sed -i -E 's/^pool 0\.(.*)\.pool\.ntp\.org iburst/pool time1.google.com iburst/g' /etc/ntp.conf
-            # sudo sed -i -E 's/^pool 1\.(.*)\.pool\.ntp\.org iburst/pool time2.google.com iburst/g' /etc/ntp.conf
-            # sudo sed -i -E 's/^pool 2\.(.*)\.pool\.ntp\.org iburst/pool time3.google.com iburst/g' /etc/ntp.conf
-            # sudo sed -i -E 's/^pool 3\.(.*)\.pool\.ntp\.org iburst/pool time4.google.com iburst/g' /etc/ntp.conf
-            # cat /etc/ntp.conf | grep "time1.google.com"
-            # ntp_conf_check_command = ('cat /etc/ntp.conf | grep "time1.google.com"'
-            #                           'cat /etc/ntp.conf | grep "time2.google.com"'
-            #                           'cat /etc/ntp.conf | grep "time3.google.com"'
-            #                           'cat /etc/ntp.conf | grep "time4.google.com"')
-            # ntp_conf_check_command_result = ssh_client.send_command(ntp_conf_check_command, get_pty=True)
-            # time_sync_command = ("sudo sed -i -E 's/^pool 0\.(.*)\.pool\.ntp\.org iburst/pool time1.google.com iburst/g' /etc/ntp.conf"
-            #                      "sudo sed -i -E 's/^pool 1\.(.*)\.pool\.ntp\.org iburst/pool time2.google.com iburst/g' /etc/ntp.conf"
-            #                      "sudo sed -i -E 's/^pool 2\.(.*)\.pool\.ntp\.org iburst/pool time3.google.com iburst/g' /etc/ntp.conf"
-            #                      "sudo sed -i -E 's/^pool 3\.(.*)\.pool\.ntp\.org iburst/pool time4.google.com iburst/g' /etc/ntp.conf"
-            #                      'sudo service ntp restart;'
+            time_sync_command = (f'source {remote_home_dir}/.{remote_shell_name}rc;'
+                                 f'sudo service ntp stop;'
+                                 f'sudo ntpdate time.google.com')
+            # time_sync_command = ('sudo service ntp restart;'
             #                      'ntpq -p')
-
-            # time_sync_command = (f'source {remote_home_dir}/.{remote_shell_name}rc;'
-            #                      f'sudo service ntp stop;'
-            #                      f'sudo ntpdate {simulator_ip}')
-            time_sync_command = ('sudo service ntp restart;'
-                                 'ntpq -p')
             SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} start', SoPTestLogLevel.INFO)
             time_sync_result = ssh_client.send_command_with_check_success(time_sync_command, get_pty=True)
             if not time_sync_result:
                 SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} failed!', SoPTestLogLevel.FAIL)
-                return False
+                raise Exception(f'Time sync failed to {ssh_client.device.name}')
 
             SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} end', SoPTestLogLevel.INFO)
-            return True
+
+        def set_cpu_clock_remote(ssh_client: SoPSSHClient) -> None:
+            set_clock_command = '''function check_cpu_clock_setting() {
+	sudo cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
+	sudo cat /sys/devices/system/cpu/cpu1/cpufreq/cpuinfo_cur_freq
+	sudo cat /sys/devices/system/cpu/cpu2/cpufreq/cpuinfo_cur_freq
+	sudo cat /sys/devices/system/cpu/cpu3/cpufreq/cpuinfo_cur_freq
+}
+
+function set_cpu_clock() {
+	echo "performance" | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+	echo "performance" | sudo tee /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
+	echo "performance" | sudo tee /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
+	echo "performance" | sudo tee /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
+	# Ondemand
+	# Interactive
+	# Schedutil
+}
+
+check_cpu_clock_setting
+set_cpu_clock
+check_cpu_clock_setting'''
+            result = ssh_client.send_command_with_check_success(set_clock_command)
+            if not result:
+                SOPTEST_LOG_DEBUG(f'Set cpu clock {ssh_client.device.name} failed!', SoPTestLogLevel.FAIL)
 
         def send_task(ssh_client: SoPSSHClient):
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
@@ -186,25 +193,17 @@ class SoPSchedulingFramework:
         def task(ssh_client: SoPSSHClient):
             install_remote_thing(ssh_client=ssh_client, force_install=True)
             init_ramdisk(ssh_client=ssh_client)
-            if ssh_client.device.host != 'localhost':
-                time_sync(ssh_client=ssh_client)
             # time_sync(ssh_client=ssh_client)
+            if ssh_client.device.name != 'localhost':
+                set_cpu_clock_remote(ssh_client=ssh_client)
 
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(simulation_executor.simulation_env)
         ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list] +
                                [simulation_executor.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
-        local_ssh_client = None
-        for ssh_client in ssh_client_list:
-            if ssh_client.device.name == 'localhost':
-                local_ssh_client = ssh_client
-                break
 
-        ip_list = local_ssh_client.send_command('hostname -I')[0].split(' ')
-        for ip in ip_list:
-            if not '192.168' in ip:
-                continue
-            simulator_ip = ip
-            break
+        middleware_ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list]))
+        thing_ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
+
         pool_map(task, ssh_client_list)
         pool_map(send_task, ssh_client_list, proc=1)
 
@@ -258,8 +257,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
             if not 'sim_env_samples' in config_path:
                 pass
             elif 'paper_experiments' in config_path:
-                if len(valid_device_list) < 11:
-                    raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 11 devices)')
+                if len(valid_device_list) < 7:
+                    raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least 10 devices)')
             elif 'remote' in config_path:
                 if 'simple_home' in config_path:
                     if len(valid_device_list) < 1:
@@ -320,8 +319,9 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                 if args.download_logs:
                     simulation_executor.event_handler.download_log_file()
                 if args.profile:
-                    root_log_path = simulation_executor.event_handler.download_log_file()
-                    profiler = Profiler(root_log_folder_path=root_log_path)
+                    log_root_path = simulation_executor.event_handler.download_log_file()
+                    profiler = Profiler()
+                    profiler.load(log_root_path=log_root_path)
                     profiler.profile(ProfileType.EXECUTE, export=True)
 
                 simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
@@ -365,8 +365,9 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     if args.download_logs:
                         simulation_executor.event_handler.download_log_file()
                     if args.profile:
-                        root_log_path = simulation_executor.event_handler.download_log_file()
-                        profiler = Profiler(root_log_folder_path=root_log_path)
+                        log_root_path = simulation_executor.event_handler.download_log_file()
+                        profiler = Profiler()
+                        profiler.load(log_root_path=log_root_path)
                         profiler.profile(ProfileType.EXECUTE, export=True)
 
                     simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)

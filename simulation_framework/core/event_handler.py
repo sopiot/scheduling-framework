@@ -194,7 +194,7 @@ class SoPEventHandler:
             ssh_client.open_sftp()
 
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            target_middleware_log_path = os.path.join(target_simulation_log_path, f'middleware.level{middleware.level}.{middleware.name}')
+            target_middleware_log_path = os.path.join(target_simulation_log_path, f'middleware.{ssh_client.device.name}.level{middleware.level}.{middleware.name}')
 
             file_attr_list = ssh_client._sftp_client.listdir_attr(
                 middleware.remote_middleware_config_path)

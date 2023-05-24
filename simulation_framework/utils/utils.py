@@ -350,6 +350,11 @@ def avg(src: List[Union[int, float]]) -> float:
     return sum(non_zero_value_list) / len(non_zero_value_list) if len(non_zero_value_list) > 0 else 0
 
 
+def avg_timedelta(src: List[datetime.timedelta]) -> datetime.timedelta:
+    non_zero_value_list = [value for value in src if value > datetime.timedelta()]
+    return sum(non_zero_value_list, datetime.timedelta()) / len(non_zero_value_list) if len(non_zero_value_list) > 0 else datetime.timedelta()
+
+
 def pool_map(func: Callable, args: List[Tuple], proc: int = 10) -> List[Any]:
     thread_list: List[SoPThread] = []
     for arg_chuck in [args[i:i+proc] for i in range(0, len(args), proc)]:
