@@ -87,7 +87,8 @@ class SoPSimulationGenerator:
                     user = os.path.basename(os.path.expanduser('~'))
                     break
             password = input(
-                f'localhost config is not exist in [{os.path.basename(device_pool_path)}]... Enter password of user [{user}]: ')
+                f'localhost config is not exist in [{os.path.basename(device_pool_path)}]... \nEnter password of user [{user}]: ')
+            ssh_port = int(input(f'localhost config is not exist in [{os.path.basename(device_pool_path)}]... Enter ssh port (default: 22): ')) or 22
 
             data = dict(
                 localhost=dict(
