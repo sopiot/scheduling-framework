@@ -28,22 +28,21 @@ def main():
     args = arg_parse()
 
     if args.profile_type.lower() == 'schedule':
-        profile_type = ProfileType.SCHEDULE
+        args.profile_type = ProfileType.SCHEDULE
     elif args.profile_type.lower() == 'execute':
-        profile_type = ProfileType.EXECUTE
+        args.profile_type = ProfileType.EXECUTE
 
+    profiler = Profiler()
     if args.log_path:
-        profiler = Profiler()
         profiler.load(log_root_path=args.log_path)
-        simulation_overhead = profiler.profile(ProfileType.EXECUTE, export=True)
+        simulation_overhead = profiler.profile(args.profile_type, export=True)
         print_result(simulation_overhead=simulation_overhead)
         print_detail_result(simulation_overhead=simulation_overhead)
     elif args.root_log_path:
         log_path_list = os.listdir(args.root_log_path)
         for log_path in log_path_list:
-            profiler = Profiler()
             profiler.load(log_root_path=log_path)
-            simulation_overhead = profiler.profile(ProfileType.EXECUTE, export=True)
+            simulation_overhead = profiler.profile(args.profile_type, export=True)
             print_result(simulation_overhead=simulation_overhead)
             print_detail_result(simulation_overhead=simulation_overhead)
 

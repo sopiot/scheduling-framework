@@ -1,6 +1,7 @@
 from simulation_framework.core.simulation_executor import *
 from simulation_framework.core.simulation_generator import *
 from simulation_framework.core.simulation_evaluator import *
+from simulation_framework.core.profiler import Profiler, ProfileType
 
 
 PREDEFINED_POLICY_FILE_NAME = 'my_scheduling_policies.cc'
@@ -322,10 +323,10 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                     log_root_path = simulation_executor.event_handler.download_log_file()
                     profiler = Profiler()
                     profiler.load(log_root_path=log_root_path)
-                    profiler.profile(ProfileType.EXECUTE, export=True)
+                    simulation_overhead = profiler.profile(args.profile_type, export=True)
 
-                simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
-                simulation_evaluator.export_csv(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
+                simulation_evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
+                simulation_evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
 
                 simulation_executor.event_handler.wrapup()
 
@@ -368,10 +369,10 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                         log_root_path = simulation_executor.event_handler.download_log_file()
                         profiler = Profiler()
                         profiler.load(log_root_path=log_root_path)
-                        profiler.profile(ProfileType.EXECUTE, export=True)
+                        simulation_overhead = profiler.profile(args.profile_type, export=True)
 
-                    simulation_evaluator.export_txt(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
-                    simulation_evaluator.export_csv(simulation_result=simulation_result, profiler=profiler, label=label, args=args)
+                    simulation_evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
+                    simulation_evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
 
                     simulation_executor.event_handler.wrapup()
 

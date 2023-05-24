@@ -1,5 +1,5 @@
 from simulation_framework.core.elements import *
-from simulation_framework.core.profiler import Profiler, ProfileType, OverheadType
+from simulation_framework.core.profiler import Profiler, SimulationOverhead, OverheadType
 
 import csv
 from itertools import zip_longest
@@ -687,7 +687,7 @@ class SoPSimulationEvaluator:
                           str(event.return_type) if event.return_type else ''])
         return table, header
 
-    def export_txt(self, simulation_result: SoPSimulationResult, profiler: Profiler = None, label: str = '', args: dict = None):
+    def export_txt(self, simulation_result: SoPSimulationResult, simulation_overhead: SimulationOverhead = None, label: str = '', args: dict = None):
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
         # scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(
         #     self.simulation_env)
@@ -696,7 +696,7 @@ class SoPSimulationEvaluator:
         count_result_header = ['', 'total', 'success', 'fail', 'accept', 'accept fail', 'timeout num']
         policy_result_header = ['total execute count', 'total execute time', 'total application cycle num', 'total avg application latency']
         acceptance_ratio_meter_header = ['acceptance_ratio_meter']
-        if profiler:
+        if simulation_overhead:
             profile_result_header = ['overhead type', 'overhead']
 
         scenario_result_table = []
@@ -754,16 +754,16 @@ class SoPSimulationEvaluator:
         acceptance_score = SoPAcceptanceScore(middleware_list)
         acceptance_ratio_meter_table = [[''.join(acceptance_score.acceptance_ratio_meter)]]
 
-        if profiler:
+        if simulation_overhead:
             profile_result_table = []
-            profile_result_table.append(['total', f'{profiler.get_avg_overhead():8.3f}'])
-            profile_result_table.append(['inner', f'{profiler.get_avg_overhead(OverheadType.INNER):8.3f}'])
-            profile_result_table.append(['comm', f'{profiler.get_avg_overhead(OverheadType.COMM):8.3f}'])
-            profile_result_table.append(['super_thing_inner', f'{profiler.get_avg_overhead(OverheadType.SUPER_THING_INNER):8.3f}'])
-            profile_result_table.append(['middleware_inner', f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE_INNER):8.3f}'])
-            profile_result_table.append(['super_thing_middleware_comm', f'{profiler.get_avg_overhead(OverheadType.SUPER_THING__MIDDLEWARE_COMM):8.3f}'])
-            profile_result_table.append(['target_thing_middleware_comm', f'{profiler.get_avg_overhead(OverheadType.TARGET_THING__MIDDLEWARE_COMM):8.3f}'])
-            profile_result_table.append(['middleware_middleware_comm', f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM):8.3f}'])
+            profile_result_table.append(['total', f'{simulation_overhead.avg_total_overhead().total_seconds():8.3f}'])
+            profile_result_table.append(['total inner', f'{simulation_overhead.avg_total_inner_overhead().total_seconds():8.3f}'])
+            profile_result_table.append(['total comm', f'{simulation_overhead.avg_total_comm_overhead().total_seconds():8.3f}'])
+            profile_result_table.append(['total middleware_inner', f'{simulation_overhead.avg_total_middleware_inner_overhead().total_seconds():8.3f}'])
+            profile_result_table.append(['total super_thing_inner', f'{simulation_overhead.avg_total_super_thing_inner_overhead().total_seconds():8.3f}'])
+            profile_result_table.append(['total middleware_middleware_comm', f'{simulation_overhead.avg_total_middleware__middleware_comm_overhead().total_seconds():8.3f}'])
+            profile_result_table.append(['total super_thing_middleware_comm', f'{simulation_overhead.avg_total_super_thing__middleware_comm_overhead().total_seconds():8.3f}'])
+            profile_result_table.append(['total target_thing_middleware_comm', f'{simulation_overhead.avg_total_target_thing__middleware_comm_overhead().total_seconds():8.3f}'])
 
         # print simulation score
         thing_list: List[SoPThingElement] = get_thing_list_recursive(self.simulation_env)
@@ -773,7 +773,7 @@ class SoPSimulationEvaluator:
         count_result_title = f'==== Count Result ===='
         policy_result_title = f'==== Policy Result ===='
         acceptance_title = f'==== Acceptance Result ===='
-        if profiler:
+        if simulation_overhead:
             profile_result_title = f'==== Profile Overhead Result ===='
 
         print(main_title)
@@ -785,7 +785,7 @@ class SoPSimulationEvaluator:
         policy_result_table_str = print_table(policy_result_table, policy_result_header)
         print(acceptance_title)
         acceptance_result_table_str = print_table(acceptance_ratio_meter_table, acceptance_ratio_meter_header)
-        if profiler:
+        if simulation_overhead:
             print(profile_result_title)
             profile_result_table_str = print_table(profile_result_table, profile_result_header)
 
@@ -809,12 +809,12 @@ class SoPSimulationEvaluator:
             f.write(acceptance_title + '\n')
             f.write(acceptance_result_table_str)
             f.write('\n')
-            if profiler:
+            if simulation_overhead:
                 f.write(profile_result_title + '\n')
                 f.write(profile_result_table_str)
                 f.write('\n')
 
-    def export_csv(self, simulation_result: SoPSimulationResult,  profiler: Profiler = None, label: str = '', args: dict = None):
+    def export_csv(self, simulation_result: SoPSimulationResult,  simulation_overhead: SimulationOverhead = None, label: str = '', args: dict = None):
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
         acceptance_score = SoPAcceptanceScore(middleware_list)
 
@@ -831,9 +831,9 @@ class SoPSimulationEvaluator:
                       ['avg accept ratio(%) (local)', 'avg success ratio(%) (local)', 'avg latency (local)', 'avg energy (local)', 'avg execute time (local)', 'avg schedule time (local)',  'avg overhead (local)', 'total (local)', 'success (local)', 'fail (local)', 'accept (local)', 'accept fail (local)', 'timeout num (local)'] +
                       ['avg accept ratio(%) (super)', 'avg success ratio(%) (super)', 'avg latency (super)', 'avg energy (super)', 'avg execute time (super)', 'avg schedule time (super)',  'avg overhead (super)', 'total (super)', 'success (super)', 'fail (super)', 'accept (super)', 'accept fail (super)', 'timeout num (super)'] +
                       ['total execute count', 'total execute time', 'total application cycle num', 'total avg application latency'])
-            if profiler:
-                header += ['avg overhead', 'inner overhead', 'comm overhead', 'super thing inner', 'middleware inner',
-                           'super thing - middleware comm overhead', 'target thing - middleware comm overhead', 'middleware - middleware comm overhead']
+            if simulation_overhead:
+                header += ['avg overhead', 'inner overhead', 'comm overhead', 'middleware inner', 'super thing inner',
+                           'middleware - middleware comm overhead', 'super thing - middleware comm overhead', 'target thing - middleware comm overhead']
             wr.writerow(header)
             data = ([f'{label}'] +
                     [f'{simulation_result.get_avg_acceptance_ratio()[0] * 100:8.3f}',
@@ -880,13 +880,13 @@ class SoPSimulationEvaluator:
                      f'{simulation_result.total_scenario_cycle_num}',
                      f'{(simulation_result.total_execute_time / simulation_result.total_scenario_cycle_num if simulation_result.total_scenario_cycle_num != 0 else 0):0.2f}']
                     )
-            if profiler:
-                data += [f'{profiler.get_avg_overhead():8.3f}',
-                         f'{profiler.get_avg_overhead(OverheadType.INNER):8.3f}',
-                         f'{profiler.get_avg_overhead(OverheadType.COMM):8.3f}',
-                         f'{profiler.get_avg_overhead(OverheadType.SUPER_THING_INNER):8.3f}',
-                         f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE_INNER):8.3f}',
-                         f'{profiler.get_avg_overhead(OverheadType.SUPER_THING__MIDDLEWARE_COMM):8.3f}',
-                         f'{profiler.get_avg_overhead(OverheadType.TARGET_THING__MIDDLEWARE_COMM):8.3f}',
-                         f'{profiler.get_avg_overhead(OverheadType.MIDDLEWARE__MIDDLEWARE_COMM):8.3f}']
+            if simulation_overhead:
+                data += [f'{simulation_overhead.avg_total_overhead().total_seconds():8.3f}',
+                         f'{simulation_overhead.avg_total_inner_overhead().total_seconds():8.3f}',
+                         f'{simulation_overhead.avg_total_comm_overhead().total_seconds():8.3f}',
+                         f'{simulation_overhead.avg_total_middleware_inner_overhead().total_seconds():8.3f}',
+                         f'{simulation_overhead.avg_total_super_thing_inner_overhead().total_seconds():8.3f}',
+                         f'{simulation_overhead.avg_total_middleware__middleware_comm_overhead().total_seconds():8.3f}',
+                         f'{simulation_overhead.avg_total_super_thing__middleware_comm_overhead().total_seconds():8.3f}',
+                         f'{simulation_overhead.avg_total_target_thing__middleware_comm_overhead().total_seconds():8.3f}']
             wr.writerow(data)
