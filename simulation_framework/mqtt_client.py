@@ -1,13 +1,55 @@
 from simulation_framework.core.elements import *
 
 import paho.mqtt.client as mqtt
-from queue import Queue, Empty
+
+
+def encode_MQTT_message(topic: str, payload: Union[str, dict], timestamp: float = None) -> mqtt.MQTTMessage:
+    try:
+        msg = mqtt.MQTTMessage()
+        msg.topic = bytes(topic, encoding='utf-8')
+        if isinstance(payload, str):
+            msg.payload = bytes(payload, encoding='utf-8')
+        elif isinstance(payload, dict):
+            msg.payload = dict_to_json_string(payload)
+        msg.timestamp = timestamp
+
+        return msg
+    except Exception as e:
+        print_error(e)
+        raise e
+
+
+def decode_MQTT_message(msg: mqtt.MQTTMessage, mode=dict) -> Tuple[str, dict]:
+    topic = msg.topic
+    payload = msg.payload
+    timestamp: float = msg.timestamp
+
+    if isinstance(topic, bytes):
+        topic = topic.decode()
+    if isinstance(payload, bytes):
+        payload = payload.decode()
+
+    if isinstance(payload, str):
+        if mode == str:
+            return topic, payload, timestamp
+        elif mode == dict:
+            return topic, json_string_to_dict(payload), timestamp
+        else:
+            raise Exception(f'Unexpected mode!!! - {mode}')
+    elif isinstance(payload, dict):
+        if mode == str:
+            return topic, dict_to_json_string(payload), timestamp
+        elif mode == dict:
+            return topic, payload, timestamp
+        else:
+            raise Exception(f'Unexpected mode!!! - {mode}')
+    else:
+        raise Exception(f'Unexpected type!!! - {type(payload)}')
 
 
 class SoPMQTTClient:
     def __init__(self, middleware: SoPMiddlewareElement, debug: bool = False):
-        self.client: mqtt.Client = mqtt.Client(
-            client_id=middleware.name, clean_session=True)
+        self.client: mqtt.Client = mqtt.Client(client_id=middleware.name, clean_session=True)
 
         self.middleware = middleware
         self.host = middleware.device.host
@@ -26,8 +68,7 @@ class SoPMQTTClient:
 
     def connect(self):
         try:
-            self.client.connect(self.middleware.device.host,
-                                self.middleware.mqtt_port)
+            self.client.connect(self.middleware.device.host, self.middleware.mqtt_port)
         except Exception as e:
             SOPLOG_DEBUG(f'Connect to broker failed...', 'red')
             return False
@@ -138,30 +179,3 @@ class SoPMQTTClient:
         if self.debug:
             SOPLOG_DEBUG(
                 f'{f"✅ Received by {self.get_client_id()}":>16}(qos={message.qos}): {topic:<80}, {payload} on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
-
-
-def main():
-    client = SoPMQTTClient('mid1', '147.46.114.165', 21283)
-    client.run()
-
-    input('Press Enter to continue...')
-    client.publish(
-        'mid1',
-        'MS/SCHEDULE/on_all/SuperThingTest_D45D64A628DB/SoPIoT-MW-thsvkd1_E45F01615B50/SoPIoT-MW-thsvkd1_E45F01615B50',
-        '{ "scenario": "test1", "period": 0 }')
-
-    input('Press Enter to continue...')
-    client.publish(
-        'mid1',
-        'MS/SCHEDULE/on_all/SuperThingTest_D45D64A628DB/SoPIoT-MW-thsvkd1_E45F01615B50/SoPIoT-MW-thsvkd1_E45F01615B50',
-        '{ "scenario": "test1", "period": 0 }')
-
-    input('Press Enter to continue...')
-    client.publish(
-        'mid1',
-        'MS/RESULT/SCHEDULE/on/BigThingTest_D45D64A628DB/SoPIoT-MW-thsvkd0_E45F016E0066/SuperThingTest_D45D64A628DB',
-        '{ "error": 0, "scenario": "test1" }')
-
-
-if __name__ == '__main__':
-    main()

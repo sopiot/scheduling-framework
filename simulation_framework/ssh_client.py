@@ -133,7 +133,7 @@ class SoPSSHClient:
 
     def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
         while not SoPSSHClient.COMMAND_SENDING < 2:
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
 
         if isinstance(command, str):
             command_list = [command]
@@ -193,7 +193,7 @@ class SoPSSHClient:
 
     def send_file(self, local_path: str, remote_path: str):
         while not SoPSSHClient.FILE_UPLOADING < 10:
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
 
         if not self.sftp_opened:
             self.open_sftp()
@@ -236,7 +236,7 @@ class SoPSSHClient:
 
     def get_file(self, remote_path: str, local_path: str, ext_filter: str = ''):
         while not SoPSSHClient.FILE_DOWNLOADING < 20:
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
 
         if not self.sftp_opened:
             self.open_sftp()

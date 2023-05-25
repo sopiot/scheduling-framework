@@ -1,5 +1,5 @@
-from simulation_framework.core.elements import *
-from simulation_framework.core.profiler import Profiler, SimulationOverhead, OverheadType
+from simulation_framework.core.event_handler import *
+from simulation_framework.profiler import *
 
 import csv
 from itertools import zip_longest
@@ -687,7 +687,7 @@ class SoPSimulationEvaluator:
                           str(event.return_type) if event.return_type else ''])
         return table, header
 
-    def export_txt(self, simulation_result: SoPSimulationResult, simulation_overhead: SimulationOverhead = None, label: str = '', args: dict = None):
+    def export_txt(self, simulation_result: SoPSimulationResult, simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
         # scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(
         #     self.simulation_env)
@@ -814,7 +814,7 @@ class SoPSimulationEvaluator:
                 f.write(profile_result_table_str)
                 f.write('\n')
 
-    def export_csv(self, simulation_result: SoPSimulationResult,  simulation_overhead: SimulationOverhead = None, label: str = '', args: dict = None):
+    def export_csv(self, simulation_result: SoPSimulationResult,  simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
         acceptance_score = SoPAcceptanceScore(middleware_list)
 

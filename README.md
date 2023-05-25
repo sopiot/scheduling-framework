@@ -438,35 +438,3 @@ Users can configure a custom `Middleware` layer structure to perform simulations
 ### Scheduling Algorithm file
 
 Refer to [`scheduling_algorithm`](scheduling_algorithm/README.md) directory.
-
-## Troubleshooting
-
-### SSH daemon is not running on WSL2
-
-If you are running a simulation with local settings on WSL2 and unable to establish an SSH connection using localhost, you can resolve this issue by generating a new key with the following command and restarting the service.
-
-```bash
-sudo ssh-keygen -A
-```
-
-### Timestamps in logs are out of sync
-
-Timestamps in logs may not match if the local time between devices is not synchronized with each other. In that case, use ntpdate or ntpd to synchronize the time between devices and then proceed with the simulation. (It is recommended to perform time synchronization in an Ethernet environment.)
-
-### If overhead is not expected value
-
-If the overhead is different from what you expected, you should check the following:
-
-1. Are there too many devices connected to the router?
-
-   Communication overhead can be impacted if many devices are connected to the router. Recommend to run the simulation in an environment where less than 30 devices are connected to the router.
-
-2. Is the raspberry pi's CPU governance set to performance?
-
-   This experiment requires CPU governance to be set to `performance`. If it is not set, set it as follows.
-
-   ```bash
-   echo "performance" | sudo tee /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
-   sudo cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
-   sudo cat /sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq
-   ```

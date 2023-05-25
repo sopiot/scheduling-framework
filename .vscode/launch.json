@@ -258,13 +258,14 @@
       "name": "run profile",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/run_profiler.py",
+      "program": "${workspaceFolder}/run.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-s",
-        "./remote_logs",
+        "--only_profile",
+        "-log",
+        "./remote_logs/simulation_log_20230524_112653",
         "-pt",
         "Execute"
       ]

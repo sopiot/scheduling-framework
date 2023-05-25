@@ -1,8 +1,10 @@
 from simulation_framework.core.simulation_executor import *
-from simulation_framework.core.config import *
+from simulation_framework.config import *
 
 import random
 import copy
+import requests
+from abc import ABCMeta, abstractmethod
 
 
 class SoPElementGenerateMode(Enum):
@@ -25,39 +27,29 @@ class SoPSimulationGenerator:
         self.simulation_config = SoPSimulationConfig(config_path)
 
         self.check_device_pool()
-        self.whole_device_pool = self.get_whole_device_pool(
-            self.simulation_config.device_pool_path.abs_path())
+        self.whole_device_pool = self.get_whole_device_pool(self.simulation_config.device_pool_path.abs_path())
 
         if not self.simulation_config.middleware_config.device_pool:
-            middleware_device_pool = [
-                device for device in self.whole_device_pool if device.name != 'localhost']
+            middleware_device_pool = [device for device in self.whole_device_pool if device.name != 'localhost']
         else:
-            middleware_device_pool = [
-                device for device in self.whole_device_pool if device.name in self.simulation_config.middleware_config.device_pool]
+            middleware_device_pool = [device for device in self.whole_device_pool if device.name in self.simulation_config.middleware_config.device_pool]
         if not self.simulation_config.thing_config.device_pool:
             if not 'localhost' in [device.name for device in self.whole_device_pool]:
-                raise Exception(
-                    f'localhost must be defined in {self.simulation_config.device_pool_path}')
-            thing_device_pool = [
-                device for device in self.whole_device_pool if device.name == 'localhost']
+                raise Exception(f'localhost must be defined in {self.simulation_config.device_pool_path}')
+            thing_device_pool = [device for device in self.whole_device_pool if device.name == 'localhost']
         else:
-            thing_device_pool = [
-                device for device in self.whole_device_pool if device.name in self.simulation_config.thing_config.device_pool]
+            thing_device_pool = [device for device in self.whole_device_pool if device.name in self.simulation_config.thing_config.device_pool]
 
         manual_middleware_config_path = self.simulation_config.middleware_config.manual.abs_path()
         if manual_middleware_config_path:
-            self.simulation_config.middleware_config.manual = load_yaml(
-                self.simulation_config.middleware_config.manual.abs_path())
+            self.simulation_config.middleware_config.manual = load_yaml(self.simulation_config.middleware_config.manual.abs_path())
         elif self.simulation_config.middleware_config.random:
-            middleware_device_pool = [
-                device for device in self.whole_device_pool if device.name == 'localhost']
+            middleware_device_pool = [device for device in self.whole_device_pool if device.name == 'localhost']
             self.simulation_config.middleware_config.manual = None
 
-        self.middleware_generator = SoPMiddlewareGenerator(
-            self.simulation_config, middleware_device_pool)
+        self.middleware_generator = SoPMiddlewareGenerator(self.simulation_config, middleware_device_pool)
         self.service_generator = SoPServiceGenerator(self.simulation_config)
-        self.thing_generator = SoPThingGenerator(
-            self.simulation_config, thing_device_pool)
+        self.thing_generator = SoPThingGenerator(self.simulation_config, thing_device_pool)
         self.scenario_generator = SoPScenarioGenerator(self.simulation_config)
 
     def check_device_pool(self):
@@ -69,7 +61,7 @@ class SoPSimulationGenerator:
             f = open(device_pool_path, 'w')
             f.close()
 
-        # devcie_pool에 localhost에 대한 정보가 있는지 확인하고 없으면 생성
+        # device_pool에 localhost에 대한 정보가 있는지 확인하고 없으면 생성
         device_pool = load_yaml(device_pool_path)
         if not 'localhost' in device_pool:
             with open('/etc/ssh/sshd_config', 'r') as f:
@@ -123,50 +115,44 @@ class SoPSimulationGenerator:
             base_service_pool = self.simulation_env_pool[simulation_ID]['base_service_pool']
             simulation_config = self.simulation_env_pool[simulation_ID]['simulation_config']
 
-            simulation_env = self.middleware_generator.generate(
-                simulation_env=simulation_env)
+            simulation_env = self.middleware_generator.generate(simulation_env=simulation_env)
 
-            simulation_env = self.thing_generator.generate(
-                simulation_env, base_service_pool, simulation_folder_path, is_parallel=is_parallel)
-            simulation_env = self.thing_generator.generate_super(
-                simulation_env, self.service_generator, simulation_folder_path)
+            simulation_env = self.thing_generator.generate(simulation_env, base_service_pool, simulation_folder_path, is_parallel=is_parallel)
+            simulation_env = self.thing_generator.generate_super(simulation_env, self.service_generator, simulation_folder_path)
 
-            self.scenario_generator.generate(
-                simulation_env, simulation_folder_path)
-            self.scenario_generator.generate_super(
-                simulation_env, simulation_folder_path)
+            self.scenario_generator.generate(simulation_env, simulation_folder_path)
+            self.scenario_generator.generate_super(simulation_env, simulation_folder_path)
 
             self.simulation_env = simulation_env
 
             simulation_data = self.generate_data(simulation_env)
-            simulation_file_path = self.dump_file(
-                simulation_data, simulation_folder_path)
+            simulation_file_path = self.dump_file(simulation_data, simulation_folder_path)
         else:
             simulation_env = self.middleware_generator.generate()
 
             base_service_pool = self.service_generator.generate()
 
-            simulation_env = self.thing_generator.generate(
-                simulation_env, base_service_pool, simulation_folder_path, is_parallel=is_parallel)
-            simulation_env = self.thing_generator.generate_super(
-                simulation_env, self.service_generator, simulation_folder_path)
+            simulation_env = self.thing_generator.generate(simulation_env, base_service_pool, simulation_folder_path, is_parallel=is_parallel)
+            simulation_env = self.thing_generator.generate_super(simulation_env, self.service_generator, simulation_folder_path)
 
-            self.scenario_generator.generate(
-                simulation_env, simulation_folder_path)
-            self.scenario_generator.generate_super(
-                simulation_env, simulation_folder_path)
+            self.scenario_generator.generate(simulation_env, simulation_folder_path)
+            self.scenario_generator.generate_super(simulation_env, simulation_folder_path)
 
             self.simulation_env = simulation_env
 
             simulation_data = self.generate_data(simulation_env)
-            simulation_file_path = self.dump_file(
-                simulation_data, simulation_folder_path)
+            simulation_file_path = self.dump_file(simulation_data, simulation_folder_path)
 
             simulation_ID = generate_random_string(16)
-            self.simulation_env_pool[simulation_ID] = dict(
-                simulation_env=simulation_env, base_service_pool=base_service_pool, simulation_config=self.simulation_config)
+            self.simulation_env_pool[simulation_ID] = dict(simulation_env=simulation_env, base_service_pool=base_service_pool, simulation_config=self.simulation_config)
 
         return simulation_file_path, simulation_ID
+
+    def generate_event(self, element: SoPElement, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
+        event_kwargs = dict(element=element, event_type=event_type, timestamp=timestamp)
+        event_kwargs.update(kwargs)
+        event = SoPEvent(**event_kwargs)
+        return event
 
     def generate_timeline(self, middleware_list: List[SoPMiddlewareElement], thing_list: List[SoPThingElement], scenario_list: List[SoPScenarioElement],
                           running_time: float, event_timeout: float):
@@ -184,24 +170,20 @@ class SoPSimulationGenerator:
             else:
                 raise Exception('invalid event type')
 
-            selected_local_thing_list = random.sample(
-                local_thing_list, int(len(local_thing_list) * normal_thing_select_rate))
-            selected_super_thing_list = random.sample(
-                super_thing_list, int(len(super_thing_list) * super_thing_select_rate))
-            local_thing_unregister_timeline = [thing.event(
-                event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict() for thing in selected_local_thing_list]
-            super_thing_unregister_timeline = [thing.event(
-                event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict() for thing in selected_super_thing_list]
-            local_thing_register_timeline = [thing.event(
-                event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict() for thing in selected_local_thing_list]
-            super_thing_register_timeline = [thing.event(
-                event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict() for thing in selected_super_thing_list]
+            selected_local_thing_list = random.sample(local_thing_list, int(len(local_thing_list) * normal_thing_select_rate))
+            selected_super_thing_list = random.sample(super_thing_list, int(len(super_thing_list) * super_thing_select_rate))
+            local_thing_unregister_timeline = [self.generate_event(element=thing, event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict()
+                                               for thing in selected_local_thing_list]
+            super_thing_unregister_timeline = [self.generate_event(element=thing, event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict()
+                                               for thing in selected_super_thing_list]
+            local_thing_register_timeline = [self.generate_event(element=thing, event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict()
+                                             for thing in selected_local_thing_list]
+            super_thing_register_timeline = [self.generate_event(element=thing, event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict()
+                                             for thing in selected_super_thing_list]
 
-            tmp_timeline = local_thing_unregister_timeline + super_thing_unregister_timeline + \
-                local_thing_register_timeline + super_thing_register_timeline
+            tmp_timeline = local_thing_unregister_timeline + super_thing_unregister_timeline + local_thing_register_timeline + super_thing_register_timeline
             if delay:
-                tmp_timeline += [SoPEvent(delay=delay,
-                                          event_type=SoPEventType.DELAY).dict()]
+                tmp_timeline += [SoPEvent(delay=delay, event_type=SoPEventType.DELAY).dict()]
             return tmp_timeline
 
         # def make_scenario_event(local_scenario_list: List[SoPScenarioElement], super_scenario_list: List[SoPScenarioElement],
@@ -247,10 +229,10 @@ class SoPSimulationGenerator:
 
         # build simulation env
         build_simulation_env_timeline = []
-        build_simulation_env_timeline.extend([middleware.event(
-            SoPEventType.MIDDLEWARE_RUN).dict() for middleware in middleware_list])
-        build_simulation_env_timeline.extend(
-            [thing.event(SoPEventType.THING_RUN).dict() for thing in sorted(thing_list, key=lambda x: x.is_super, reverse=False)])
+        build_simulation_env_timeline.extend([self.generate_event(element=middleware, event_type=SoPEventType.MIDDLEWARE_RUN).dict()
+                                              for middleware in middleware_list])
+        build_simulation_env_timeline.extend([self.generate_event(element=thing, event_type=SoPEventType.THING_RUN).dict()
+                                              for thing in sorted(thing_list, key=lambda x: x.is_super, reverse=False)])
         event_timeline.extend(build_simulation_env_timeline)
 
         # wait until all thing register
@@ -261,8 +243,8 @@ class SoPSimulationGenerator:
             SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
 
         # scenario add start
-        scenario_add_timeline = [scenario.event(event_type=SoPEventType.SCENARIO_ADD,
-                                                middleware_element=find_element_recursive(self.simulation_env, scenario)[1]).dict() for scenario in scenario_list]
+        scenario_add_timeline = [self.generate_event(element=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_element=find_element_recursive(self.simulation_env, scenario)[1]).dict()
+                                 for scenario in scenario_list]
         event_timeline.extend(
             sorted(scenario_add_timeline, key=lambda x: x['timestamp']))
 
@@ -275,13 +257,13 @@ class SoPSimulationGenerator:
         event_timeline.append(
             SoPEvent(event_type=SoPEventType.REFRESH).dict())
 
-        # simualtion start
+        # simulation start
         event_timeline.append(
             SoPEvent(event_type=SoPEventType.START).dict())
 
         # scenario run start
-        scenario_run_timeline = [scenario.event(
-            event_type=SoPEventType.SCENARIO_RUN).dict() for scenario in scenario_list]
+        scenario_run_timeline = [self.generate_event(element=scenario, event_type=SoPEventType.SCENARIO_RUN).dict()
+                                 for scenario in scenario_list]
         event_timeline.extend(
             sorted(scenario_run_timeline, key=lambda x: x['timestamp']))
 
@@ -325,11 +307,11 @@ class SoPSimulationGenerator:
         scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(
             simulation_env)
 
-        longest_scneario = max(scenario_list, key=lambda x: x.period)
-        if longest_scneario.period * 1.2 > self.simulation_config.running_time:
-            running_time = longest_scneario.period * 1.2
+        longest_scenario = max(scenario_list, key=lambda x: x.period)
+        if longest_scenario.period * 1.2 > self.simulation_config.running_time:
+            running_time = longest_scenario.period * 1.2
             SOPTEST_LOG_DEBUG(
-                f'Longest scenario period is {longest_scneario.period} but simulation time is {self.simulation_config.running_time}. Set simulation time to {running_time}', SoPTestLogLevel.WARN)
+                f'Longest scenario period is {longest_scenario.period} but simulation time is {self.simulation_config.running_time}. Set simulation time to {running_time}', SoPTestLogLevel.WARN)
         else:
             running_time = self.simulation_config.running_time
 
@@ -349,8 +331,7 @@ class SoPSimulationGenerator:
 
     def dump_file(self, simulation_dump: dict, simulation_folder_path: str):
         os.makedirs(simulation_folder_path, exist_ok=True)
-        write_file(f'{simulation_folder_path}/simulation_data.json',
-                   dict_to_json_string(simulation_dump))
+        write_file(f'{simulation_folder_path}/simulation_data.json', dict_to_json_string(simulation_dump))
         return f'{simulation_folder_path}/simulation_data.json'
 
     def get_whole_device_pool(self, device_pool_path: str) -> List[SoPDeviceElement]:
@@ -598,12 +579,50 @@ class SoPServiceGenerator(SoPElementGenerator):
     def __init__(self, config: SoPSimulationConfig = None) -> None:
         super().__init__(config)
 
-        self.tag_name_pool = generate_random_words(
+        self.tag_name_pool = self.generate_random_words(
             word_num=self.config.service_config.tag_type_num, ban_word_list=SoPServiceGenerator.BAN_WORD_LIST)
-        self.service_name_pool = random.sample(generate_random_words(
+        self.service_name_pool = random.sample(self.generate_random_words(
             word_num=self.config.service_config.normal.service_type_num * 10, ban_word_list=SoPServiceGenerator.BAN_WORD_LIST), self.config.service_config.normal.service_type_num)
-        self.super_service_name_pool = random.sample(generate_random_words(
+        self.super_service_name_pool = random.sample(self.generate_random_words(
             word_num=self.config.service_config.super.service_type_num * 10, ban_word_list=SoPServiceGenerator.BAN_WORD_LIST), self.config.service_config.super.service_type_num)
+
+    def generate_random_words(self, word_num: int = None, custom_words_file: List[str] = [], ban_word_list: List[str] = []) -> List[str]:
+        picked_words = []
+        whole_words = []
+
+        if not custom_words_file:
+
+            # 만약 service_names.txt파일이 존재한다면 해당 파일을 읽어온다.
+            data_path = f'{get_project_root()}/data'
+            if os.path.exists(f'{data_path}/service_names.txt'):
+                whole_words: List[str] = read_file(f'{data_path}/service_names.txt')
+            else:
+                response = requests.get(
+                    "https://www.mit.edu/~ecprice/wordlist.10000")
+                whole_words = [word.decode() + '\n'
+                               for word in response.content.splitlines()]
+                os.makedirs(
+                    f'{data_path}', exist_ok=True)
+                with open(f'{data_path}/service_names.txt', 'w') as f:
+                    f.writelines(whole_words)
+            for ban_word in ban_word_list:
+                if ban_word not in whole_words:
+                    continue
+                whole_words.remove(ban_word)
+        else:
+            file: List[str] = read_file(custom_words_file)
+            whole_words = [line.strip() for line in file]
+
+        while len(picked_words) < word_num:
+            picked_word = random.choice(whole_words)
+            if picked_word in picked_words:
+                continue
+            picked_words.append(picked_word)
+
+        if not len(picked_words) == word_num:
+            raise Exception(
+                f'word_num is not matched. word_num: {word_num}, picked_words: {picked_words}')
+        return list(set(picked_words))
 
     def generate(self):
 
@@ -644,20 +663,20 @@ class SoPServiceGenerator(SoPElementGenerator):
 
     def generate_super(self, middleware: SoPMiddlewareElement, thing_config: SoPThingConfig = None) -> List[SoPServiceElement]:
 
-        def get_candidate_subservice_list(super_middleware: SoPMiddlewareElement):
-            candidate_subservice_list: List[SoPServiceElement] = []
+        def get_candidate_sub_service_list(super_middleware: SoPMiddlewareElement):
+            candidate_sub_service_list: List[SoPServiceElement] = []
             for thing in super_middleware.thing_list:
-                candidate_subservice_list.extend(
+                candidate_sub_service_list.extend(
                     [service for service in thing.service_list if not service.is_super])
             for middleware in super_middleware.child_middleware_list:
-                candidate_subservice_list.extend(
-                    get_candidate_subservice_list(middleware))
+                candidate_sub_service_list.extend(
+                    get_candidate_sub_service_list(middleware))
 
-            return candidate_subservice_list
+            return candidate_sub_service_list
 
         # TODO: 다시 재작성할 것
-        def generate_super_service_property(candidate_subservice_list: List[SoPServiceElement],
-                                            selected_subservice_list: List[SoPServiceElement],
+        def generate_super_service_property(candidate_sub_service_list: List[SoPServiceElement],
+                                            selected_sub_service_list: List[SoPServiceElement],
                                             super_service_list: List[SoPServiceElement]):
             while True:
                 super_service_name = f'super_function_{random.choice(self.super_service_name_pool)}'
@@ -666,35 +685,35 @@ class SoPServiceGenerator(SoPElementGenerator):
             tag_list = random.sample(self.tag_name_pool, random.randint(self.config.service_config.tag_per_service[0],
                                                                         self.config.service_config.tag_per_service[1]))
 
-            # NOTE: super service의 energy, execute_time은 subservice들의 합으로 계산된다. super service의 subservice 매핑상태는
+            # NOTE: super service의 energy, execute_time은 sub_service들의 합으로 계산된다. super service의 sub_service들의 매핑상태는
             # 미들웨어에 등록되기 전까지 알 수 없으므로 원칙적으로 energy, execute_time은 계산할 수 없다. 그러나 super service가 미들웨어에
-            # 붙을 때 예상 execute time을 제공하고 있으므로, execute_time은 super service가 고른 subservice중 가장 execute time이
+            # 붙을 때 예상 execute time을 제공하고 있으므로, execute_time은 super service가 고른 sub_service들의중 가장 execute time이
             # 긴 조합으로 execute time을 계산하여 초기값으로 둔다.
             energy = 0
             execute_time = 0
 
-            for subservice in selected_subservice_list:
-                same_name_subservice_list = [
-                    candidate_service for candidate_service in candidate_subservice_list if subservice.name == candidate_service.name]
+            for sub_service in selected_sub_service_list:
+                same_name_sub_service_list = [
+                    candidate_service for candidate_service in candidate_sub_service_list if sub_service.name == candidate_service.name]
                 execute_time += max(
-                    [subservice.execute_time for subservice in same_name_subservice_list])
+                    [sub_service.execute_time for sub_service in same_name_sub_service_list])
 
             return super_service_name, tag_list, energy, execute_time
 
         self.thing_config = thing_config
         super_service_num = random.randint(self.thing_config.super.service_per_thing[0],
                                            self.thing_config.super.service_per_thing[1])
-        candidate_service_list = get_candidate_subservice_list(middleware)
+        candidate_service_list = get_candidate_sub_service_list(middleware)
         super_service_list = []
         for _ in range(super_service_num):
-            # TODO: supservice를 누적하는 기능 완료하기
-            prev_subservice_num = 0
-            subservice_num = random.randint(self.config.service_config.super.service_per_super_service[0],
-                                            self.config.service_config.super.service_per_super_service[1])
+            # TODO: sup_service를 누적하는 기능 완료하기
+            prev_sub_service_num = 0
+            sub_service_num = random.randint(self.config.service_config.super.service_per_super_service[0],
+                                             self.config.service_config.super.service_per_super_service[1])
             selected_service_list: List[SoPServiceElement] = random.sample(
-                candidate_service_list, subservice_num)
+                candidate_service_list, sub_service_num)
             super_service_name, tag_list, energy, execute_time = generate_super_service_property(
-                candidate_subservice_list=candidate_service_list, selected_subservice_list=selected_service_list, super_service_list=super_service_list)
+                candidate_sub_service_list=candidate_service_list, selected_sub_service_list=selected_service_list, super_service_list=super_service_list)
 
             super_service = SoPServiceElement(name=super_service_name,
                                               element_type=SoPElementType.SERVICE,
@@ -713,7 +732,7 @@ class SoPThingGenerator(SoPElementGenerator):
     def __init__(self, config: SoPSimulationConfig = None, thing_device_pool: List[SoPDeviceElement] = []) -> None:
         super().__init__(config)
 
-        self.thing_deivce_pool: List[SoPDeviceElement] = thing_device_pool
+        self.thing_device_pool: List[SoPDeviceElement] = thing_device_pool
 
     def make_thing_name(self, index: int, is_super: bool, middleware: SoPMiddlewareElement):
         middleware_index = '_'.join(middleware.name.split('_')[1:])  # levelN_M
@@ -742,7 +761,7 @@ class SoPThingGenerator(SoPElementGenerator):
         if is_super:
             device = middleware.device
         else:
-            device = random.choice(self.thing_deivce_pool)
+            device = random.choice(self.thing_device_pool)
 
         if service_list:
             picked_service_list = random.sample(service_list, k=random.randint(self.config.thing_config.normal.service_per_thing[0],

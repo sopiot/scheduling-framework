@@ -1,7 +1,101 @@
 from simulation_framework.utils import *
-from string import Template
+from simulation_framework.logger import *
 
+from string import Template
 from queue import Queue
+from abc import ABCMeta
+
+
+def get_middleware_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> List[object]:
+    middleware_list = [middleware]
+
+    for child_middleware in middleware.child_middleware_list:
+        middleware_list.extend(get_middleware_list_recursive(child_middleware))
+
+    middleware_list = sorted(middleware_list, key=lambda x: x.level, reverse=True)
+    return middleware_list
+
+
+def get_thing_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> List[object]:
+    thing_list = [thing for thing in middleware.thing_list]
+
+    for child_middleware in middleware.child_middleware_list:
+        thing_list.extend(get_thing_list_recursive(child_middleware))
+
+    thing_list = sorted(thing_list, key=lambda x: x.level, reverse=True)
+    return thing_list
+
+
+def get_scenario_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> List[object]:
+    scenario_list = [scenario for scenario in middleware.scenario_list]
+
+    for child_middleware in middleware.child_middleware_list:
+        scenario_list.extend(get_scenario_list_recursive(child_middleware))
+
+    scenario_list = sorted(scenario_list, key=lambda x: x.level, reverse=True)
+    return scenario_list
+
+
+def find_element_recursive(middleware: 'SoPMiddlewareElement', element: 'SoPElement', key: Callable = lambda x: x) -> Tuple[object, object]:
+
+    def inner(middleware: 'SoPMiddlewareElement', element: 'SoPElement'):
+        if key(middleware) == key(element):
+            return middleware, None
+
+        for thing in middleware.thing_list:
+            if key(thing) == key(element):
+                return thing, middleware
+        for scenario in middleware.scenario_list:
+            if key(scenario) == key(element):
+                return scenario, middleware
+        for child_middleware in middleware.child_middleware_list:
+            if key(child_middleware) == key(element):
+                return child_middleware, middleware
+
+        for child_middleware in middleware.child_middleware_list:
+            result = inner(
+                child_middleware, element)
+            if result:
+                return result[0], result[1]
+            else:
+                inner(
+                    child_middleware, element)
+
+    result = inner(middleware, element)
+    if result:
+        return result[0], result[1]
+    else:
+        return None, None
+
+
+def find_element_by_name_recursive(middleware: 'SoPMiddlewareElement', element_name: str):
+
+    def inner(middleware: 'SoPMiddlewareElement', element_name: str):
+        if middleware.name == element_name:
+            return middleware, None
+
+        for thing in middleware.thing_list:
+            if thing.name == element_name:
+                return thing, middleware
+        for scenario in middleware.scenario_list:
+            if scenario.name == element_name:
+                return scenario, middleware
+        for child_middleware in middleware.child_middleware_list:
+            if child_middleware.name == element_name:
+                return child_middleware, middleware
+
+        for child_middleware in middleware.child_middleware_list:
+            result = inner(child_middleware, element_name)
+            if result:
+                return result[0], result[1]
+            else:
+                inner(child_middleware, element_name)
+
+    result = inner(middleware, element_name)
+    if result:
+        return result[0], result[1]
+    else:
+        return None, None
 
 
 class SoPElementType(Enum):
@@ -97,66 +191,6 @@ class SoPElementScopeType(Enum):
     SUPER = 'SUPER'
 
 
-class SoPEvent:
-
-    def __init__(self, event_type: SoPEventType, element: 'SoPElement' = None, middleware_element: 'SoPMiddlewareElement' = None, thing_element: 'SoPThingElement' = None, service_element: 'SoPServiceElement' = None, scenario_element: 'SoPScenarioElement' = None,
-                 timestamp: float = 0, duration: float = None, delay: float = None,
-                 error: SoPErrorType = None, return_type: SoPType = None, return_value: Union[int, float, bool, str] = None,
-                 requester_middleware_name: str = None, super_thing_name: str = None, super_function_name: str = None) -> None:
-        self.event_type = event_type
-
-        self.element = element
-        self.middleware_element = middleware_element
-        self.thing_element = thing_element
-        self.service_element = service_element
-        self.scenario_element = scenario_element
-
-        self.timestamp = timestamp
-        self.duration = duration
-
-        self.delay = delay
-
-        self.error = error
-        self.return_type = return_type
-        self.return_value = return_value
-        self.requester_middleware_name = requester_middleware_name
-        self.super_thing_name = super_thing_name
-        self.super_function_name = super_function_name
-
-    def load(self, data: dict):
-        self.event_type = SoPEventType.get(
-            data['event_type']) if data['event_type'] is str else data['event_type']
-        self.element = SoPElement.load(data['element'])
-        self.middleware_element = SoPElement.load(data['middleware_element'])
-        self.thing_element = SoPElement.load(data['thing_element'])
-        self.service_element = SoPElement.load(data['service_element'])
-        self.scenario_element = SoPElement.load(data['scenario_element'])
-        self.timestamp = data['timestamp']
-        self.duration = data['duration']
-        self.delay = data['delay']
-        self.error = SoPErrorType.get(
-            data['error']) if data['error'] is str else data['error']
-        self.return_type = SoPType.get(
-            data['return_type']) if data['return_type'] is str else data['return_type']
-        self.return_value = data['return_value']
-        self.requester_middleware_name = data['requester_middleware_name']
-
-    def dict(self) -> dict:
-        return dict(event_type=self.event_type.value,
-                    element=self.element.name if self.element else None,
-                    middleware_element=self.middleware_element.name if self.middleware_element else None,
-                    thing_element=self.thing_element.name if self.thing_element else None,
-                    service_element=self.service_element.name if self.service_element else None,
-                    scenario_element=self.scenario_element.name if self.scenario_element else None,
-                    timestamp=self.timestamp,
-                    duration=self.duration,
-                    delay=self.delay,
-                    error=self.error,
-                    return_type=self.return_type,
-                    return_value=self.return_value,
-                    requester_middleware_name=self.requester_middleware_name)
-
-
 class SoPElement(metaclass=ABCMeta):
 
     def __init__(self, name: str, level: int, element_type: SoPElementType) -> None:
@@ -176,12 +210,6 @@ class SoPElement(metaclass=ABCMeta):
         return dict(name=self.name,
                     level=self.level,
                     element_type=self.element_type.value)
-
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
-        return SoPEvent(element=self,
-                        event_type=event_type,
-                        timestamp=timestamp,
-                        **kwargs)
 
 
 class SoPDeviceElement(SoPElement):
@@ -413,9 +441,6 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
             scenario_num=self.scenario_num,
             super_scenario_num=self.super_scenario_num)
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
-        return super().event(event_type, timestamp, **kwargs)
-
     def set_port(self, mqtt_port: int, mqtt_ssl_port: int, websocket_port: int, websocket_ssl_port: int, localserver_port: int):
         self.mqtt_port = mqtt_port
         self.mqtt_ssl_port = mqtt_ssl_port
@@ -636,9 +661,6 @@ elif thing_start_time == 1:
                     return_value=self.return_value,
                     subfunction_list=[subfunction.dict() for subfunction in self.sub_service_list])
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
-        return super().event(event_type, timestamp, **kwargs)
-
 
 class SoPThingElement(SoPElement):
 
@@ -809,9 +831,6 @@ if __name__ == '__main__':
                     remote_thing_file_path=self.remote_thing_file_path,
                     fail_rate=self.fail_rate)
 
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
-        return super().event(event_type, timestamp, **kwargs)
-
     def thing_code(self):
 
         if not self.is_super:
@@ -892,13 +911,9 @@ class SoPScenarioElement(SoPElement):
 
     def dict(self) -> dict:
         return dict(**super().dict(),
-                    service_list=[service.dict()
-                                  for service in self.service_list],
+                    service_list=[service.dict() for service in self.service_list],
                     period=self.period,
                     scenario_file_path=self.scenario_file_path)
-
-    def event(self, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
-        return super().event(event_type, round(timestamp, 4), **kwargs)
 
     def scenario_code(self) -> str:
         service_line_code = ''

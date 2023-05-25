@@ -1,6 +1,129 @@
 
-from simulation_framework.core.ssh_client import *
-from simulation_framework.core.mqtt_client import *
+from simulation_framework.core.elements import *
+from simulation_framework.ssh_client import *
+from simulation_framework.mqtt_client import *
+
+from big_thing_py.common.soptype import SoPProtocolType, SoPErrorType, SoPType
+from big_thing_py.common.thread import SoPThread, Event, Empty
+
+
+class SoPEventType(Enum):
+    UNDEFINED = 'UNDEFINED'
+
+    START = 'START'                                                     # Simulation 시작 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 시작된다.
+    END = 'END'                                                         # Simulation 종료 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 종료된다.
+    DELAY = 'DELAY'                                                     # Delay 이벤트. 명세된 시간만큼 딜레이를 발생시킨다.
+
+    MIDDLEWARE_RUN = 'MIDDLEWARE_RUN'                                   # Middleware 실행 이벤트. 원격 디바이스에 Middleware 프로그램을 실행시킨다.
+    MIDDLEWARE_KILL = 'MIDDLEWARE_KILL'                                 # Middleware 종료 이벤트. 원격 디바이스의 Middleware 프로그램을 종료시킨다.
+
+    THING_RUN = 'THING_RUN'                                             # Thing 실행 이벤트. 원격 디바이스에 Thing 프로그램을 실행시킨다.
+    THING_KILL = 'THING_KILL'                                           # Thing 종료 이벤트. 원격 디바이스의 Thing 프로그램에 SIGINT를 보내 강제 종료시킨다.
+    THING_REGISTER = 'THING_REGISTER'                                   # Thing Register 이벤트. Thing이 Register 패킷을 보내는 경우의 이벤트이다.
+    THING_UNREGISTER = 'THING_UNREGISTER'                               # Thing Unregister 이벤트. Thing이 Unregister 패킷을 보내는 경우의 이벤트이다.
+
+    THING_REGISTER_RESULT = 'THING_REGISTER_RESULT'                     # Thing Register 결과 이벤트. Middleware가 Register 결과 패킷을 보내는 경우의 이벤트이다.
+    THING_UNREGISTER_RESULT = 'THING_UNREGISTER_RESULT'                 # Thing Unregister 결과 이벤트. Middleware가 Unregister 결과 패킷을 보내는 경우의 이벤트이다.
+
+    FUNCTION_EXECUTE = 'FUNCTION_EXECUTE'                               # Function Service Execute 이벤트. Middleware가 Thing 프로그램에 Function Service Execute 패킷을 보내는 경우의 이벤트이다.
+    FUNCTION_EXECUTE_RESULT = 'FUNCTION_EXECUTE_RESULT'                 # Function Service Execute 결과 이벤트. Thing이 Function Service Execute를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+
+    VALUE_PUBLISH = 'VALUE_PUBLISH'                                     # Value Service Publish 이벤트. Thing이 Value Service 값 패킷을 보내는 경우의 이벤트이다.
+
+    SCENARIO_VERIFY = 'SCENARIO_VERIFY'                                 # Scenario 검증 이벤트. 시뮬레이터가 EM/VERIFY_SCENARIO 패킷을 전송한다.
+    SCENARIO_ADD = 'SCENARIO_ADD'                                       # Scenario 추가 이벤트. 시뮬레이터가 EM/ADD_SCENARIO 패킷을 전송한다.
+    SCENARIO_RUN = 'SCENARIO_RUN'                                       # Scenario 실행 이벤트. 시뮬레이터가 EM/RUN_SCENARIO 패킷을 전송한다.
+    SCENARIO_STOP = 'SCENARIO_STOP'                                     # Scenario 중지 이벤트. 시뮬레이터가 EM/STOP_SCENARIO 패킷을 전송한다.
+    SCENARIO_UPDATE = 'SCENARIO_UPDATE'                                 # Scenario 업데이트 이벤트. 시뮬레이터가 EM/UPDATE_SCENARIO 패킷을 전송한다.
+    SCENARIO_DELETE = 'SCENARIO_DELETE'                                 # Scenario 삭제 이벤트. 시뮬레이터가 EM/DELETE_SCENARIO 패킷을 전송한다.
+
+    SCENARIO_VERIFY_RESULT = 'SCENARIO_VERIFY_RESULT'                   # Scenario 검증 결과 이벤트. 시뮬레이터가 EM/VERIFY_SCENARIO 패킷을 전송한다.
+    SCENARIO_ADD_RESULT = 'SCENARIO_ADD_RESULT'                         # Scenario 추가 결과 이벤트. 시뮬레이터가 EM/ADD_SCENARIO 패킷을 전송한다.
+    SCENARIO_RUN_RESULT = 'SCENARIO_RUN_RESULT'                         # Scenario 실행 결과 이벤트. 시뮬레이터가 EM/RUN_SCENARIO 패킷을 전송한다.
+    SCENARIO_STOP_RESULT = 'SCENARIO_STOP_RESULT'                       # Scenario 중지 결과 이벤트. 시뮬레이터가 EM/STOP_SCENARIO 패킷을 전송한다.
+    SCENARIO_UPDATE_RESULT = 'SCENARIO_UPDATE_RESULT'                   # Scenario 업데이트 결과 이벤트. 시뮬레이터가 EM/UPDATE_SCENARIO 패킷을 전송한다.
+    SCENARIO_DELETE_RESULT = 'SCENARIO_DELETE_RESULT'                   # Scenario 삭제 결과 이벤트. 시뮬레이터가 EM/DELETE_SCENARIO 패킷을 전송한다.
+
+    SUPER_FUNCTION_EXECUTE = 'SUPER_FUNCTION_EXECUTE'                   # Super Function Service Execute 이벤트. Middleware가 Super Thing 프로그램에 Super Function Service Execute 패킷을 보내는 경우의 이벤트이다.
+    SUPER_FUNCTION_EXECUTE_RESULT = 'SUPER_FUNCTION_EXECUTE_RESULT'     # Super Function Service Execute 결과 이벤트. Super Thing이 Super Function Service Execute를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+    SUB_FUNCTION_EXECUTE = 'SUB_FUNCTION_EXECUTE'                       # Sub Function Service Execute 이벤트. Super Thing이 Middleware에게 Sub Function Service Execute 패킷을 보내는 경우의 이벤트이다.
+    SUB_FUNCTION_EXECUTE_RESULT = 'SUB_FUNCTION_EXECUTE_RESULT'         # Sub Function Service Execute 결과 이벤트. Middleware가 Super Thing에게 Sub Function Service Execute를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+    SUPER_SCHEDULE = 'SUPER_SCHEDULE'                                   # Super Schedule 이벤트. Middleware가 Super Thing 프로그램에 Super Schedule 패킷을 보내는 경우의 이벤트이다.
+    SUPER_SCHEDULE_RESULT = 'SUPER_SCHEDULE_RESULT'                     # Super Schedule 결과 이벤트. Super Thing이 Super Schedule를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+    SUB_SCHEDULE = 'SUB_SCHEDULE'                                       # Sub Schedule 이벤트. Super Thing이 Middleware에게 Sub Schedule 패킷을 보내는 경우의 이벤트이다.
+    SUB_SCHEDULE_RESULT = 'SUB_SCHEDULE_RESULT'                         # Sub Schedule 결과 이벤트. Middleware가 Super Thing에게 Sub Schedule를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+
+    REFRESH = 'REFRESH'                                                 # Refresh 이벤트. 시뮬레이터가 EM/REFRESH 패킷을 전송한다.
+    THING_REGISTER_WAIT = 'THING_REGISTER_WAIT'                         # 모든 Thing이 Register가 될 때까지 기다리는 이벤트.
+    SCENARIO_ADD_CHECK = 'SCENARIO_ADD_CHECK'                           # 모든 Scenario가 추가 완료될 때까지 기다리는 이벤트.
+    SCENARIO_RUN_CHECK = 'SCENARIO_RUN_CHECK'                           # 모든 Scenario가 실행 완료될 때까지 기다리는 이벤트.
+
+    @classmethod
+    def get(cls, name: str):
+        try:
+            return cls[name.upper()]
+        except Exception:
+            return cls.UNDEFINED
+
+
+class SoPEvent:
+
+    def __init__(self, event_type: SoPEventType, element: 'SoPElement' = None, middleware_element: 'SoPMiddlewareElement' = None, thing_element: 'SoPThingElement' = None, service_element: 'SoPServiceElement' = None, scenario_element: 'SoPScenarioElement' = None,
+                 timestamp: float = 0, duration: float = None, delay: float = None,
+                 error: SoPErrorType = None, return_type: SoPType = None, return_value: ReturnType = None,
+                 requester_middleware_name: str = None, super_thing_name: str = None, super_function_name: str = None) -> None:
+        self.event_type = event_type
+
+        self.element = element
+        self.middleware_element = middleware_element
+        self.thing_element = thing_element
+        self.service_element = service_element
+        self.scenario_element = scenario_element
+
+        self.timestamp = timestamp
+        self.duration = duration
+
+        self.delay = delay
+
+        self.error = error
+        self.return_type = return_type
+        self.return_value = return_value
+        self.requester_middleware_name = requester_middleware_name
+        self.super_thing_name = super_thing_name
+        self.super_function_name = super_function_name
+
+    def load(self, data: dict):
+        self.event_type = SoPEventType.get(
+            data['event_type']) if data['event_type'] is str else data['event_type']
+        self.element = SoPElement.load(data['element'])
+        self.middleware_element = SoPElement.load(data['middleware_element'])
+        self.thing_element = SoPElement.load(data['thing_element'])
+        self.service_element = SoPElement.load(data['service_element'])
+        self.scenario_element = SoPElement.load(data['scenario_element'])
+        self.timestamp = data['timestamp']
+        self.duration = data['duration']
+        self.delay = data['delay']
+        self.error = SoPErrorType.get(
+            data['error']) if data['error'] is str else data['error']
+        self.return_type = SoPType.get(
+            data['return_type']) if data['return_type'] is str else data['return_type']
+        self.return_value = data['return_value']
+        self.requester_middleware_name = data['requester_middleware_name']
+
+    def dict(self) -> dict:
+        return dict(event_type=self.event_type.value,
+                    element=self.element.name if self.element else None,
+                    middleware_element=self.middleware_element.name if self.middleware_element else None,
+                    thing_element=self.thing_element.name if self.thing_element else None,
+                    service_element=self.service_element.name if self.service_element else None,
+                    scenario_element=self.scenario_element.name if self.scenario_element else None,
+                    timestamp=self.timestamp,
+                    duration=self.duration,
+                    delay=self.delay,
+                    error=self.error,
+                    return_type=self.return_type,
+                    return_value=self.return_value,
+                    requester_middleware_name=self.requester_middleware_name)
 
 
 class SoPEventHandler:
@@ -8,12 +131,9 @@ class SoPEventHandler:
     def __init__(self, simulation_env: SoPMiddlewareElement = None, event_log: List[SoPEvent] = [], timeout: float = 5.0, mqtt_debug: bool = False, middleware_debug: bool = False, running_time: float = None,
                  download_logs: bool = False) -> None:
         self.simulation_env = simulation_env
-        self.middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(
-            self.simulation_env)
-        self.thing_list: List[SoPThingElement] = get_thing_list_recursive(
-            self.simulation_env)
-        self.scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(
-            self.simulation_env)
+        self.middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
+        self.thing_list: List[SoPThingElement] = get_thing_list_recursive(self.simulation_env)
+        self.scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(self.simulation_env)
         self.device_list: List[SoPDeviceElement] = []
 
         self.mqtt_client_list: List[SoPMQTTClient] = []
@@ -21,8 +141,7 @@ class SoPEventHandler:
 
         self.event_listener_event = Event()
         # self.event_listener_lock = Lock()
-        self.event_listener_thread: SoPThread = SoPThread(
-            name='event_listener', target=self.event_listener, args=(self.event_listener_event, ))
+        self.event_listener_thread: SoPThread = SoPThread(name='event_listener', target=self.event_listener, args=(self.event_listener_event, ))
 
         # simulator와 같은 인스턴스를 공유한다.
         self.simulation_start_time = 0
@@ -43,6 +162,22 @@ class SoPEventHandler:
 
     def add_ssh_client(self, ssh_client: SoPSSHClient):
         self.ssh_client_list.append(ssh_client)
+
+    def check_result_payload(self, payload: dict = None):
+        if not payload:
+            SOPTEST_LOG_DEBUG(f'Payload is None (timeout)!!!',
+                              SoPTestLogLevel.FAIL)
+            return None
+
+        error_code = payload['error']
+        error_string = payload.get('error_string', None)
+
+        if error_code in [0, -4]:
+            return True
+        else:
+            SOPTEST_LOG_DEBUG(
+                f'error_code: {error_code}, error_string : {error_string if error_string else "(No error string)"}', SoPTestLogLevel.FAIL)
+            return False
 
     def update_middleware_thing_device_list(self):
         device_list: List[SoPDeviceElement] = [
@@ -245,7 +380,7 @@ class SoPEventHandler:
         if event.timestamp == None:
             raise Exception('timestamp is not defined')
         while get_current_time() - self.simulation_start_time < event.timestamp:
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
 
         if event.event_type == SoPEventType.DELAY:
             SOPTEST_LOG_DEBUG(
@@ -284,7 +419,7 @@ class SoPEventHandler:
                     target_element)
                 if parent_middleware:
                     while not parent_middleware.online:
-                        time.sleep(THREAD_TIME_OUT)
+                        time.sleep(BUSY_WAIT_TIMEOUT)
                 SoPThread(name=f'{event.event_type.value}_{event.element.name}',
                           target=self.run_middleware, args=(target_element, 10, )).start()
                 self.subscribe_scenario_finish_topic(middleware=target_element)
@@ -293,7 +428,7 @@ class SoPEventHandler:
                           target=self.kill_middleware, args=(target_element, )).start()
             elif event.event_type == SoPEventType.THING_RUN:
                 while not self.check_middleware_online(target_element):
-                    time.sleep(THREAD_TIME_OUT)
+                    time.sleep(BUSY_WAIT_TIMEOUT)
                 SoPThread(name=f'{event.event_type.value}_{event.element.name}',
                           target=self.run_thing, args=(target_element, 30, )).start()
             elif event.event_type == SoPEventType.THING_KILL:
@@ -344,11 +479,11 @@ class SoPEventHandler:
         recv_msg = None
 
         try:
-            while not stop_event.wait(THREAD_TIME_OUT / 100):
+            while not stop_event.wait(BUSY_WAIT_TIMEOUT / 100):
                 for mqtt_client in self.mqtt_client_list:
                     try:
                         recv_msg = mqtt_client.recv_message_queue.get(
-                            timeout=THREAD_TIME_OUT / 100)
+                            timeout=BUSY_WAIT_TIMEOUT / 100)
                         self.on_recv_message(recv_msg)
                     except Empty:
                         recv_msg = None
@@ -375,7 +510,7 @@ class SoPEventHandler:
     def subscribe_scenario_finish_topic(self, middleware: SoPMiddlewareElement):
         mqtt_client = self.find_mqtt_client(middleware)
         while not mqtt_client.is_run:
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
         mqtt_client.subscribe('SIM/FINISH')
 
     def run_middleware(self, middleware: SoPMiddlewareElement, timeout: float = 5):
@@ -383,7 +518,7 @@ class SoPEventHandler:
         def check_parent_middleware_online(parent_middleware: SoPMiddlewareElement):
             if parent_middleware:
                 while not parent_middleware.online:
-                    time.sleep(THREAD_TIME_OUT)
+                    time.sleep(BUSY_WAIT_TIMEOUT)
 
         def middleware_run_command(middleware: SoPMiddlewareElement, remote_home_dir: str):
             log_file_path = ''
@@ -549,7 +684,7 @@ class SoPEventHandler:
 
         if self.check_thing_register(thing, timeout=timeout):
             # SOPTEST_LOG_DEBUG(
-            #     f' Thing Register is complete. Thing: {thing.name}, Middleware: {middelware.name}', SoPTestLogLevel.PASS)
+            #     f' Thing Register is complete. Thing: {thing.name}, Middleware: {middleware.name}', SoPTestLogLevel.PASS)
             self.subscribe_thing_topic(thing, mqtt_client)
             thing.registered = True
             return True
@@ -631,7 +766,7 @@ class SoPEventHandler:
 
     def thing_register_wait(self):
         while not all([thing.registered for thing in self.thing_list]):
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
         SOPTEST_LOG_DEBUG(
             f'All thing register is complete!...', SoPTestLogLevel.INFO)
 
@@ -639,7 +774,7 @@ class SoPEventHandler:
 
     def scenario_add_check(self, timeout: float):
         while not all([scenario.schedule_success for scenario in self.scenario_list]):
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
         SOPTEST_LOG_DEBUG(
             f'All scenario Add is complete!...', SoPTestLogLevel.INFO)
 
@@ -691,7 +826,7 @@ class SoPEventHandler:
             auto_unsubscribe=False,
             timeout=timeout)
 
-        if check_result_payload(payload) == None:
+        if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
                 f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_VERIFY.value} failed...', SoPTestLogLevel.FAIL)
         return self
@@ -715,7 +850,7 @@ class SoPEventHandler:
             auto_unsubscribe=False,
             timeout=timeout)
 
-        if check_result_payload(payload) == None:
+        if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
                 f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_ADD.value} failed...', SoPTestLogLevel.FAIL)
             SOPTEST_LOG_DEBUG(
@@ -763,7 +898,7 @@ class SoPEventHandler:
             auto_unsubscribe=False,
             timeout=timeout)
 
-        if check_result_payload(payload) == None:
+        if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
                 f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_RUN.value} failed...', SoPTestLogLevel.FAIL)
         return self
@@ -793,7 +928,7 @@ class SoPEventHandler:
             auto_unsubscribe=False,
             timeout=timeout)
 
-        if check_result_payload(payload) == None:
+        if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
                 f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_STOP.value} failed...', SoPTestLogLevel.FAIL)
         return self
@@ -823,7 +958,7 @@ class SoPEventHandler:
             auto_unsubscribe=False,
             timeout=timeout)
 
-        if check_result_payload(payload) == None:
+        if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
                 f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_UPDATE.value} failed...', SoPTestLogLevel.FAIL)
         return self
@@ -852,7 +987,7 @@ class SoPEventHandler:
             auto_unsubscribe=False,
             timeout=timeout)
 
-        if check_result_payload(payload) == None:
+        if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
                 f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_DELETE.value} failed...', SoPTestLogLevel.FAIL)
         return self
@@ -979,9 +1114,6 @@ class SoPEventHandler:
         self.kill_all_ssh_client()
         self.kill_all_mqtt_client()
 
-    def handler(self, signum, frame):
-        pass  # 아무 작업도 하지 않음
-
     def remove_all_remote_simulation_file(self):
         finished_ssh_client_list = []
         for middleware in self.middleware_list:
@@ -1021,8 +1153,7 @@ class SoPEventHandler:
         mqtt_client = self.find_mqtt_client(target_middleware)
 
         if not mqtt_client.is_run:
-            raise Exception(
-                f'{target_middleware.name} mqtt_client is not running...')
+            raise Exception(f'{target_middleware.name} mqtt_client is not running...')
 
         try:
             if auto_subscribe:
@@ -1032,8 +1163,7 @@ class SoPEventHandler:
                 if get_current_time() - cur_time > timeout:
                     raise Empty('Timeout')
 
-                topic, payload, timestamp = decode_MQTT_message(
-                    element.recv_queue.get(timeout=timeout))
+                topic, payload, timestamp = decode_MQTT_message(element.recv_queue.get(timeout=timeout))
 
                 if target_topic:
                     topic_slice = topic.split('/')
@@ -1475,7 +1605,7 @@ class SoPEventHandler:
 
             # NOTE: Super service가 감지되면 각 subfunction의 energy를 0으로 초기화한다.
             # 이렇게 하는 이유는 super service가 실행될 때 마다 다른 subfunction이 실행될 수 있고
-            # 이에 따라 다른 eneryg 소모량을 가질 수 있다.
+            # 이에 따라 다른 energy 소모량을 가질 수 있다.
             # for subfunction in super_service.subfunction_list:
             #     subfunction.energy = 0
 

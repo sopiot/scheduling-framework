@@ -1,7 +1,8 @@
 from simulation_framework.core.elements import *
-from datetime import datetime, timedelta
-from abc import *
-from enum import Enum, auto
+from abc import ABCMeta, abstractmethod
+
+from big_thing_py.common.soptype import SoPProtocolType
+from big_thing_py.common.common import Direction
 
 TIMESTAMP_FORMAT = '%Y/%m/%d %H:%M:%S.%f'
 TIMESTAMP_REGEX = r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\]'
@@ -99,7 +100,7 @@ def find_json_pattern(payload: str) -> str:
 ########################################################################################################################
 
 
-class SimulationOverhead:
+class ProfileResult:
 
     def __init__(self) -> None:
         self.request_overhead_list: List[RequestOverhead] = []
@@ -575,11 +576,6 @@ class ElementLog(metaclass=ABCMeta):
             direction = self.get_direction(message)
             protocol = self.get_protocol(message)
 
-            # if not topic or not payload:
-            #     continue
-            # if not protocol in EXECUTE_PROTOCOL + SCHEDULE_PROTOCOL:
-            #     continue
-
             log_line = LogLine(timestamp=timestamp, raw_log_data=message,
                                topic=topic, payload=payload, direction=direction, protocol=protocol,
                                element_name=self.element_name, element_type=self.element_type,
@@ -675,7 +671,7 @@ class Profiler:
     def __init__(self):
         self.middleware_log_list: List[MiddlewareLog] = []
         self.thing_log_list: List[ThingLog] = []
-        self.simulation_overhead = SimulationOverhead()
+        self.simulation_overhead = ProfileResult()
 
         self.super_service_table: Dict[str, List[str]] = {}
         self.integrated_mqtt_log: List[LogLine] = []
@@ -1065,27 +1061,28 @@ class Profiler:
         elif overhead_type == OverheadType.COMM:
             return sum([overhead.comm_overhead_total() for overhead in self.whole_request_overhead_list]) / len(self.whole_request_overhead_list)
         else:
-            whole_overhead = SimulationOverhead()
+            whole_overhead = ProfileResult()
             for overhead in self.whole_request_overhead_list:
                 whole_overhead += overhead
             return whole_overhead.avg(overhead_type)
 
-    def profile(self, profile_type: ProfileType, export: bool = False) -> SimulationOverhead:
+    def profile(self, profile_type: ProfileType, export: bool = False) -> ProfileResult:
         if not profile_type in [ProfileType.SCHEDULE, ProfileType.EXECUTE]:
             raise Exception(f"Invalid profile type: {profile_type}")
 
-        request_start_log_list = self.collect_request_start_log_line(profile_type=profile_type)
-        file_create_time = get_current_time(mode=TimeFormat.DATETIME2)
-        super_service_request_num_table = {super_service: 0 for super_service in self.super_service_table}
+        request_start_log_line_list = self.collect_request_start_log_line(profile_type=profile_type)
+        if export:
+            file_created_time = get_current_time(mode=TimeFormat.DATETIME2)
+        super_service_index_lookup_table = {super_service: 0 for super_service in self.super_service_table}
 
-        for i, request_start_log in enumerate(request_start_log_list):
+        for i, request_start_log in enumerate(request_start_log_line_list):
             request_log_line_list: List[LogLine] = self.collect_log_line_by_request(request_start_log, profile_type=profile_type)
             if not request_log_line_list:
                 continue
-            request_num = super_service_request_num_table[request_start_log.super_service]
+            super_service_request_index = super_service_index_lookup_table[request_start_log.super_service]
 
             if export:
-                self.export_to_file(log_file_name=f'./profile_result_{file_create_time}/log_{request_start_log.super_service}_request_{request_num}.txt',
+                self.export_to_file(log_file_name=f'./profile_result_{file_created_time}/log_{request_start_log.super_service}_request_{super_service_request_index}.txt',
                                     request_log_line_list=request_log_line_list)
             request_overhead = self.profile_request(request_log_line_list=request_log_line_list, profile_type=profile_type)
             if request_overhead == ProfileErrorCode.INVALID_LOG:
@@ -1100,11 +1097,11 @@ class Profiler:
 
             SOPLOG_DEBUG(f'Profile request: {request_log_line_list[0].request_key}:{i} complete!', 'cyan')
             self.simulation_overhead.add(request_overhead)
-            super_service_request_num_table[request_start_log.super_service] += 1
+            super_service_index_lookup_table[request_start_log.super_service] += 1
 
         return self.simulation_overhead
 
-    def profile_request(self, request_log_line_list: List[LogLine], profile_type: ProfileType) -> SimulationOverhead:
+    def profile_request(self, request_log_line_list: List[LogLine], profile_type: ProfileType) -> ProfileResult:
         request_key = request_log_line_list[0].request_key
         request_overhead = RequestOverhead(request_key=request_key)
 
@@ -1134,10 +1131,9 @@ class Profiler:
 
         return request_overhead
 
-    def profile_target(self, target_log_list: List[LogLine], profile_type: ProfileType) -> SimulationOverhead:
-        target_overhead = SimulationOverhead()
-
-        # TODO
+    # TODO: complete this
+    def profile_target(self, target_log_list: List[LogLine], profile_type: ProfileType) -> ProfileResult:
+        target_overhead = ProfileResult()
 
         return target_overhead
 

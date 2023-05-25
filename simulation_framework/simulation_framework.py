@@ -1,14 +1,14 @@
 from simulation_framework.core.simulation_executor import *
 from simulation_framework.core.simulation_generator import *
 from simulation_framework.core.simulation_evaluator import *
-from simulation_framework.core.profiler import Profiler, ProfileType
+from simulation_framework.profiler import *
 
 
 PREDEFINED_POLICY_FILE_NAME = 'my_scheduling_policies.cc'
 SCHEDULING_ALGORITHM_PATH = f'{get_project_root()}/scheduling_algorithm'
 
 
-class SoPSchedulingFramework:
+class SoPSimulationFramework:
 
     def __init__(self, config_path_list: List[str] = [], simulation_file_path: str = '', mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
         tmp_config_path_list = []
@@ -123,7 +123,6 @@ class SoPSchedulingFramework:
             return True
 
         def init_ramdisk(ssh_client: SoPSSHClient) -> None:
-            # TODO: not tested yet
             ramdisk_check_command = 'ls /mnt/ramdisk'
             ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
                                              f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',

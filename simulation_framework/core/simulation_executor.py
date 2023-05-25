@@ -1,6 +1,54 @@
-from simulation_framework.core.elements import *
 from simulation_framework.core.event_handler import *
-from simulation_framework.core.config import *
+
+
+def exception_wrapper(func: Callable = None,
+                      empty_case_func: Callable = None,
+                      key_error_case_func: Callable = None,
+                      else_case_func: Callable = None,
+                      final_case_func: Callable = None,):
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except Empty as e:
+            print_error(e)
+            if empty_case_func:
+                return empty_case_func()
+        except KeyError as e:
+            print_error(e)
+            if key_error_case_func:
+                return key_error_case_func()
+        except KeyboardInterrupt as e:
+            print('KeyboardInterrupt')
+            if self.__class__.__name__ == 'SoPSimulatorExecutor':
+                event_handler: SoPEventHandler = self.event_handler
+                event_handler.kill_all_simulation_instance()
+                user_input = input(
+                    'Select exit mode[1].\n1. Just exit\n2. Download remote logs\n') or '1'
+                if user_input == '1':
+                    cprint(f'Exit whole simulation...', 'red')
+                elif user_input == '2':
+                    cprint(f'Download remote logs...', 'yellow')
+                    event_handler.download_log_file()
+                else:
+                    cprint(f'Unknown input. Exit whole simulation...', 'red')
+                exit(0)
+        except Exception as e:
+            if e is Empty:
+                print_error(e)
+                if empty_case_func:
+                    return empty_case_func()
+            elif e in [ValueError, IndexError, TypeError, KeyError]:
+                print_error(e)
+            else:
+                print_error(e)
+                event_handler: SoPEventHandler = self.event_handler
+                event_handler.kill_all_simulation_instance()
+            print_error(e)
+            raise e
+        finally:
+            if final_case_func:
+                final_case_func()
+    return wrapper
 
 
 class SoPSimulatorExecutor:
