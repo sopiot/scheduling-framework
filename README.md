@@ -94,6 +94,53 @@ python3 run.py -e sim_env_samples/simple_home_local_multi_env/config_period5_10.
                   scheduling_algorithm/samples/merge_execution.cc
 ```
 
+### Time synchronization for profiling
+
+실험을 진행한 후 각 시뮬레이션 단계에서 발생한 오버헤드를 측정하기 위해서는 각 디바이스의 시간을 동기화해야 합니다. 시뮬레이션 진행시, 각 디바이스에 `Middleware`, `Thing`의 로그가 저장되고 해당 로그에 찍혀있는 timestamp간의 시간 비교를 통해 오버헤드를 측정합니다. 이 과정에서 각 로그의 시간기준점이 동일해야 각 단계에서의 오버헤드가 정확히 측정될 수 있습니다. 이를 위해 `ptp` 시간동기화 프로토콜을 사용하여 각 디바이스간 시간동기화를 진행할 수 있습니다. `ptpd`을 사용하면 `ptp` 프로토콜을 사용한 정밀한 시간동기화를 수행할 수 있습니다. `ptpd`는 다음과 같이 설치할 수 있습니다.
+
+```bash
+sudo apt install ptpd
+```
+
+`ptp` 프로토콜은 네트워크 지연에 따른 오차를 줄이기 위해 기본적으로 이더넷을 통해 진행되는 것을 기본으로 합니다. 따라서 ptpd를 실행하기 전에 각 디바이스를 같은 스위치 또는 공유기에 이더넷 인터페이스로 연결하여야 합니다.
+
+각 디바이스를 이더넷으로 연결한 후, 아래 명령어를 통해 `ptpd`을 실행할 수 있습니다. `-i` 뒤에는 각 디바이스의 이더넷 인터페이스를 명세합니다.
+
+```bash
+sudo ptpd -C -m -i <ethernet_interface>
+```
+
+동기화를 진행하고자 하는 디바이스 모두에서 `ptpd`를 실행을 하면 `ptpd`는 최적의 master time device를 결정하고 master 디바이스의 시간을 기준으로 slave 디바이스들의 시간을 동기화합니다.
+
+```
+ptpd2[20090].startup (info)      (___) Configuration OK
+ptpd2[20090].startup (info)      (___) Successfully acquired lock on /var/run/ptpd2.lock
+ptpd2[20090].startup (notice)    (___) PTPDv2 started successfully on eth0 using "masterslave" preset (PID 20090)
+ptpd2[20090].startup (info)      (___) TimingService.PTP0: PTP service init
+ptpd2[20090].eth0 (info)      (init) Observed_drift loaded from kernel: 8111 ppb
+ptpd2[20090].eth0 (notice)    (lstn_init) Now in state: PTP_LISTENING
+ptpd2[20090].eth0 (info)      (lstn_init) UTC offset is now 37
+ptpd2[20090].eth0 (info)      (lstn_init) New best master selected: d83addfffe18645b(unknown)/1
+ptpd2[20090].eth0 (notice)    (slv) Now in state: PTP_SLAVE, Best master: d83addfffe18645b(unknown)/1
+ptpd2[20090].eth0 (notice)    (slv) Received first Sync from Master
+ptpd2[20090].eth0 (notice)    (slv) Received first Delay Response from Master
+ptpd2[20090].eth0 (notice)    (slv) TimingService.PTP0: elected best TimingService
+ptpd2[20090].eth0 (info)      (slv) TimingService.PTP0: acquired clock control
+```
+
+"`acquired clock control`" 이라는 메시지가 출력되면 시간동기화가 완료된 것입니다. 이후 시뮬레이션을 진행할 때 `-pf` 옵션을 주어 프로파일링을 진행할 수 있습니다. 만약 어느 한 디바이스에서만 "`acquired clock control`" 이라는 메시지가 없다면 해당 디바이스가 master time device로 결정된 것입니다. 이 경우 "`Now in state: PTP_MASTER`" 가 있는 메시지의 맨 오른쪽에 "`(self)`" 라는 메시지가 있는지 확인하십시오. 만약 존재한다면 해당 디바이스가 master time device로 결정된 것입니다.
+
+```bash
+python3 run.py -e sim_env_samples/<env_samples_directory> -p scheduling_algorithm/samples -pf
+```
+
+만약 `-dl` 옵션을 주어 시뮬레이션을 실행하여 다운로드받은 시뮬레이션 로그가 있는 경우 해당 로그를 로드하여 프로파일링을 진행할 수도 있습니다. 이 경우 `--only_profile` 옵션을 주어 프로파일링만 진행할 수 있습니다. `-log` 옵션으로 개별 시뮬레이션에 대한 로그만 프로파일링할수도 있고 `-logs` 옵션으로 remote_logs에 있는 모든 로그에 대해서 프로파일링을 진행할 수도 있습니다. `-logs` 옵션을 주는 경우 최종 결과는 모든 로그에 대한 프로파일링 결과의 평균값이 출력됩니다.
+
+```bash
+python run.py -log remote_logs/<simulation_log_sample> --only_profile
+# python run.py -logs remote_logs --only_profile
+```
+
 ## Terminology
 
 This section explains the terminology used in the Scheduling Framework.
@@ -438,3 +485,11 @@ Users can configure a custom `Middleware` layer structure to perform simulations
 ### Scheduling Algorithm file
 
 Refer to [`scheduling_algorithm`](scheduling_algorithm/README.md) directory.
+
+## TroubleShooting
+
+### ptpd 시간동기화가 아무리 기다려도 끝나지 않는 경우
+
+`acquired clock control`" 이라는 메시지가 출력가 출력되지 않고 계속 시간동기화가 진행 중이라면 해당 디바이스가 master time device가 아닌지 확인해주시기 바랍니다. "`Now in state: PTP_MASTER`" 가 있는 메시지의 맨 오른쪽에 `"(self)"` 가 있는 경우 해당 디바이스가 master time device로 선택된 것이니 나머지 slave 디바이스들의 동기화 상태만 확인하면 됩니다.
+
+위 모두에 해당하지 않는 경우 아직 시간동기화가 완료되지 않은 것이니 조금만 기다려주시기 바랍니다. 만약 아무리 기다려도 시간동기화가 진행이 되지 않는다면 `ptpd`를 종료하고 다시 실행해보시기 바랍니다.
