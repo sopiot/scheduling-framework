@@ -66,69 +66,59 @@ def profile_main(args: argparse.Namespace):
     if args.log_path:
         profiler.load(log_root_path=args.log_path)
         profile_result = profiler.profile(args.profile_type, export=True)
-        print_result(simulation_overhead=profile_result)
+        profiler.print_result()
         customized_print(profile_result=profile_result)
     elif args.root_log_path:
         log_path_list = os.listdir(args.root_log_path)
         for log_path in log_path_list:
             profiler.load(log_root_path=log_path)
             profile_result = profiler.profile(args.profile_type, export=True)
-            print_result(simulation_overhead=profile_result)
+            profiler.print_result()
             customized_print(profile_result=profile_result)
 
 
-# profiler의 메소드로 만들어야 할 것 같음
-def print_result(simulation_overhead: ProfileResult):
-    avg_total_overhead = simulation_overhead.avg_total_overhead()
-    avg_inner_overhead = simulation_overhead.avg_total_inner_overhead()
-    avg_comm_overhead = simulation_overhead.avg_total_comm_overhead()
-    avg_overhead_middleware_inner_sum = simulation_overhead.avg_total_middleware_inner_overhead()
-    avg_overhead_super_thing_inner_sum = simulation_overhead.avg_total_super_thing_inner_overhead()
-    avg_overhead_target_thing_inner_sum = simulation_overhead.avg_total_target_thing_inner_overhead()
-    avg_overhead_middleware__middleware_comm_sum = simulation_overhead.avg_total_middleware__middleware_comm_overhead()
-    avg_overhead_super_thing__middleware_comm_sum = simulation_overhead.avg_total_super_thing__middleware_comm_overhead()
-    avg_overhead_target_thing__middleware_comm_sum = simulation_overhead.avg_total_target_thing__middleware_comm_overhead()
-
-    SOPTEST_LOG_DEBUG(
-        f'\n\
-==== Request Avg Result =========\n\
-total overhead:                                             {avg_total_overhead.total_seconds()*1e3:8.3f} ms\n\
-total inner overhead:                                       {avg_inner_overhead.total_seconds()*1e3:8.3f} ms\n\
-total comm overhead:                                        {avg_comm_overhead.total_seconds()*1e3:8.3f} ms\n\
-total MIDDLEWARE_INNER overhead:                            {avg_overhead_middleware_inner_sum.total_seconds()*1e3:8.3f} ms\n\
-total SUPER_THING_INNER overhead:                           {avg_overhead_super_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
-total TARGET_THING service execution:                       {avg_overhead_target_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
-total MIDDLEWARE__MIDDLEWARE_COMM overhead:                 {avg_overhead_middleware__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
-total SUPER_THING__MIDDLEWARE_COMM overhead:                {avg_overhead_super_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
-total TARGET_THING__MIDDLEWARE_COMM overhead:               {avg_overhead_target_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms')
-
-
-# 더 세부적으로 오버헤드를 출력할 수 있다 만 예시로 보여준다.
-# Profiler를 인자로 넘겨주는 것으로 변경
 def customized_print(profile_result: ProfileResult):
-    # [ST(3) <- MW(3)    MW(2)    MW(1)         ]
-    # [ST(↓)    MW(3)    MW(2)    MW(1)         ]
-    #############################################
-    # [ST(3) -> MW(3)    MW(2)    MW(1)    LT(1)]
-    # [ST(3)    MW(↓)    MW(2)    MW(1)    LT(1)]
-    # [ST(3)    MW(3) -> MW(2)    MW(1)    LT(1)]
-    # [ST(3)    MW(3)    MW(↓)    MW(1)    LT(1)]
-    # [ST(3)    MW(3)    MW(2) -> MW(1)    LT(1)]
-    # [ST(3)    MW(3)    MW(2)    MW(↓)    LT(1)]
-    # [ST(3)    MW(3)    MW(2)    MW(1) -> LT(1)]
-    # [ST(3)    MW(3)    MW(2)    MW(1)    LT(↓)]
-    # [ST(3)    MW(3)    MW(2)    MW(1) <- LT(1)]
-    # [ST(3)    MW(3)    MW(2)    MW(↓)    LT(1)]
-    # [ST(3)    MW(3)    MW(2) <- MW(1)    LT(1)]
-    # [ST(3)    MW(3)    MW(↓)    MW(1)    LT(1)]
-    # [ST(3)    MW(3) <- MW(2)    MW(1)    LT(1)]
-    # [ST(3)    MW(↓)    MW(2)    MW(1)    LT(1)]
-    # [ST(3) <- MW(3)    MW(2)    MW(1)    LT(1)]
-    # [ST(↓)    MW(3)    MW(2)    MW(1)    LT(1)]
-    #############################################
-    # [ST(3) -> MW(3)    MW(2)    LT(2)         ]
+    """ A Function that prints the profile result in a customized way.
 
-    # [ST(3) <- MW(3)    MW(2)    MW(1)         ]
+        Users can use the ProfileResult's avg_overhead method to average certain types of overhead.
+        This function is an example of a custom profiling result output function that leverages that
+        feature.
+
+        This function was written assuming the simulation situation below.
+        ===========================================
+        [ST(3) <- MW(3)    MW(2)    MW(1)         ]
+        [ST(↓)    MW(3)    MW(2)    MW(1)         ]
+        ###########################################
+        [ST(3) -> MW(3)    MW(2)    MW(1)    LT(1)]
+        [ST(3)    MW(↓)    MW(2)    MW(1)    LT(1)]
+        [ST(3)    MW(3) -> MW(2)    MW(1)    LT(1)]
+        [ST(3)    MW(3)    MW(↓)    MW(1)    LT(1)]
+        [ST(3)    MW(3)    MW(2) -> MW(1)    LT(1)]
+        [ST(3)    MW(3)    MW(2)    MW(↓)    LT(1)]
+        [ST(3)    MW(3)    MW(2)    MW(1) -> LT(1)]
+        [ST(3)    MW(3)    MW(2)    MW(1)    LT(↓)]
+        [ST(3)    MW(3)    MW(2)    MW(1) <- LT(1)]
+        [ST(3)    MW(3)    MW(2)    MW(↓)    LT(1)]
+        [ST(3)    MW(3)    MW(2) <- MW(1)    LT(1)]
+        [ST(3)    MW(3)    MW(↓)    MW(1)    LT(1)]
+        [ST(3)    MW(3) <- MW(2)    MW(1)    LT(1)]
+        [ST(3)    MW(↓)    MW(2)    MW(1)    LT(1)]
+        [ST(3) <- MW(3)    MW(2)    MW(1)    LT(1)]
+        [ST(↓)    MW(3)    MW(2)    MW(1)    LT(1)]
+        ###########################################
+        [ST(3) -> MW(3)    MW(2)    LT(2)         ]
+        ===========================================
+        ST:  Super Thing
+        MW:  Middleware
+        LT:  Local Thing
+        (N): Level
+        ->, <-: Send packet
+        ↓: Inner computation
+        ===========================================
+
+    Args:
+        profile_result (ProfileResult): Result of profiling
+    """
     avg_MS_EXECUTE_comm_overhead = profile_result.avg_overhead(dict(type=OverheadType.SUPER_THING__MIDDLEWARE_COMM,
                                                                     element_type_from=SoPElementType.MIDDLEWARE,
                                                                     protocol_from=SoPProtocolType.Super.MS_EXECUTE,

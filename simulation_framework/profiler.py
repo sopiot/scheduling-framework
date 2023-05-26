@@ -122,8 +122,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.overhead_list
             request_duration = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_duration += request_duration
-        avg_duration = avg_duration / len(self.request_overhead_list)
-        return avg_duration
+        if len(self.request_overhead_list) > 0:
+            avg_duration = avg_duration / len(self.request_overhead_list)
+            return avg_duration
+        else:
+            return timedelta(0)
 
     def avg_total_overhead(self) -> timedelta:
         return self.avg_total_inner_overhead() + self.avg_total_comm_overhead()
@@ -134,8 +137,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.INNER))
             inner_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += inner_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
     def avg_total_comm_overhead(self) -> timedelta:
         avg_overhead = timedelta()
@@ -143,8 +149,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.COMM))
             comm_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += comm_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
     def avg_total_middleware_inner_overhead(self) -> timedelta:
         avg_overhead = timedelta()
@@ -152,8 +161,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.MIDDLEWARE_INNER))
             inner_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += inner_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
     def avg_total_super_thing_inner_overhead(self) -> timedelta:
         avg_overhead = timedelta()
@@ -161,8 +173,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.SUPER_THING_INNER))
             inner_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += inner_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
     def avg_total_target_thing_inner_overhead(self) -> timedelta:
         avg_overhead = timedelta()
@@ -170,8 +185,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.TARGET_THING_INNER))
             inner_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += inner_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
     def avg_total_middleware__middleware_comm_overhead(self) -> timedelta:
         avg_overhead = timedelta()
@@ -179,8 +197,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.MIDDLEWARE__MIDDLEWARE_COMM))
             inner_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += inner_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
     def avg_total_super_thing__middleware_comm_overhead(self) -> timedelta:
         avg_overhead = timedelta()
@@ -188,8 +209,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.SUPER_THING__MIDDLEWARE_COMM))
             inner_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += inner_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
     def avg_total_target_thing__middleware_comm_overhead(self) -> timedelta:
         avg_overhead = timedelta()
@@ -197,8 +221,11 @@ class ProfileResult:
             target_overhead_list = request_overhead.collect_overhead(filter=dict(type=OverheadType.TARGET_THING__MIDDLEWARE_COMM))
             inner_duration_sum = sum([overhead.duration for overhead in target_overhead_list], timedelta())
             avg_overhead += inner_duration_sum
-        avg_overhead = avg_overhead / len(self.request_overhead_list)
-        return avg_overhead
+        if len(self.request_overhead_list) > 0:
+            avg_overhead = avg_overhead / len(self.request_overhead_list)
+            return avg_overhead
+        else:
+            return timedelta(0)
 
 
 class RequestOverhead:
@@ -671,7 +698,7 @@ class Profiler:
     def __init__(self):
         self.middleware_log_list: List[MiddlewareLog] = []
         self.thing_log_list: List[ThingLog] = []
-        self.simulation_overhead = ProfileResult()
+        self.profile_result = ProfileResult()
 
         self.super_service_table: Dict[str, List[str]] = {}
         self.integrated_mqtt_log: List[LogLine] = []
@@ -1053,19 +1080,6 @@ class Profiler:
 
     ##########################################################################################################################################
 
-    def get_avg_overhead(self, overhead_type: OverheadType = None) -> float:
-        if overhead_type == None:
-            return sum([overhead.overhead_total() for overhead in self.whole_request_overhead_list]) / len(self.whole_request_overhead_list)
-        elif overhead_type == OverheadType.INNER:
-            return sum([overhead.inner_overhead_total() for overhead in self.whole_request_overhead_list]) / len(self.whole_request_overhead_list)
-        elif overhead_type == OverheadType.COMM:
-            return sum([overhead.comm_overhead_total() for overhead in self.whole_request_overhead_list]) / len(self.whole_request_overhead_list)
-        else:
-            whole_overhead = ProfileResult()
-            for overhead in self.whole_request_overhead_list:
-                whole_overhead += overhead
-            return whole_overhead.avg(overhead_type)
-
     def profile(self, profile_type: ProfileType, export: bool = False) -> ProfileResult:
         if not profile_type in [ProfileType.SCHEDULE, ProfileType.EXECUTE]:
             raise Exception(f"Invalid profile type: {profile_type}")
@@ -1096,10 +1110,10 @@ class Profiler:
                 continue
 
             SOPLOG_DEBUG(f'Profile request: {request_log_line_list[0].request_key}:{i} complete!', 'cyan')
-            self.simulation_overhead.add(request_overhead)
+            self.profile_result.add(request_overhead)
             super_service_index_lookup_table[request_start_log.super_service] += 1
 
-        return self.simulation_overhead
+        return self.profile_result
 
     def profile_request(self, request_log_line_list: List[LogLine], profile_type: ProfileType) -> ProfileResult:
         request_key = request_log_line_list[0].request_key
@@ -1137,23 +1151,44 @@ class Profiler:
 
         return target_overhead
 
+    def print_result(self) -> ProfileResult:
+        avg_total_overhead = self.profile_result.avg_total_overhead()
+        avg_inner_overhead = self.profile_result.avg_total_inner_overhead()
+        avg_comm_overhead = self.profile_result.avg_total_comm_overhead()
+        avg_overhead_middleware_inner_sum = self.profile_result.avg_total_middleware_inner_overhead()
+        avg_overhead_super_thing_inner_sum = self.profile_result.avg_total_super_thing_inner_overhead()
+        avg_overhead_target_thing_inner_sum = self.profile_result.avg_total_target_thing_inner_overhead()
+        avg_overhead_middleware__middleware_comm_sum = self.profile_result.avg_total_middleware__middleware_comm_overhead()
+        avg_overhead_super_thing__middleware_comm_sum = self.profile_result.avg_total_super_thing__middleware_comm_overhead()
+        avg_overhead_target_thing__middleware_comm_sum = self.profile_result.avg_total_target_thing__middleware_comm_overhead()
 
-# [ST(3) <- MW(3)    MW(2)    MW(1)         ]
-# [ST(3) -> MW(3)    MW(2)    MW(1)    LT(1)]
-# [ST(3)    MW(3) -> MW(2)    MW(1)    LT(1)]
-# [ST(3)    MW(3)    MW(2) -> MW(1)    LT(1)]
-# [ST(3)    MW(3)    MW(2)    MW(1) -> LT(1)]
-# [ST(3)    MW(3)    MW(2)    MW(1) <- LT(1)]
-# [ST(3)    MW(3)    MW(2) <- MW(1)    LT(1)]
-# [ST(3)    MW(3) <- MW(2)    MW(1)    LT(1)]
-# [ST(3) <- MW(3)    MW(2)    MW(1)    LT(1)]
-# [ST(3) -> MW(3)    MW(2)    LT(2)         ]
-# [ST(3)    MW(3) -> MW(2)    LT(2)         ]
-# [ST(3)    MW(3)    MW(2) -> LT(2)         ]
-# [ST(3)    MW(3)    MW(2) <- LT(2)         ]
-# [ST(3)    MW(3) <- MW(2)    LT(2)         ]
-# [ST(3) <- MW(3)    MW(2)    LT(2)         ]
-# [ST(3) -> MW(3)    LT(3)                  ]
-# [ST(3)    MW(3) -> LT(3)                  ]
-# [ST(3)    MW(3) <- LT(3)                  ]
-# [ST(3) <- MW(3)    LT(3)                  ]
+        avg_overhead_middleware_inner = self.profile_result.avg_overhead(dict(type=OverheadType.MIDDLEWARE_INNER))
+        avg_overhead_super_thing_inner = self.profile_result.avg_overhead(dict(type=OverheadType.SUPER_THING_INNER))
+        avg_overhead_target_thing_inner = self.profile_result.avg_overhead(dict(type=OverheadType.TARGET_THING_INNER))
+        avg_overhead_middleware__middleware_comm = self.profile_result.avg_overhead(dict(type=OverheadType.MIDDLEWARE__MIDDLEWARE_COMM))
+        avg_overhead_super_thing__middleware_comm = self.profile_result.avg_overhead(dict(type=OverheadType.SUPER_THING__MIDDLEWARE_COMM))
+        avg_overhead_target_thing__middleware_comm = self.profile_result.avg_overhead(dict(type=OverheadType.TARGET_THING__MIDDLEWARE_COMM))
+
+        SOPTEST_LOG_DEBUG(
+            f'\n\
+    ==== Request Result ====\n\
+    total overhead:                                             {avg_total_overhead.total_seconds()*1e3:8.3f} ms\n\
+    total inner overhead:                                       {avg_inner_overhead.total_seconds()*1e3:8.3f} ms\n\
+    total comm overhead:                                        {avg_comm_overhead.total_seconds()*1e3:8.3f} ms\n\
+    total MIDDLEWARE_INNER overhead:                            {avg_overhead_middleware_inner_sum.total_seconds()*1e3:8.3f} ms\n\
+    total SUPER_THING_INNER overhead:                           {avg_overhead_super_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
+    total TARGET_THING service execution:                       {avg_overhead_target_thing_inner_sum.total_seconds()*1e3:8.3f} ms\n\
+    total MIDDLEWARE__MIDDLEWARE_COMM overhead:                 {avg_overhead_middleware__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
+    total SUPER_THING__MIDDLEWARE_COMM overhead:                {avg_overhead_super_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
+    total TARGET_THING__MIDDLEWARE_COMM overhead:               {avg_overhead_target_thing__middleware_comm_sum.total_seconds()*1e3:8.3f} ms\n\
+    \n\
+    ==== Detail Result ====\n\
+    avg MIDDLEWARE_INNER overhead:                            {avg_overhead_middleware_inner.total_seconds()*1e3:8.3f} ms\n\
+    avg SUPER_THING_INNER overhead:                           {avg_overhead_super_thing_inner.total_seconds()*1e3:8.3f} ms\n\
+    avg TARGET_THING service execution:                       {avg_overhead_target_thing_inner.total_seconds()*1e3:8.3f} ms\n\
+    avg MIDDLEWARE__MIDDLEWARE_COMM overhead:                 {avg_overhead_middleware__middleware_comm.total_seconds()*1e3:8.3f} ms\n\
+    avg SUPER_THING__MIDDLEWARE_COMM overhead:                {avg_overhead_super_thing__middleware_comm.total_seconds()*1e3:8.3f} ms\n\
+    avg TARGET_THING__MIDDLEWARE_COMM overhead:               {avg_overhead_target_thing__middleware_comm.total_seconds()*1e3:8.3f} ms'
+        )
+
+        return self.profile_result
