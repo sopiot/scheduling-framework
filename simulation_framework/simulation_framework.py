@@ -198,8 +198,6 @@ check_cpu_clock_setting'''
                 set_cpu_clock_remote(ssh_client=ssh_client)
 
         middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(simulation_executor.simulation_env)
-        # ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list] +
-        #                        [simulation_executor.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
 
         middleware_ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list]))
         thing_ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))

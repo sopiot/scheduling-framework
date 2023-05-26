@@ -5,6 +5,7 @@ from enum import Enum, auto
 from tabulate import tabulate
 from pathlib import Path
 import os
+import re
 import random
 import string
 import yaml
@@ -24,6 +25,22 @@ class TimeFormat(Enum):
     DATE = '%Y-%m-%d'
     TIME = '%H:%M:%S'
     UNIXTIME = 'unixtime'
+
+
+class Direction(Enum):
+    PUBLISH = 'PUBLISH'
+    RECEIVED = 'RECEIVED'
+
+
+def find_json_pattern(payload: str) -> str:
+    # 만약 payload가 json 형식이라면 json 형식으로 변환
+    pattern = re.compile(r'{[\s\S]*}')
+    match = pattern.search(payload)
+    if not match:
+        return False
+
+    payload = match.group()
+    return payload.replace('\n', '').replace(' ', '').strip()
 
 
 def json_file_read(path: str) -> Union[dict, bool]:

@@ -2,7 +2,6 @@ from simulation_framework.core.elements import *
 from abc import ABCMeta, abstractmethod
 
 from big_thing_py.common.soptype import SoPProtocolType
-from big_thing_py.common.common import Direction
 
 TIMESTAMP_FORMAT = '%Y/%m/%d %H:%M:%S.%f'
 TIMESTAMP_REGEX = r'\[(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\]'
@@ -78,24 +77,6 @@ class ProfileType(Enum):
     SCHEDULE = auto()
     EXECUTE = auto()
 
-
-class ScheduleStatus(Enum):
-    CHECK = 'check'
-    CONFIRM = 'confirm'
-
-
-########################################################################################################################
-
-
-def find_json_pattern(payload: str) -> str:
-    # 만약 payload가 json 형식이라면 json 형식으로 변환
-    pattern = re.compile(r'{[\s\S]*}')
-    match = pattern.search(payload)
-    if not match:
-        return False
-
-    payload = match.group()
-    return payload.replace('\n', '').replace(' ', '').strip()
 
 ########################################################################################################################
 
@@ -287,8 +268,8 @@ class Overhead:
     def __init__(self, duration: timedelta = timedelta(), overhead_type: OverheadType = None,
                  element_name_from: str = None, element_type_from: SoPElementType = None, level_from: int = None, protocol_from: SoPProtocolType = None,
                  element_name_to: str = None, element_type_to: SoPElementType = None, level_to: int = None, protocol_to: SoPProtocolType = None) -> None:
-        self.duration = duration
-        self.type = overhead_type
+        self.duration: timedelta = duration
+        self.type: OverheadType = overhead_type
         self.element_name_from: str = element_name_from
         self.element_type_from: SoPElementType = element_type_from
         self.protocol_from: SoPElementType = protocol_from
@@ -477,28 +458,28 @@ LOG_ORDER_MAP = {
 class LogLine:
     def __init__(self, timestamp: datetime, raw_log_data: str, topic: str, payload: str, direction: Direction, protocol: SoPProtocolType,
                  element_name: str, element_type: SoPElementType, level: int) -> None:
-        self.raw_log_data = raw_log_data
-        self.element_name = element_name
-        self.element_type = element_type
-        self.level = level
-        self.topic = topic
-        self.payload = payload
+        self.raw_log_data: str = raw_log_data
+        self.element_name: str = element_name
+        self.element_type: SoPElementType = element_type
+        self.level: int = level
+        self.topic: str = topic
+        self.payload: str = payload
 
-        self.timestamp = timestamp
-        self.direction = direction
-        self.protocol = protocol
+        self.timestamp: timedelta = timestamp
+        self.direction: Direction = direction
+        self.protocol: SoPProtocolType = protocol
 
-        self.scenario = ''
-        self.super_service = ''
-        self.super_thing = ''
-        self.super_middleware = ''
-        self.target_service = ''
-        self.target_thing = ''
-        self.target_middleware = ''
-        self.requester_middleware = ''
+        self.scenario: str = ''
+        self.super_service: str = ''
+        self.super_thing: str = ''
+        self.super_middleware: str = ''
+        self.target_service: str = ''
+        self.target_thing: str = ''
+        self.target_middleware: str = ''
+        self.requester_middleware: str = ''
 
-        self.request_key = ''    # request_key = scenario@super_service@super_thing@requester_middleware
-        self.target_key = ''     # target_key = target_service@target_thing@target_middleware
+        self.request_key: str = ''    # request_key = scenario@super_service@super_thing@requester_middleware
+        self.target_key: str = ''     # target_key = target_service@target_thing@target_middleware
 
     def topic_slice(self, index: int):
         if not self.topic:
@@ -579,14 +560,14 @@ class LogLine:
 
 class ElementLog(metaclass=ABCMeta):
     def __init__(self, log_path: str, level: int, element_name: str, device: str) -> None:
-        self.log_path = log_path
-        self.level = level
-        self.element_name = element_name
-        self.device = device
+        self.log_path: str = log_path
+        self.level: int = level
+        self.element_name: str = element_name
+        self.device: str = device
 
         self.element_type: SoPElementType = None
 
-        self.timestamp_regex = TIMESTAMP_REGEX
+        self.timestamp_regex: str = TIMESTAMP_REGEX
         self.log_line_list: List[LogLine] = []
 
     def load(self) -> 'ElementLog':
@@ -674,6 +655,9 @@ class ThingLog(ElementLog):
         self.is_super = is_super
 
     def get_topic_func(self, log_data: str) -> str:
+        if not ('[RECEIVED]' in log_data or '[PUBLISH]' in log_data):
+            return None
+
         match = re.search(r'topic: (.+?) payload: ([\s\S]*)', log_data)
         if match:
             topic = match.group(1)
@@ -992,7 +976,7 @@ class Profiler:
             # execute에 대해서도 target_log_list를 뽑아야하지만 현재 result list기능이 구현되지 않아 single에 대한 것에 대해서만 대응한다.
             # if profile_type == ProfileType.EXECUTE and '@'.join([target_service, target_thing]) != log_line.target_key:
             #     continue
-            if profile_type == ProfileType.SCHEDULE and ScheduleStatus.CHECK.value != json_string_to_dict(log_line.payload)['status'].lower():
+            if profile_type == ProfileType.SCHEDULE and 'check' != json_string_to_dict(log_line.payload)['status'].lower():
                 continue
 
             target_start_log_list.append(log_line)
@@ -1035,13 +1019,6 @@ class Profiler:
 
         log_range = [log_line for log_line in log_data if start_time <= log_line.timestamp <= end_time]
         return log_range
-
-    def get_windowed_log_list(self, request_log_list: List[LogLine], target_log_line, before: int = 3, after: int = 3) -> List[LogLine]:
-        target_log_index = request_log_list.index(target_log_line)
-        index1 = target_log_index-before if target_log_index-before >= 0 else 0
-        index2 = target_log_index+after+1 if target_log_index+after+1 <= len(request_log_list) else len(request_log_list)
-        log_window = request_log_list[index1:index2]
-        return log_window
 
     ##########################################################################################################################################
 
