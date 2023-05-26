@@ -700,7 +700,6 @@ class Profiler:
         self.thing_log_list: List[ThingLog] = []
         self.profile_result = ProfileResult()
 
-        self.super_service_table: Dict[str, List[str]] = {}
         self.integrated_mqtt_log: List[LogLine] = []
 
     def load(self, log_root_path: str = '') -> 'Profiler':
@@ -715,7 +714,6 @@ class Profiler:
                 self.middleware_log_list.append(middleware_log)
                 self.thing_log_list.extend(thing_log_list)
 
-        self.super_service_table = self.make_super_service_table()
         self.integrated_mqtt_log: List[LogLine] = self.make_integrated_mqtt_log()
 
         SOPLOG_DEBUG(f'Load simulation log from {log_root_path} successfully', 'green')
@@ -789,28 +787,28 @@ class Profiler:
 
         return integrated_mqtt_log
 
-    def make_super_service_table(self) -> Dict[str, List[str]]:
-        super_service_table = {}
-        super_thing_log_list = [thing_log for thing_log in self.thing_log_list if thing_log.is_super]
-        if len(super_thing_log_list) == 0:
-            return False
+    # def make_super_service_table(self) -> Dict[str, List[str]]:
+    #     super_service_table = {}
+    #     super_thing_log_list = [thing_log for thing_log in self.thing_log_list if thing_log.is_super]
+    #     if len(super_thing_log_list) == 0:
+    #         return False
 
-        request_order = 0
-        for super_thing_log in super_thing_log_list:
-            for log_line in super_thing_log.log_line_list:
-                if '✔✔✔' in log_line.raw_log_data:
-                    break
+    #     request_order = 0
+    #     for super_thing_log in super_thing_log_list:
+    #         for log_line in super_thing_log.log_line_list:
+    #             if '✔✔✔' in log_line.raw_log_data:
+    #                 break
 
-                if "Detect super service" in log_line.raw_log_data:
-                    request_order = 0
-                    super_service = log_line.raw_log_data.split(":")[1].strip()
-                    super_service_table[super_service] = []
-                elif "sub_service" in log_line.raw_log_data:
-                    sub_service = log_line.raw_log_data.split(":")[1].strip()
-                    super_service_table[super_service].append((sub_service, request_order))
-                    request_order += 1
+    #             if "Detect super service" in log_line.raw_log_data:
+    #                 request_order = 0
+    #                 super_service = log_line.raw_log_data.split(":")[1].strip()
+    #                 super_service_table[super_service] = []
+    #             elif "sub_service" in log_line.raw_log_data:
+    #                 sub_service = log_line.raw_log_data.split(":")[1].strip()
+    #                 super_service_table[super_service].append((sub_service, request_order))
+    #                 request_order += 1
 
-        return super_service_table
+    #     return super_service_table
 
     def make_log_line_info(self, log_line: LogLine) -> dict:
         topic = log_line.topic
@@ -1087,7 +1085,9 @@ class Profiler:
         request_start_log_line_list = self.collect_request_start_log_line(profile_type=profile_type)
         if export:
             file_created_time = get_current_time(mode=TimeFormat.DATETIME2)
-        super_service_index_lookup_table = {super_service: 0 for super_service in self.super_service_table}
+
+        super_service_list = set([request_start_log.super_service for request_start_log in request_start_log_line_list])
+        super_service_index_lookup_table = {super_service: 0 for super_service in super_service_list}
 
         for i, request_start_log in enumerate(request_start_log_line_list):
             request_log_line_list: List[LogLine] = self.collect_log_line_by_request(request_start_log, profile_type=profile_type)
