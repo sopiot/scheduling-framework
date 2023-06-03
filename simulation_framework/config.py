@@ -4,8 +4,7 @@ import os
 
 
 class SoPPath:
-    def __init__(self, project_root_path: str, config_path: str, path: str) -> None:
-        self.project_root_path = project_root_path
+    def __init__(self, config_path: str, path: str) -> None:
         self.config_path = config_path
         self.path = path
 
@@ -17,7 +16,7 @@ class SoPPath:
         if not self.path:
             return None
         elif '${ROOT}' in self.path:
-            path = self.path.replace('${ROOT}', str(self.project_root_path))
+            path = self.path.replace('${ROOT}', str(get_project_root()))
         elif './' in self.path:
             path = self.path.replace('./', f'{os.path.dirname(self.config_path)}/')
         elif '~' in self.path:
@@ -29,29 +28,67 @@ class SoPPath:
 
 
 class SoPSimulationConfig:
-    def __init__(self, config_path: str = None, config: dict = None) -> None:
-        self.path = config_path
-        if not config and self.path:
-            data = load_yaml(self.path)
-        elif config and not self.path:
-            data = config
-        else:
-            raise Exception('config_path and config are both None.')
+    """_summary_
 
-        self.name: str = data['simulation'].get('name', os.path.basename(self.path).split('.')[0])
-        self.running_time: float = data['simulation'].get('running_time', 120.0)
-        self.event_timeout: float = data['simulation'].get('event_timeout', 15.0)
+    name: str
+    running_time: float
+    event_timeout: float
+    device_pool_path: str
+    service_pool_path: str
 
-        self.device_pool_path = SoPPath(project_root_path=get_project_root(),
-                                        config_path=os.path.abspath(self.path),
-                                        path=data.get('device_pool_path', 'device_pool.yml'))
-        self.middleware_config = SoPMiddlewareConfig(data['middleware'], self.path)
-        self.service_config = SoPServiceConfig(data['service'])
-        self.thing_config = SoPThingConfig(data['thing'])
-        self.application_config = SoPApplicationConfig(data['application'])
+    middleware_config: SoPMiddlewareConfig
+
+    service_config: SoPServiceConfig
+
+    thing_config: SoPThingConfig
+
+    application_config: SoPApplicationConfig
+
+    """
+
+    def __init__(self, config_path: str = None) -> None:
+        self.config_path = config_path
+        config = load_yaml(config_path)
+        if not config:
+            raise ValueError(f'config_path is not valid. config_path: {config_path}')
+
+        self.name: str = config['simulation'].get('name', os.path.basename(config_path).split('.')[0])
+        self.running_time: float = config['simulation'].get('running_time', 120.0)
+        self.event_timeout: float = config['simulation'].get('event_timeout', 15.0)
+
+        self.device_pool_path = SoPPath(config_path=os.path.abspath(config_path),
+                                        path=config['simulation'].get('device_pool_path', 'device_pool.yml'))
+        self.service_thing_pool_path = SoPPath(config_path=os.path.abspath(config_path),
+                                               path=config['simulation'].get('service_thing_pool_path', 'service_thing_pool.json'))
+        self.local_mode = config['simulation'].get('local_mode', False)
+        self.middleware_config = SoPMiddlewareConfig(config['middleware'], config_path)
+        self.service_config = SoPServiceConfig(config['service'])
+        self.thing_config = SoPThingConfig(config['thing'])
+        self.application_config = SoPApplicationConfig(config['application'])
 
 
 class SoPMiddlewareConfig:
+    """_summary_
+
+    device_pool: List[str]
+    remote_middleware_path: str
+    remote_middleware_config_path: str
+
+    manual: str
+
+    random: 
+        height: ConfigRandomIntRange
+        width: ConfigRandomIntRange
+        normal:
+            thing_per_middleware: ConfigRandomIntRange
+            application_per_middleware: ConfigRandomIntRange
+        super:
+            thing_per_middleware: ConfigRandomIntRange
+            application_per_middleware: ConfigRandomIntRange
+
+    Raises:
+        SOPTEST_LOG_DEBUG: _description_
+    """
 
     class RandomConfig:
 
@@ -72,15 +109,31 @@ class SoPMiddlewareConfig:
         self.remote_middleware_path: str = data.get('remote_middleware_path', '~/middleware')
         self.remote_middleware_config_path: str = data.get('remote_middleware_config_path', '/mnt/ramdisk/middleware_config')
 
-        self.manual = SoPPath(project_root_path=get_project_root(),
-                              config_path=os.path.abspath(config_path),
+        self.manual = SoPPath(config_path=os.path.abspath(config_path),
                               path=data.get('manual', ''))
+        self.manual_middleware_tree = {}
+        if self.manual.abs_path():
+            self.manual_middleware_tree = load_yaml(self.manual.abs_path())
         self.random = SoPMiddlewareConfig.RandomConfig(data['random']) if 'random' in data else None
         if not 'manual' in data and not 'random' in data:
             raise SOPTEST_LOG_DEBUG(f'random: and manual: are not set...', SoPTestLogLevel.FAIL)
 
 
 class SoPServiceConfig:
+    """_summary_
+
+    tag_type_num: int
+    tag_per_service: ConfigRandomIntRange
+
+    normal:
+        service_type_num: int
+        energy: ConfigRandomIntRange
+        execute_time: ConfigRandomIntRange
+    super:
+        service_type_num: int
+        service_per_super_service: ConfigRandomIntRange
+
+    """
 
     class NormalConfig:
         def __init__(self, data: dict) -> None:
@@ -102,6 +155,21 @@ class SoPServiceConfig:
 
 
 class SoPThingConfig:
+    """_summary_
+
+    remote_thing_folder_path: str
+    device_pool: List[str]
+
+    normal:
+        service_per_thing: ConfigRandomIntRange
+        fail_error_rate: int
+        broken_rate: int
+    super:
+        service_per_thing: ConfigRandomIntRange
+        fail_error_rate: int
+        broken_rate: int
+
+    """
 
     class DetailConfig:
         def __init__(self, data: dict) -> None:
@@ -120,6 +188,16 @@ class SoPThingConfig:
 
 
 class SoPApplicationConfig:
+    """_summary_
+
+    normal:
+        service_per_application: ConfigRandomIntRange
+        period: ConfigRandomFloatRange
+    super:
+        service_per_application: ConfigRandomIntRange
+        period: ConfigRandomFloatRange
+
+    """
 
     class DetailConfig:
         def __init__(self, data: dict) -> None:

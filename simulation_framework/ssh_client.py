@@ -1,4 +1,4 @@
-from simulation_framework.core.elements import *
+from simulation_framework.core.components import *
 
 import paramiko
 import stat
@@ -13,9 +13,9 @@ class SoPSSHClient:
     FILE_UPLOADING = 0
     FILE_DOWNLOADING = 0
 
-    def __init__(self, device: SoPDeviceElement, connect_timeout: float = 10) -> None:
-        self._ssh_client = paramiko.SSHClient()
-        self._sftp_client = None
+    def __init__(self, device: SoPDevice, connect_timeout: float = 10) -> None:
+        self._ssh_client: paramiko.SSHClient = paramiko.SSHClient()
+        self._sftp_client: paramiko.SFTPClient = None
 
         self.device = device
         self.connected = False

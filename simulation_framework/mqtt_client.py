@@ -1,4 +1,4 @@
-from simulation_framework.core.elements import *
+from simulation_framework.core.components import *
 
 import paho.mqtt.client as mqtt
 
@@ -48,50 +48,51 @@ def decode_MQTT_message(msg: mqtt.MQTTMessage, mode=dict) -> Tuple[str, dict]:
 
 
 class SoPMQTTClient:
-    def __init__(self, middleware: SoPMiddlewareElement, debug: bool = False):
-        self.client: mqtt.Client = mqtt.Client(client_id=middleware.name, clean_session=True)
+    def __init__(self, middleware: SoPMiddleware, debug: bool = False):
+        self._mqtt_client: mqtt.Client = mqtt.Client(client_id=middleware.name, clean_session=True)
 
         self.middleware = middleware
         self.host = middleware.device.host
         self.port = middleware.mqtt_port
 
-        self.pub_message = None
-        self.recv_message = None
-        self.pub_message_queue: Queue = Queue()
-        self.recv_message_queue: Queue = Queue()
+        self._pub_message = None
+        self._recv_message = None
+        self._pub_message_queue: Queue = Queue()
+        self._recv_message_queue: Queue = Queue()
 
-        self.subscribe_list = set()
+        self._subscribe_list = set()
+        self._debug = debug
+
         self.is_run = False
-        self.debug = debug
 
         self.set_callback()
 
     def connect(self):
         try:
-            self.client.connect(self.middleware.device.host, self.middleware.mqtt_port)
+            self._mqtt_client.connect(self.middleware.device.host, self.middleware.mqtt_port)
         except Exception as e:
             SOPLOG_DEBUG(f'Connect to broker failed...', 'red')
             return False
 
     def set_debug(self, debug: bool):
-        self.debug = debug
+        self._debug = debug
 
     def get_client_id(self):
-        return self.client._client_id.decode()
+        return self._mqtt_client._client_id.decode()
 
     def set_callback(self):
-        self.client.on_connect = self._on_connect
-        self.client.on_disconnect = self._on_disconnect
-        self.client.on_publish = self._on_publish
-        self.client.on_subscribe = self._on_subscribe
-        self.client.on_unsubscribe = self._on_unsubscribe
-        self.client.on_message = self._on_message
+        self._mqtt_client.on_connect = self._on_connect
+        self._mqtt_client.on_disconnect = self._on_disconnect
+        self._mqtt_client.on_publish = self._on_publish
+        self._mqtt_client.on_subscribe = self._on_subscribe
+        self._mqtt_client.on_unsubscribe = self._on_unsubscribe
+        self._mqtt_client.on_message = self._on_message
 
     def publish(self, topic, payload, qos=0, retain=False):
-        self.pub_message = encode_MQTT_message(
+        self._pub_message = encode_MQTT_message(
             topic, payload, get_current_time())
-        ret = self.client.publish(topic, payload, qos, retain)
-        if self.debug:
+        ret = self._mqtt_client.publish(topic, payload, qos, retain)
+        if self._debug:
             if ret.rc == 0:
                 pass
                 SOPLOG_DEBUG(
@@ -102,33 +103,33 @@ class SoPMQTTClient:
 
     def subscribe(self, topic: Union[List, str], qos=0):
         if type(topic) is not list:
-            self.client.subscribe(topic, qos)
-            self.subscribe_list.add(topic)
-            if self.debug:
+            self._mqtt_client.subscribe(topic, qos)
+            self._subscribe_list.add(topic)
+            if self._debug:
                 SOPLOG_DEBUG(
                     f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
             for item in topic:
-                self.client.subscribe(item, qos)
-                self.subscribe_list.add(item)
-                if self.debug:
+                self._mqtt_client.subscribe(item, qos)
+                self._subscribe_list.add(item)
+                if self._debug:
                     SOPLOG_DEBUG(
                         f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {item:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
     def unsubscribe(self, topic, properties=None):
         if type(topic) is not list:
-            self.client.unsubscribe(topic, properties)
-            if topic in self.subscribe_list:
-                self.subscribe_list.remove(topic)
-            if self.debug:
+            self._mqtt_client.unsubscribe(topic, properties)
+            if topic in self._subscribe_list:
+                self._subscribe_list.remove(topic)
+            if self._debug:
                 SOPLOG_DEBUG(
                     f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {topic:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
             for item in topic:
-                self.client.unsubscribe(item, properties)
-                if item in self.subscribe_list:
-                    self.subscribe_list.remove(item)
-                if self.debug:
+                self._mqtt_client.unsubscribe(item, properties)
+                if item in self._subscribe_list:
+                    self._subscribe_list.remove(item)
+                if self._debug:
                     SOPLOG_DEBUG(
                         f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {item:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
@@ -146,10 +147,10 @@ class SoPMQTTClient:
         self.loop_stop()
 
     def loop_start(self):
-        self.client.loop_start()
+        self._mqtt_client.loop_start()
 
     def loop_stop(self):
-        self.client.loop_stop()
+        self._mqtt_client.loop_stop()
 
     ####################################################################################################
 
@@ -173,9 +174,9 @@ class SoPMQTTClient:
 
     def _on_message(self, client: mqtt.Client, userdata, message: mqtt.MQTTMessage):
         # self.recv_message = message
-        self.recv_message_queue.put(message)
+        self._recv_message_queue.put(message)
         topic, payload, _ = decode_MQTT_message(message)
 
-        if self.debug:
+        if self._debug:
             SOPLOG_DEBUG(
                 f'{f"✅ Received by {self.get_client_id()}":>16}(qos={message.qos}): {topic:<80}, {payload} on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')

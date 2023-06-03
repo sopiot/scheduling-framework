@@ -2,7 +2,7 @@
 
 This folder contains examples using the MySSIX simulator.
 
-The examples are divided into folders named `simple_home_*`, `simple_building_*`, `simple_campus_*`, and `paper_experiment`. The `simple` part is divided into `local` and `remote` examples. The `*_local` examples run all simulation elements directly on the local machine, while the `*_remote` examples run the `Middleware` component on a remote machine and the Thing component on the local machine. The `paper_experiment` example is for reproducing the experiments in the paper and runs the simulation with the `remote` setting.
+The examples are divided into folders named `simple_home_*`, `simple_building_*`, `simple_campus_*`, and `paper_experiment`. The `simple` part is divided into `local` and `remote` examples. The `*_local` examples run all simulation components directly on the local machine, while the `*_remote` examples run the `Middleware` component on a remote machine and the Thing component on the local machine. The `paper_experiment` example is for reproducing the experiments in the paper and runs the simulation with the `remote` setting.
 
 ## Case 1: simple home
 
@@ -18,4 +18,4 @@ This simulation runs seven `Middleware`, with one `Middleware` at level 3, two `
 
 ## Case 4: paper experiments
 
-This simulation environment can reproduce the experiments performed in the paper. It runs one `Middleware` on a remote device and runs all `Normal Things` on the local machine by default, except for the `Super Thing`, which runs on the same device as the `Middleware`. Devices specified in the **Device Pool file** in the `device_pool_path` path must be specified as information on the *local network* and at *least 11 Raspberry Pi devices are required*.
+This simulation environment can reproduce the experiments performed in the paper. It runs one `Middleware` on a remote device and runs all `Normal Things` on the local machine by default, except for the `Super Thing`, which runs on the same device as the `Middleware`. Devices specified in the **Device Pool file** in the `device_pool_path` path must be specified as information on the _local network_ and at _least 11 Raspberry Pi devices are required_.

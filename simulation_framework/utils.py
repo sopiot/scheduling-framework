@@ -1,6 +1,5 @@
 from simulation_framework.typing import *
 from termcolor import cprint, colored
-from enum import Enum, auto
 
 from tabulate import tabulate
 from pathlib import Path
@@ -26,10 +25,63 @@ class TimeFormat(Enum):
     TIME = '%H:%M:%S'
     UNIXTIME = 'unixtime'
 
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def get(cls, name: str):
+        try:
+            return cls[name.upper()]
+        except Exception:
+            return cls.UNDEFINED
+
 
 class Direction(Enum):
     PUBLISH = 'PUBLISH'
     RECEIVED = 'RECEIVED'
+
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def get(cls, name: str):
+        try:
+            return cls[name.upper()]
+        except Exception:
+            return cls.UNDEFINED
+
+
+def get_tree_node(root: object, get_child: Callable, get_target: Callable) -> Union[object, None]:
+    if get_target(root):
+        return root
+
+    child_list = get_child(root)
+    if not child_list:
+        return None
+    for child_node in get_child(root):
+        found_node = get_tree_node(child_node, get_child, get_target)
+        if found_node:
+            return found_node
+
+    return None
+
+
+def count_tree_node(root: object, get_child: Callable, filter: Callable):
+    count = 0
+    if filter(root):
+        count += 1
+
+    child_list = get_child(root)
+    if not child_list:
+        return count
+    for child_node in get_child(root):
+        count += count_tree_node(child_node, get_child, filter)
+
+    return count
 
 
 def find_json_pattern(payload: str) -> str:
@@ -41,23 +93,6 @@ def find_json_pattern(payload: str) -> str:
 
     payload = match.group()
     return payload.replace('\n', '').replace(' ', '').strip()
-
-
-def json_file_read(path: str) -> Union[dict, bool]:
-    try:
-        with open(path, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return False
-
-
-def json_file_write(path: str, data: Union[str, dict], indent: int = 4) -> None:
-    with open(path, 'w') as f:
-        if isinstance(data, (dict, str)):
-            json.dump(data, f, indent=indent)
-        else:
-            raise Exception(
-                f'common_util.json_file_write: data type error - {type(data)}')
 
 
 def get_current_time(mode: TimeFormat = TimeFormat.UNIXTIME):
@@ -108,34 +143,6 @@ def dict_to_json_string(dict_object: Union[dict, list, str], pretty: bool = True
         return False
 
 
-def read_file(path: str, strip: bool = True, raw: bool = False) -> List[str]:
-    try:
-        with open(path, 'r') as f:
-            if raw:
-                return f.read()
-            if strip:
-                return [line.strip() for line in f.readlines()]
-            else:
-                return f.readlines()
-    except FileNotFoundError as e:
-        print(f'File not found: {path}')
-        raise e
-
-
-def write_file(path: str, content: Union[str, List[str]]) -> None:
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as f:
-            if isinstance(content, str):
-                f.write(content)
-            elif isinstance(content, list):
-                f.writelines(content)
-        return path
-    except FileNotFoundError as e:
-        print(f'Path not found: {path}')
-        raise e
-
-
 def generate_random_string(len: int):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=len))
 
@@ -174,9 +181,32 @@ def append_indent(code: str, indent: int = 1, remove_tab: bool = True):
         return '\n'.join(code_lines)
 
 
-def load_toml(path: str) -> dict:
-    config = toml.load(path)
-    return config
+def read_file(path: str, strip: bool = True, raw: bool = False) -> List[str]:
+    try:
+        with open(path, 'r') as f:
+            if raw:
+                return f.read()
+            if strip:
+                return [line.strip() for line in f.readlines()]
+            else:
+                return f.readlines()
+    except FileNotFoundError as e:
+        print(f'File not found: {path}')
+        raise e
+
+
+def write_file(path: str, data: Union[str, List[str]]) -> None:
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f:
+            if isinstance(data, str):
+                f.write(data)
+            elif isinstance(data, list):
+                f.writelines(data)
+        return path
+    except FileNotFoundError as e:
+        print(f'Path not found: {path}')
+        raise e
 
 
 def load_yaml(path: str) -> dict:
@@ -185,12 +215,29 @@ def load_yaml(path: str) -> dict:
     if not config == None:
         return config
     else:
-        return {}
+        return None
 
 
 def save_yaml(path: str, data: dict):
     with open(path, 'w') as f:
         yaml.dump(data, f, sort_keys=False)
+
+
+def load_json(path: str) -> Union[dict, bool]:
+    try:
+        with open(path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return False
+
+
+def save_json(path: str, data: Union[str, dict], indent: int = 4) -> None:
+    with open(path, 'w') as f:
+        if isinstance(data, (dict, str)):
+            json.dump(data, f, indent=indent)
+        else:
+            raise Exception(
+                f'common_util.json_file_write: data type error - {type(data)}')
 
 
 def avg(src: List[Union[int, float]]) -> float:

@@ -5,7 +5,7 @@ simulation:
 device_pool_path: ${ROOT}/device_pool.yml
 
 middleware:
-  manual: manual_mw_tree.yml
+  manual: manual_mw_tree_sub4_super4.yml
 
 service:
   normal:

@@ -1,6 +1,6 @@
-from simulation_framework.core.simulation_executor import *
-from simulation_framework.core.simulation_generator import *
-from simulation_framework.core.simulation_evaluator import *
+from simulation_framework.core.simulator import *
+from simulation_framework.core.env_generator import *
+from simulation_framework.core.evaluator import *
 from simulation_framework.profiler import *
 
 
@@ -10,68 +10,86 @@ SCHEDULING_ALGORITHM_PATH = f'{get_project_root()}/scheduling_algorithm'
 
 class SoPSimulationFramework:
 
-    def __init__(self, config_path_list: List[str] = [], simulation_file_path: str = '', mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
-        tmp_config_path_list = []
-        for config_file_path in config_path_list:
-            if os.path.isdir(config_file_path):
-                tmp_config_path_list.extend(
-                    [os.path.join(config_file_path, file) for file in os.listdir(config_file_path) if os.path.basename(file).endswith('.yml') and os.path.basename(file).startswith('config')])
-            elif os.path.isfile(config_file_path) and os.path.basename(config_file_path).endswith('.yml') and os.path.basename(config_file_path).startswith('config'):
-                tmp_config_path_list.append(config_file_path)
+    def __init__(self, service_parallel: bool = True, result_filename: str = '', download_logs: bool = False,
+                 profile: bool = False, profile_type: ProfileType = ProfileType.EXECUTE,
+                 mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
+        self._service_parallel = service_parallel
+        self._result_filename = result_filename
+        self._download_logs = download_logs
+        self._profile = profile
+        self._profile_type = profile_type
+        self._mqtt_debug = mqtt_debug
+        self._middleware_debug = middleware_debug
 
-        if not tmp_config_path_list:
-            raise Exception('No config file provided.')
+        self._simulation_env_list: List[SoPSimulationEnv] = []
+        self._policy_path_list: List[str] = []
 
-        simulation_name_list = [load_yaml(config_file_path)[
-            'simulation']['name'] for config_file_path in tmp_config_path_list]
+    def load(self, config_path: str = '', simulation_data_path: str = '', policy_path: str = '') -> None:
+        if (config_path and simulation_data_path) or (not config_path and not simulation_data_path):
+            raise Exception('Only one of config_path and simulation_data_path must be given.')
 
-        visited = set()
-        duplicated_simulation_name_list = list({x for x in simulation_name_list if x in visited or (
-            visited.add(x) or False)})
-        if len(simulation_name_list) != len(set(simulation_name_list)):
-            raise Exception(
-                f'Simulation name should be unique. - simulation name: {duplicated_simulation_name_list}')
-
-        self.config_path_list = tmp_config_path_list
-        self.simulation_file_path = simulation_file_path
-        self.mqtt_debug = mqtt_debug
-        self.middleware_debug = middleware_debug
-
-        if not self.simulation_file_path and not self.config_path_list:
-            raise Exception('No config file path provided.')
-        elif self.config_path_list:
-            self.simulation_generator = SoPSimulationGenerator(
-                config_path=self.config_path_list[0])
-
-    def start(self, policy_file_path_list: Union[str, List[str]] = [], args=None):
-        tmp_policy_file_path_list = []
-        for policy_file_path in policy_file_path_list:
-            if os.path.isdir(policy_file_path):
-                tmp_policy_file_path_list.extend(
-                    [os.path.join(policy_file_path, file) for file in sorted(os.listdir(policy_file_path)) if file.endswith('.cc')])
-            elif os.path.isfile(policy_file_path) and policy_file_path.endswith('.cc'):
-                tmp_policy_file_path_list.append(policy_file_path)
-
-        if not tmp_policy_file_path_list:
-            raise Exception('No policy file provided.')
-
-        if not self.simulation_file_path:
-            simulation_info_list = self.generate_simulation(
-                policy_file_path_list=tmp_policy_file_path_list, args=args)
+        if config_path:
+            config_list = self.load_config(config_path=config_path)
+            simulation_env_list: List[SoPSimulationEnv] = []
+            for config in config_list:
+                simulation_env = SoPSimulationEnv(config=config)
+                simulation_env_list.append(simulation_env)
+            self._simulation_env_list = simulation_env_list
+        elif simulation_data_path:
+            self._simulation_env_list = self.load_simulation_data(simulation_data_path=simulation_data_path)
         else:
-            simulation_info_list = [dict(simulation_file_path=self.simulation_file_path,
-                                         config_path='',
-                                         policy_file_path=tmp_policy_file_path_list,
-                                         label=['test_simulation'])]
-        simulation_result_list = self.run_simulation(simulation_info_list=simulation_info_list,
-                                                     policy_file_path_list=tmp_policy_file_path_list, args=args)
-        self.print_ranking(raw_simulation_result_list=simulation_result_list)
+            raise Exception('[SoPSimulationFramework.load] Unknown error')
 
-    def update_middleware_thing(self, simulation_executor: SoPSimulatorExecutor,
-                                middleware_path: str = '~/middleware',
-                                policy_file_path: str = ''):
+        self._policy_path_list = self.load_policy(policy_path=policy_path)
 
-        simulator_ip = ''
+    def load_config(self, config_path: str) -> List[SoPSimulationConfig]:
+        if os.path.isdir(config_path):
+            config_list = [SoPSimulationConfig(config_path=os.path.join(config_path, config_file_path)) for config_file_path in os.listdir(config_path)
+                           if config_file_path.startswith('config') and config_file_path.endswith('.yml')]
+        else:
+            config_list = [SoPSimulationConfig(config_path=config_path)] \
+                if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')) else []
+        return config_list
+
+    def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[SoPService], List[SoPThing]]:
+        service_thing_pool = load_json(service_thing_pool_path)
+        service_pool = [SoPService.load(service_info) for service_info in service_thing_pool['service_pool']]
+        thing_pool = [SoPService.load(thing_info=thing_info) for thing_info in service_thing_pool['thing_pool']]
+        return service_pool, thing_pool
+
+    def load_simulation_data(self, simulation_data_path: str) -> Tuple[SoPSimulationConfig, List[SoPSimulationEnv]]:
+        simulation_data_file = load_json(simulation_data_path)
+        simulation_env_list: List[SoPSimulationEnv] = []
+        for simulation_env_info in simulation_data_file['simulation_env_list']:
+            config = simulation_env_info['config']
+            root_middleware = SoPMiddleware.load(simulation_env_info['root_middleware'])
+            event_timeline = simulation_env_info['event_timeline']
+            simulation_env = SoPSimulationEnv(config=config, root_middleware=root_middleware, event_timeline=event_timeline)
+            simulation_env_list.append(simulation_env)
+
+        return simulation_env_list
+
+    def load_policy(self, policy_path: str) -> List[str]:
+        if os.path.isdir(policy_path):
+            policy_path_list = [os.path.join(policy_path, file) for file in os.listdir(policy_path) if file.startswith('policy') and file.endswith('.cc')]
+        else:
+            policy_path_list = [policy_path] if (os.path.basename(policy_path).startswith('policy') and os.path.basename(policy_path).endswith('.cc')) else []
+        return policy_path_list
+
+    def start(self):
+        # Generate simulation if any root_middleware in self._simulation_env_list is None.
+        if any([not simulation_env.root_middleware for simulation_env in self._simulation_env_list]):
+            self._simulation_env_list = self.generate_simulation_env()
+
+        simulation_result_list: List[SoPSimulationResult] = []
+        for simulation_data in self._simulation_env_list:
+            for policy_path in self._policy_path_list:
+                simulation_result = self.run_simulation(simulation=simulation_data, policy_path=policy_path)
+                simulation_result_list.append(simulation_result)
+
+        self.print_ranking(simulation_result_list=simulation_result_list)
+
+    def update_middleware_thing(self, simulator: SoPSimulator, middleware_path: str = '~/middleware', policy_file_path: str = ''):
 
         def get_os_version(ssh_client: SoPSSHClient) -> str:
             lsb_release_install_check = ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True)
@@ -137,29 +155,6 @@ class SoPSimulationFramework:
 
             return True
 
-        def time_sync(ssh_client: SoPSSHClient):
-            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            remote_shell_path = ssh_client.send_command('echo $SHELL')
-            remote_shell_name = remote_shell_path[0].split('/')[-1].strip()
-            ntp_install_result = ssh_client.send_command_with_check_success(f'source {remote_home_dir}/.{remote_shell_name}rc; command -v ntpdate', get_pty=True)
-            if not ntp_install_result:
-                ntp_install_success_result = ssh_client.send_command_with_check_success('sudo apt install ntpdate -y')
-                if not ntp_install_success_result:
-                    raise Exception(f'Install ntpdate failed to {ssh_client.device.name}')
-
-            time_sync_command = (f'source {remote_home_dir}/.{remote_shell_name}rc;'
-                                 f'sudo service ntp stop;'
-                                 f'sudo ntpdate time.google.com')
-            # time_sync_command = ('sudo service ntp restart;'
-            #                      'ntpq -p')
-            SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} start', SoPTestLogLevel.INFO)
-            time_sync_result = ssh_client.send_command_with_check_success(time_sync_command, get_pty=True)
-            if not time_sync_result:
-                SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} failed!', SoPTestLogLevel.FAIL)
-                raise Exception(f'Time sync failed to {ssh_client.device.name}')
-
-            SOPTEST_LOG_DEBUG(f'Time sync {ssh_client.device.name} end', SoPTestLogLevel.INFO)
-
         def set_cpu_clock_remote(ssh_client: SoPSSHClient) -> None:
             set_clock_command = '''function check_cpu_clock_setting() {
 	sudo cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
@@ -193,27 +188,27 @@ check_cpu_clock_setting'''
         def task(ssh_client: SoPSSHClient):
             install_remote_thing(ssh_client=ssh_client, force_install=True)
             init_ramdisk(ssh_client=ssh_client)
-            # time_sync(ssh_client=ssh_client)
+
             if ssh_client.device.name != 'localhost':
                 set_cpu_clock_remote(ssh_client=ssh_client)
 
-        middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(simulation_executor.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(simulator.simulation_env)
 
-        middleware_ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(middleware) for middleware in middleware_list]))
-        thing_ssh_client_list = list(set([simulation_executor.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
+        middleware_ssh_client_list = list(set([simulator.event_handler.find_ssh_client(middleware) for middleware in middleware_list]))
+        thing_ssh_client_list = list(set([simulator.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
 
         pool_map(task, list(set(middleware_ssh_client_list + thing_ssh_client_list)))
         pool_map(send_task, middleware_ssh_client_list, proc=1)
 
         return True
 
-    def print_ranking(self, raw_simulation_result_list: List[SoPSimulationResult]):
-        if not raw_simulation_result_list:
+    def print_ranking(self, simulation_result_list: List[SoPSimulationResult]):
+        if not simulation_result_list:
             SOPTEST_LOG_DEBUG(f'No simulation result', SoPTestLogLevel.WARN)
             return False
 
         simulation_result_list_sort_by_policy: Dict[str, List[SoPSimulationResult]] = {}
-        for simulation_result in raw_simulation_result_list:
+        for simulation_result in simulation_result_list:
             if simulation_result.policy in simulation_result_list_sort_by_policy:
                 simulation_result_list_sort_by_policy[simulation_result.policy].append(simulation_result)
             else:
@@ -241,145 +236,94 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
 
         return True
 
-    def generate_simulation(self, policy_file_path_list: List[str] = [], args=None):
-        simulation_ID = None
-        simulation_info_list = []
+    def generate_simulation_env(self) -> List[SoPSimulationEnv]:
+        self.env_generator = SoPEnvGenerator(service_parallel=self._service_parallel)
+        service_pool, thing_pool = [], []
 
-        for config_path in self.config_path_list:
-            device_pool_path = SoPPath(project_root_path=get_project_root(),
-                                       config_path=config_path,
-                                       path=load_yaml(config_path)['device_pool_path'])
-            device_list: List[dict] = load_yaml(device_pool_path.abs_path())
-            valid_device_list = [device for device in device_list if device != 'localhost']
-            manual_middleware_tree = self.simulation_generator.simulation_config.middleware_config.manual
+        for simulation_env in self._simulation_env_list:
+            simulation_config = simulation_env.config
+            service_thing_pool_path = simulation_config.service_thing_pool_path.abs_path()
 
-            def count_middleware_num(root_middleware: SoPMiddlewareElement):
-                if root_middleware is None:
-                    return 0
-                if not root_middleware['child']:
-                    return 1
-
-                count = 1
-
-                for child in root_middleware['child']:
-                    count += count_middleware_num(child)
-                return count
-            middleware_num = count_middleware_num(manual_middleware_tree[0])
-
-            if self.simulation_generator.simulation_config.middleware_config.device_pool == ['localhost'] and self.simulation_generator.simulation_config.thing_config.device_pool == ['localhost']:
-                # if the simulation is running on a local device, skip check the number of devices in device.yaml
-                pass
-            elif len(valid_device_list) < middleware_num:
-                raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(config_path))} simulation. (Requires at least {middleware_num} devices)')
+            # if service_thing_pool is given in config, load it
+            if os.path.exists(service_thing_pool_path):
+                service_pool, thing_pool = self.load_service_thing_pool(service_thing_pool_path=service_thing_pool_path)
+                self.env_generator.load(service_pool=service_pool, thing_pool=thing_pool, config=simulation_env.config)
+            # else generate service_thing_pool
             else:
-                pass
+                self.env_generator.load(config=simulation_env.config)
+                service_pool = self.env_generator._generate_service_pool()
+                thing_pool = self.env_generator.generate_thing_pool()
 
-            simulation_file_path, simulation_ID = self.simulation_generator.generate_simulation(simulation_ID=simulation_ID,
-                                                                                                config_path=config_path,
-                                                                                                is_parallel=args.is_parallel)
+            simulation_env.root_middleware, simulation_env.event_timeline = self.env_generator.generate()
+            simulation_env = self.env_generator.generate()
+
             simulation_info = dict(simulation_file_path=simulation_file_path,
                                    config_path=config_path,
                                    policy_file_path=[],
                                    label=[])
             for policy_file_path in policy_file_path_list:
                 simulation_info['policy_file_path'].append(policy_file_path)
-                simulation_info['label'].append(f'{self.simulation_generator.simulation_config.name}_policy_{os.path.basename(policy_file_path).split(".")[0]}')
+                simulation_info['label'].append(f'{self.env_generator.simulation_config.name}_policy_{os.path.basename(policy_file_path).split(".")[0]}')
             simulation_info_list.append(simulation_info)
+
+        save_json(path=config.service_thing_pool_path.abs_path(), data={'service_pool': [], 'thing_pool': []})
         return simulation_info_list
 
-    def run_simulation(self, simulation_info_list: List[dict], policy_file_path_list: List[str] = [], args=None):
-        # FIXME: simulation file을 직접 명세하여 시뮬레이션을 진행하는 경우 config 파일 위치를 알 수 없어 에러 발생.
-        # 이 부분 수정할 것
-        simulation_result_list: List[SoPSimulationResult] = []
+    def run_simulation(self, config: SoPSimulationConfig, simulation_data: SoPSimulationEnv, policy_file_path: str):
+        """ Steps in a Simulation:
+            1. setup
+                1-1. generate simulation data files
+            2. cleanup
+                2-1. remove every remote simulation files
+                2-2. kill every process
+            3. build_iot_system
+                3-1. send the generated data
+            4. trigger_events
+                4-1. trigger static events
+                4-2. trigger dynamic events
+            5. evaluate
+                5-1. get simulation result
+        """
+        # SOPTEST_LOG_DEBUG(f'==== Start simulation {label} ====', SoPTestLogLevel.INFO)
+        simulator = SoPSimulator(simulation_env=simulation_data, mqtt_debug=self._mqtt_debug, middleware_debug=self._middleware_debug)
+        simulator.setup(config=config, simulation_file_path=self.simulation_file_path)
+        # simulator.cleanup()
+        # simulator.kill_every_process()
+        # simulator.remove_every_files()
+        # simulator.build_iot_system()
+        # simulator.start()
 
-        if self.simulation_file_path:
-            simulation_executor = SoPSimulatorExecutor(simulation_file_path=self.simulation_file_path,
-                                                       mqtt_debug=self.mqtt_debug,
-                                                       middleware_debug=self.middleware_debug,
-                                                       args=args)
+        self.update_middleware_thing(simulator=simulator, middleware_path='~/middleware', policy_file_path=policy_file_path)
 
-            for policy_file_path in policy_file_path_list:
-                label = f'simulation_file_{self.simulation_file_path}_policy_{os.path.basename(policy_file_path).split(".")[0]}'
-                SOPTEST_LOG_DEBUG(f'==== Start simulation {label} ====', SoPTestLogLevel.INFO)
+        try:
+            # simulation_env, event_log, simulation_duration, simulation_start_time = simulator.start()
+            simulator.start()
+        except Exception as e:
+            print_error(e)
 
-                self.update_middleware_thing(
-                    simulation_executor=simulation_executor,
-                    middleware_path='~/middleware',
-                    policy_file_path=policy_file_path)
+        evaluator = SoPEvaluator(simulation_env, event_log, simulation_duration, simulation_start_time)
+        # evaluator.eval(simulator.result)
 
-                try:
-                    simulation_env, event_log, simulation_duration, simulation_start_time = simulation_executor.start()
-                except Exception as e:
-                    print_error(e)
-                    continue
+        simulation_result = evaluator.evaluate_simulation()
+        simulation_result.config = self.env_generator.simulation_config.name
+        simulation_result.policy = os.path.basename(policy_file_path).split(".")[0]
+        simulation_result_list.append(simulation_result)
 
-                simulation_evaluator = SoPSimulationEvaluator(simulation_env, event_log, simulation_duration, simulation_start_time)
-                simulation_result = simulation_evaluator.evaluate_simulation()
-                simulation_result.config = self.simulation_generator.simulation_config.name
-                simulation_result.policy = os.path.basename(policy_file_path).split(".")[0]
-                simulation_result_list.append(simulation_result)
+        profiler = None
+        if args.download_logs:
+            simulator.event_handler.download_log_file()
+        if args.profile:
+            log_root_path = simulator.event_handler.download_log_file()
+            profiler = Profiler()
+            profiler.load(log_root_path=log_root_path)
+            simulation_overhead = profiler.profile(args.profile_type, export=True)
 
-                profiler = None
-                if args.download_logs:
-                    simulation_executor.event_handler.download_log_file()
-                if args.profile:
-                    log_root_path = simulation_executor.event_handler.download_log_file()
-                    profiler = Profiler()
-                    profiler.load(log_root_path=log_root_path)
-                    simulation_overhead = profiler.profile(args.profile_type, export=True)
+        evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
+        evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
 
-                simulation_evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
-                simulation_evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
-
-                simulation_executor.event_handler.wrapup()
-
-                del simulation_executor
-                del simulation_evaluator
-        else:
-            for simulation_info in simulation_info_list:
-                for label, policy_file_path in zip(simulation_info['label'], simulation_info['policy_file_path']):
-                    SOPTEST_LOG_DEBUG(f'==== Start simulation {label} ====', SoPTestLogLevel.INFO)
-
-                    simulation_file_path = simulation_info['simulation_file_path']
-                    args.config_path = simulation_info['config_path']
-
-                    simulation_executor = SoPSimulatorExecutor(
-                        simulation_file_path=simulation_file_path,
-                        mqtt_debug=self.mqtt_debug,
-                        middleware_debug=self.middleware_debug,
-                        args=args)
-                    self.update_middleware_thing(
-                        simulation_executor=simulation_executor,
-                        middleware_path='~/middleware',
-                        policy_file_path=policy_file_path)
-
-                    try:
-                        simulation_env, event_log, simulation_duration, simulation_start_time = simulation_executor.start()
-                    except Exception as e:
-                        SOPTEST_LOG_DEBUG(f'==== Simulation {label} Canceled by user ====', SoPTestLogLevel.WARN)
-                        continue
-
-                    simulation_evaluator = SoPSimulationEvaluator(simulation_env, event_log, simulation_duration, simulation_start_time)
-                    simulation_result = simulation_evaluator.evaluate_simulation()
-                    simulation_result.config = os.path.basename(self.simulation_generator.simulation_config.path).split('.')[0]
-                    simulation_result.policy = os.path.basename(policy_file_path).split('.')[0]
-                    simulation_result_list.append(simulation_result)
-
-                    profiler = None
-                    if args.download_logs:
-                        simulation_executor.event_handler.download_log_file()
-                    if args.profile:
-                        log_root_path = simulation_executor.event_handler.download_log_file()
-                        profiler = Profiler()
-                        profiler.load(log_root_path=log_root_path)
-                        simulation_overhead = profiler.profile(args.profile_type, export=True)
-
-                    simulation_evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
-                    simulation_evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
-
-                    simulation_executor.event_handler.wrapup()
-
-                    del simulation_executor
-                    del simulation_evaluator
+        # TODO: Make wrapup_simulation method
+        simulator.event_handler.wrapup()
+        # del simulator
+        # del evaluator
 
         return simulation_result_list

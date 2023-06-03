@@ -6,7 +6,7 @@ from queue import Queue
 from abc import ABCMeta
 
 
-def get_middleware_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> List[object]:
+def get_middleware_list_recursive(middleware: 'SoPMiddleware' = None) -> List['SoPMiddleware']:
     middleware_list = [middleware]
 
     for child_middleware in middleware.child_middleware_list:
@@ -16,7 +16,7 @@ def get_middleware_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> 
     return middleware_list
 
 
-def get_thing_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> List[object]:
+def get_thing_list_recursive(middleware: 'SoPMiddleware' = None) -> List['SoPThing']:
     thing_list = [thing for thing in middleware.thing_list]
 
     for child_middleware in middleware.child_middleware_list:
@@ -26,7 +26,7 @@ def get_thing_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> List[
     return thing_list
 
 
-def get_scenario_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> List[object]:
+def get_scenario_list_recursive(middleware: 'SoPMiddleware' = None) -> List['SoPScenario']:
     scenario_list = [scenario for scenario in middleware.scenario_list]
 
     for child_middleware in middleware.child_middleware_list:
@@ -36,75 +36,79 @@ def get_scenario_list_recursive(middleware: 'SoPMiddlewareElement' = None) -> Li
     return scenario_list
 
 
-def find_element_recursive(middleware: 'SoPMiddlewareElement', element: 'SoPElement', key: Callable = lambda x: x) -> Tuple[object, object]:
+def find_component_recursive(middleware: 'SoPMiddleware', component: 'SoPComponent', key: Callable = lambda x: x) -> Tuple[object, object]:
 
-    def inner(middleware: 'SoPMiddlewareElement', element: 'SoPElement'):
-        if key(middleware) == key(element):
+    def inner(middleware: 'SoPMiddleware', component: 'SoPComponent'):
+        if key(middleware) == key(component):
             return middleware, None
 
         for thing in middleware.thing_list:
-            if key(thing) == key(element):
+            if key(thing) == key(component):
                 return thing, middleware
         for scenario in middleware.scenario_list:
-            if key(scenario) == key(element):
+            if key(scenario) == key(component):
                 return scenario, middleware
         for child_middleware in middleware.child_middleware_list:
-            if key(child_middleware) == key(element):
+            if key(child_middleware) == key(component):
                 return child_middleware, middleware
 
         for child_middleware in middleware.child_middleware_list:
             result = inner(
-                child_middleware, element)
+                child_middleware, component)
             if result:
                 return result[0], result[1]
             else:
                 inner(
-                    child_middleware, element)
+                    child_middleware, component)
 
-    result = inner(middleware, element)
+    result = inner(middleware, component)
     if result:
         return result[0], result[1]
     else:
         return None, None
 
 
-def find_element_by_name_recursive(middleware: 'SoPMiddlewareElement', element_name: str):
+def find_component_by_name_recursive(middleware: 'SoPMiddleware', component_name: str):
 
-    def inner(middleware: 'SoPMiddlewareElement', element_name: str):
-        if middleware.name == element_name:
+    def inner(middleware: 'SoPMiddleware', component_name: str):
+        if middleware.name == component_name:
             return middleware, None
 
         for thing in middleware.thing_list:
-            if thing.name == element_name:
+            if thing.name == component_name:
                 return thing, middleware
         for scenario in middleware.scenario_list:
-            if scenario.name == element_name:
+            if scenario.name == component_name:
                 return scenario, middleware
         for child_middleware in middleware.child_middleware_list:
-            if child_middleware.name == element_name:
+            if child_middleware.name == component_name:
                 return child_middleware, middleware
 
         for child_middleware in middleware.child_middleware_list:
-            result = inner(child_middleware, element_name)
+            result = inner(child_middleware, component_name)
             if result:
                 return result[0], result[1]
             else:
-                inner(child_middleware, element_name)
+                inner(child_middleware, component_name)
 
-    result = inner(middleware, element_name)
+    result = inner(middleware, component_name)
     if result:
         return result[0], result[1]
     else:
         return None, None
 
 
-class SoPElementType(Enum):
-    UNDEFINED = 'UNDEFINED'
+class SoPComponentType(Enum):
     DEVICE = 'DEVICE'
     MIDDLEWARE = 'MIDDLEWARE'
     THING = 'THING'
     SERVICE = 'SERVICE'
     SCENARIO = 'SCENARIO'
+
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
 
     @classmethod
     def get(cls, name: str):
@@ -114,9 +118,7 @@ class SoPElementType(Enum):
             return cls.UNDEFINED
 
 
-class SoPElementActionType(Enum):
-    UNDEFINED = 'UNDEFINED'
-
+class SoPComponentActionType(Enum):
     RUN = 'RUN'
     KILL = 'KILL'
     UNREGISTER = 'UNREGISTER'
@@ -128,6 +130,11 @@ class SoPElementActionType(Enum):
     SCENARIO_DELETE = 'SCENARIO_DELETE'
     DELAY = 'DELAY'
 
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
+
     @classmethod
     def get(cls, name: str):
         try:
@@ -137,7 +144,6 @@ class SoPElementActionType(Enum):
 
 
 class SoPScenarioState(Enum):
-    UNDEFINED = -1
     CREATED = 'CREATED'
     SCHEDULING = 'SCHEDULING'
     INITIALIZED = 'INITIALIZED'
@@ -145,6 +151,11 @@ class SoPScenarioState(Enum):
     EXECUTING = 'EXECUTING'
     STUCKED = 'STUCKED'
     COMPLETED = 'COMPLETED'
+
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
 
     @classmethod
     def get(cls, name: str):
@@ -172,11 +183,15 @@ class SoPScenarioInfo:
 
 
 class SoPThingFaultType(Enum):
-    UNDEFINED = 'UNDEFINED'
     NORMAL = 'NORMAL'
     FAIL = 'FAIL'
     TIMEOUT = 'TIMEOUT'
     SHUTDOWN = 'SHUTDOWN'
+
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
 
     @classmethod
     def get(cls, name: str):
@@ -186,41 +201,55 @@ class SoPThingFaultType(Enum):
             return cls.UNDEFINED
 
 
-class SoPElementScopeType(Enum):
+class SoPComponentScopeType(Enum):
     LOCAL = 'LOCAL'
     SUPER = 'SUPER'
 
+    UNDEFINED = 'UNDEFINED'
 
-class SoPElement(metaclass=ABCMeta):
+    def __str__(self):
+        return self.value
 
-    def __init__(self, name: str, level: int, element_type: SoPElementType) -> None:
+    @classmethod
+    def get(cls, name: str):
+        try:
+            return cls[name.upper()]
+        except Exception:
+            return cls.UNDEFINED
+
+
+class SoPComponent(metaclass=ABCMeta):
+
+    def __init__(self, name: str, level: int, component_type: SoPComponentType) -> None:
         # basic info
         self.name = name
         self.level = level
-        self.element_type = element_type
+        self.component_type = component_type
 
-    def load(self, data: dict) -> None:
-        self.name = data['name']
-        self.level = data['level']
-        self.element_type = SoPElementType.get(data['element_type'])
+    @classmethod
+    def load(cls, data: dict) -> 'SoPComponent':
+        component = cls()
+        component.name = data['name']
+        component.level = data['level']
+        component.component_type = SoPComponentType.get(data['component_type'])
 
-        return self
+        return component
 
     def dict(self) -> dict:
         return dict(name=self.name,
                     level=self.level,
-                    element_type=self.element_type.value)
+                    component_type=self.component_type.value)
 
 
-class SoPDeviceElement(SoPElement):
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = SoPElementType.DEVICE,
+class SoPDevice(SoPComponent):
+    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = SoPComponentType.DEVICE,
                  host: str = '', ssh_port: int = None, user: str = '', password: str = '',
                  mqtt_port: int = None,
                  mqtt_ssl_port: int = None,
                  websocket_port: int = None,
                  websocket_ssl_port: int = None,
                  localserver_port: int = 58132) -> None:
-        super().__init__(name, level, element_type)
+        super().__init__(name, level, component_type)
 
         self.host = host
         self.ssh_port = ssh_port
@@ -238,26 +267,29 @@ class SoPDeviceElement(SoPElement):
     def __eq__(self, __o: object) -> bool:
         return self.host == __o.host and self.user == __o.user and self.ssh_port == __o.ssh_port and self.password == __o.password
 
-    def load(self, data: dict) -> 'SoPDeviceElement':
-        self.name = data['name']
-        self.element_type = SoPElementType.get(data['element_type'])
+    @classmethod
+    def load(cls, data: dict) -> 'SoPDevice':
+        device: SoPDevice = super().load(data=data)
 
-        self.host = data['host']
-        self.ssh_port = data['ssh_port']
-        self.user = data['user']
-        self.password = data['password']
+        device.name = data['name']
+        device.component_type = SoPComponentType.get(data['component_type'])
 
-        self.mqtt_port = data['mqtt_port']
-        self.mqtt_ssl_port = data['mqtt_ssl_port']
-        self.websocket_port = data['websocket_port']
-        self.websocket_ssl_port = data['websocket_ssl_port']
-        self.localserver_port = data['localserver_port']
+        device.host = data['host']
+        device.ssh_port = data['ssh_port']
+        device.user = data['user']
+        device.password = data['password']
 
-        return self
+        device.mqtt_port = data['mqtt_port']
+        device.mqtt_ssl_port = data['mqtt_ssl_port']
+        device.websocket_port = data['websocket_port']
+        device.websocket_ssl_port = data['websocket_ssl_port']
+        device.localserver_port = data['localserver_port']
+
+        return device
 
     def dict(self):
         return dict(name=self.name,
-                    element_type=self.element_type.value,
+                    component_type=self.component_type.value,
                     host=self.host,
                     user=self.user,
                     ssh_port=self.ssh_port,
@@ -269,7 +301,7 @@ class SoPDeviceElement(SoPElement):
                     localserver_port=self.localserver_port)
 
 
-class SoPMiddlewareElement(SoPElement):
+class SoPMiddleware(SoPComponent):
 
     CFG_TEMPLATE = '''%s
 broker_uri = "tcp://%s:%d"
@@ -346,13 +378,13 @@ fi
 sqlite3 $MAIN_DB < %s/MainDBCreate
 sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
-                 thing_list: List['SoPThingElement'] = [], scenario_list: List['SoPScenarioElement'] = [], child_middleware_list: List['SoPMiddlewareElement'] = [],
-                 device: SoPDeviceElement = None,
+    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
+                 thing_list: List['SoPThing'] = [], scenario_list: List['SoPScenario'] = [], child_middleware_list: List['SoPMiddleware'] = [],
+                 device: SoPDevice = None,
                  remote_middleware_path: str = None, remote_middleware_config_path: str = None,
                  mqtt_port: int = None, mqtt_ssl_port: int = None, websocket_port: int = None, websocket_ssl_port: int = None, localserver_port: int = 58132,
                  thing_num: List[int] = None, scenario_num: List[int] = None, super_thing_num: List[int] = None, super_scenario_num: List[int] = None) -> None:
-        super().__init__(name, level, element_type)
+        super().__init__(name, level, component_type)
 
         self.thing_list = thing_list
         self.scenario_list = scenario_list
@@ -388,37 +420,37 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
         self.online = False
 
-        self.event_log: List[SoPEvent] = []
         self.recv_queue: Queue = Queue()
 
-    def load(self, data: dict):
-        super().load(data)
+    @classmethod
+    def load(cls, data: dict) -> 'SoPMiddleware':
+        middleware: SoPMiddleware = super().load(data=data)
 
-        self.thing_list = [SoPThingElement().load(thing_info)
-                           for thing_info in data['thing_list']]
-        self.scenario_list = [SoPScenarioElement().load(
+        middleware.thing_list = [SoPThing.load(thing_info)
+                                 for thing_info in data['thing_list']]
+        middleware.scenario_list = [SoPScenario.load(
             scenario_info) for scenario_info in data['scenario_list']]
-        self.child_middleware_list = [SoPMiddlewareElement().load(
+        middleware.child_middleware_list = [SoPMiddleware.load(
             child_middleware_info) for child_middleware_info in data['child_middleware_list']]
 
-        self.device = SoPDeviceElement().load(data['device'])
+        middleware.device = SoPDevice.load(data['device'])
 
-        self.remote_middleware_path = data['remote_middleware_path']
-        self.remote_middleware_config_path = data['remote_middleware_config_path']
+        middleware.remote_middleware_path = data['remote_middleware_path']
+        middleware.remote_middleware_config_path = data['remote_middleware_config_path']
 
         # middleware_tree가 지정되어있는 경우 하나로 정해진다.
-        self.mqtt_port = data['mqtt_port']
-        self.mqtt_ssl_port = data['mqtt_ssl_port']
-        self.websocket_port = data['websocket_port']
-        self.websocket_ssl_port = data['websocket_ssl_port']
-        self.localserver_port = data['localserver_port']
+        middleware.mqtt_port = data['mqtt_port']
+        middleware.mqtt_ssl_port = data['mqtt_ssl_port']
+        middleware.websocket_port = data['websocket_port']
+        middleware.websocket_ssl_port = data['websocket_ssl_port']
+        middleware.localserver_port = data['localserver_port']
 
-        self.thing_num = data['thing_num']
-        self.super_thing_num = data['super_thing_num']
-        self.scenario_num = data['scenario_num']
-        self.super_scenario_num = data['super_scenario_num']
+        middleware.thing_num = data['thing_num']
+        middleware.super_thing_num = data['super_thing_num']
+        middleware.scenario_num = data['scenario_num']
+        middleware.super_scenario_num = data['super_scenario_num']
 
-        return self
+        return middleware
 
     def dict(self):
         return dict(
@@ -448,62 +480,62 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.websocket_ssl_port = websocket_ssl_port
         self.localserver_port = localserver_port
 
-    def middleware_cfg_file(self, simulation_env: 'SoPMiddlewareElement', remote_home_dir: str):
-        _, parent_middleware = find_element_recursive(simulation_env, self)
-        parent_middleware: SoPMiddlewareElement
+    def middleware_cfg_file(self, simulation_env: 'SoPMiddleware', remote_home_dir: str):
+        _, parent_middleware = find_component_recursive(simulation_env, self)
+        parent_middleware: SoPMiddleware
         if parent_middleware is None:
             parent_middleware_line = ''
         else:
             parent_middleware_line = f'parent_broker_uri = "tcp://{parent_middleware.device.host}:{parent_middleware.mqtt_port}"'
 
         user = os.path.basename(remote_home_dir)
-        self.middleware_cfg = SoPMiddlewareElement.CFG_TEMPLATE % (parent_middleware_line,
-                                                                   '127.0.0.1',
-                                                                   self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
-                                                                   self.name,
-                                                                   self.localserver_port,
-                                                                   home_dir_append(
-                                                                       path=self.remote_middleware_config_path, user=user),
-                                                                   self.name,
-                                                                   home_dir_append(
-                                                                       path=self.remote_middleware_config_path, user=user),
-                                                                   self.name,
-                                                                   remote_home_dir,
-                                                                   self.name)
+        self.middleware_cfg = SoPMiddleware.CFG_TEMPLATE % (parent_middleware_line,
+                                                            '127.0.0.1',
+                                                            self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
+                                                            self.name,
+                                                            self.localserver_port,
+                                                            home_dir_append(
+                                                                path=self.remote_middleware_config_path, user=user),
+                                                            self.name,
+                                                            home_dir_append(
+                                                                path=self.remote_middleware_config_path, user=user),
+                                                            self.name,
+                                                            remote_home_dir,
+                                                            self.name)
         return self.middleware_cfg
 
     def mosquitto_conf_file(self):
         # if mosquitto_conf_trim:
-        #     self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
-        #                                                                           self.websocket_port,)
+        #     self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
+        #                                                                    self.websocket_port,)
         # else:
-        #     self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE_OLD % (self.mqtt_port,
-        #                                                                               self.mqtt_ssl_port,
-        #                                                                               self.websocket_port,
-        #                                                                               self.websocket_ssl_port)
+        #     self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE_OLD % (self.mqtt_port,
+        #                                                                        self.mqtt_ssl_port,
+        #                                                                        self.websocket_port,
+        #                                                                        self.websocket_ssl_port)
 
-        # self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
-        #                                                                       self.websocket_port,)
+        # self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
+        #                                                                self.websocket_port,)
 
         mosquitto_port = self.mqtt_port if self.mqtt_port else self.device.mqtt_port
-        self.mosquitto_conf = SoPMiddlewareElement.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
+        self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
 
         return self.mosquitto_conf
 
     def init_script_file(self, remote_home_dir: str):
         user = os.path.basename(remote_home_dir)
-        self.init_script = SoPMiddlewareElement.INIT_SCRIPT_TEMPLATE % (home_dir_append(path=self.remote_middleware_config_path, user=user),
-                                                                        self.name,
-                                                                        home_dir_append(
-                                                                            path=self.remote_middleware_config_path, user=user),
-                                                                        self.name,
-                                                                        home_dir_append(
-                                                                            path=self.remote_middleware_path, user=user),
-                                                                        home_dir_append(path=self.remote_middleware_path, user=user))
+        self.init_script = SoPMiddleware.INIT_SCRIPT_TEMPLATE % (home_dir_append(path=self.remote_middleware_config_path, user=user),
+                                                                 self.name,
+                                                                 home_dir_append(
+            path=self.remote_middleware_config_path, user=user),
+            self.name,
+            home_dir_append(
+            path=self.remote_middleware_path, user=user),
+            home_dir_append(path=self.remote_middleware_path, user=user))
         return self.init_script
 
 
-class SoPServiceElement(SoPElement):
+class SoPService(SoPComponent):
 
     ERROR_TEMPLATE = '''\
 global thing_start_time
@@ -546,11 +578,11 @@ def %s(self, key) -> str:
     energy_sum = 0
     if results:
         for result in results:
-            for subresult in result:
-                if subresult['return_value'] is None:
+            for sub_service_result in result:
+                if sub_service_result['return_value'] is None:
                     continue
-                execute_time = float(subresult['return_value'].split(",")[0].split(": ")[1])
-                energy = int(subresult['return_value'].split(",")[1].split(": ")[1])
+                execute_time = float(sub_service_result['return_value'].split(",")[0].split(": ")[1])
+                energy = int(sub_service_result['return_value'].split(",")[1].split(": ")[1])
                 execute_time_sum += execute_time
                 energy_sum += energy
 
@@ -559,10 +591,10 @@ def %s(self, key) -> str:
         raise Exception('super execute fail...')
 '''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
+    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
                  tag_list: List[str] = [], is_super: bool = False, energy: float = 0, execute_time: float = 0, return_value: int = 0,
-                 sub_service_list: List['SoPServiceElement'] = []) -> None:
-        super().__init__(name, level, element_type)
+                 sub_service_list: List['SoPService'] = []) -> None:
+        super().__init__(name, level, component_type)
 
         self.tag_list = tag_list
         self.is_super = is_super
@@ -638,19 +670,19 @@ elif thing_start_time == 1:
                                                            reqline_code)
         return service_code
 
-    def load(self, data: dict) -> 'SoPServiceElement':
-        super().load(data)
+    @classmethod
+    def load(cls, data: dict) -> 'SoPService':
+        service: SoPService = super().load(data=data)
 
-        self.tag_list = data['tag_list']
-        self.is_super = data['is_super']
-        self.energy = data['energy']
-        self.execute_time = data['execute_time']
-        self.return_value = data['return_value']
+        service.tag_list = data['tag_list']
+        service.is_super = data['is_super']
+        service.energy = data['energy']
+        service.execute_time = data['execute_time']
+        service.return_value = data['return_value']
 
-        self.sub_service_list = [SoPServiceElement().load(
-            service_info) for service_info in data['subfunction_list']]
+        service.sub_service_list = [SoPService.load(service_info) for service_info in data['subfunction_list']]
 
-        return self
+        return service
 
     def dict(self) -> dict:
         return dict(**super().dict(),
@@ -662,7 +694,7 @@ elif thing_start_time == 1:
                     subfunction_list=[subfunction.dict() for subfunction in self.sub_service_list])
 
 
-class SoPThingElement(SoPElement):
+class SoPThing(SoPComponent):
 
     THING_TEMPLATE = '''\
 from big_thing_py.big_thing import *
@@ -692,7 +724,7 @@ def arg_parse():
                         required=False, help="append mac address to thing name")
     parser.add_argument("--retry_register", action='store_true',
                         required=False, help="retry register feature enable")
-    args, unknown = parser.parse_known_args()
+    args = parser.parse_args()
     return args
 
 
@@ -757,7 +789,7 @@ def arg_parse():
                         required=False, help="append mac address to thing name")
     parser.add_argument("--retry_register", action='store_true',
                         required=False, help="retry register feature enable")
-    args, unknown = parser.parse_known_args()
+    args = parser.parse_args()
 
     return args
 
@@ -776,12 +808,12 @@ if __name__ == '__main__':
     thing.run()
 '''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
-                 service_list: List['SoPServiceElement'] = [], is_super: bool = False, is_parallel: bool = False, alive_cycle: float = 0,
-                 device: SoPDeviceElement = None,
+    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
+                 service_list: List['SoPService'] = [], is_super: bool = False, is_parallel: bool = False, alive_cycle: float = 0,
+                 device: SoPDevice = None,
                  thing_file_path: str = '', remote_thing_file_path: str = '',
                  fail_rate: float = None) -> None:
-        super().__init__(name, level, element_type)
+        super().__init__(name, level, component_type)
 
         self.service_list = service_list
         self.is_super = is_super
@@ -798,26 +830,26 @@ if __name__ == '__main__':
         self.registered: bool = False
         self.pid: int = 0
 
-        self.event_log: List[SoPEvent] = []
         self.recv_queue: Queue = Queue()
 
-    def load(self, data: dict):
-        super().load(data)
+    @classmethod
+    def load(cls, data: dict):
+        thing: SoPThing = super().load(data=data)
 
-        self.service_list = [SoPServiceElement().load(service_info)
-                             for service_info in data['service_list']]
-        self.is_super = data['is_super']
-        self.is_parallel = data['is_parallel']
-        self.alive_cycle = data['alive_cycle']
+        thing.service_list = [SoPService.load(service_info)
+                              for service_info in data['service_list']]
+        thing.is_super = data['is_super']
+        thing.is_parallel = data['is_parallel']
+        thing.alive_cycle = data['alive_cycle']
 
-        self.device = SoPDeviceElement().load(data['device'])
+        thing.device = SoPDevice.load(data['device'])
 
-        self.thing_file_path = data['thing_file_path']
-        self.remote_thing_file_path = data['remote_thing_file_path']
+        thing.thing_file_path = data['thing_file_path']
+        thing.remote_thing_file_path = data['remote_thing_file_path']
 
-        self.fail_rate = data['fail_rate']
+        thing.fail_rate = data['fail_rate']
 
-        return self
+        return thing
 
     def dict(self):
         return dict(**super().dict(),
@@ -866,23 +898,23 @@ if __name__ == '__main__':
                                                       f'./log/{self.name}.log')
         return thing_code
 
-    def find_service_by_name(self, service_name: str) -> SoPServiceElement:
+    def find_service_by_name(self, service_name: str) -> SoPService:
         for service in self.service_list:
             if service.name == service_name:
                 return service
 
 
-class SoPScenarioElement(SoPElement):
+class SoPScenario(SoPComponent):
 
     SCENARIO_TEMPLATE = '''loop(%s) {
 %s
 }
 '''
 
-    def __init__(self, name: str = '', level: int = -1, element_type: SoPElementType = None,
-                 service_list: List[SoPServiceElement] = [], period: float = None,
+    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
+                 service_list: List[SoPService] = [], period: float = None,
                  scenario_file_path: str = '') -> None:
-        super().__init__(name, level, element_type)
+        super().__init__(name, level, component_type)
 
         self.service_list = service_list
         self.period = period
@@ -893,21 +925,21 @@ class SoPScenarioElement(SoPElement):
         self.schedule_timeout = False
         self.service_check = False
 
-        self.event_log: List[SoPEvent] = []
         self.recv_queue: Queue = Queue()
 
         # FIXME: 제대로 구현하기
         self.cycle_count = 0
 
-    def load(self, data: dict) -> None:
-        super().load(data)
+    @classmethod
+    def load(cls, data: dict) -> None:
+        scenario: SoPScenario = super().load(data=data)
 
-        self.service_list = [SoPServiceElement().load(service_info)
-                             for service_info in data['service_list']]
-        self.period = data['period']
-        self.scenario_file_path = data['scenario_file_path']
+        scenario.service_list = [SoPService.load(service_info)
+                                 for service_info in data['service_list']]
+        scenario.period = data['period']
+        scenario.scenario_file_path = data['scenario_file_path']
 
-        return self
+        return scenario
 
     def dict(self) -> dict:
         return dict(**super().dict(),

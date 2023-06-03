@@ -6,7 +6,6 @@ import os
 import time
 import re
 import traceback
-from enum import Enum, auto
 
 
 class SoPTestLogLevel(Enum):
@@ -14,6 +13,17 @@ class SoPTestLogLevel(Enum):
     WARN = 'WARN'
     INFO = 'INFO'
     FAIL = 'FAIL'
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def get(cls, name: str):
+        try:
+            return cls[name.upper()]
+        except Exception:
+            return cls.UNDEFINED
 
 
 class MicrosecondFormatter(logging.Formatter):
@@ -35,12 +45,36 @@ class SoPLogger:
         CONSOLE = auto()
         OFF = auto()
 
+        UNDEFINED = 'UNDEFINED'
+
+        def __str__(self):
+            return self.value
+
+        @classmethod
+        def get(cls, name: str):
+            try:
+                return cls[name.upper()]
+            except Exception:
+                return cls.UNDEFINED
+
     class PrintMode(Enum):
         DEBUG = auto()
         INFO = auto()
         WARN = auto()
         ERROR = auto()
         CRITICAL = auto()
+
+        UNDEFINED = 'UNDEFINED'
+
+        def __str__(self):
+            return self.value
+
+        @classmethod
+        def get(cls, name: str):
+            try:
+                return cls[name.upper()]
+            except Exception:
+                return cls.UNDEFINED
 
     def __init__(self, file_name: str = f'mqtt_message_{time.strftime("%Y%m%d%H%M", time.localtime(time.time()))}.log', file_path: str = f'./log', logging_mode: LoggingMode = LoggingMode.ALL) -> None:
         self._file_name = file_name
@@ -179,6 +213,7 @@ def SOPLOG_DEBUG(msg: List[str], color: str = None, mode: SoPLogger.PrintMode = 
         START_LOGGER()
 
 
+# FIXME: Remove Exception parameter(e)
 def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, color: str = None, e: Exception = None, progress: float = None):
     # error = 0  : PASS ✅
     # error = 1  : WARN ⚠ -> use b'\xe2\x9a\xa0\xef\xb8\x8f'.decode()

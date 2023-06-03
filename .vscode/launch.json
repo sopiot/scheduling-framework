@@ -22,11 +22,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/paper_experiments/wide_type_W9_sub4/config.yml",
-        "-p",
-        "./scheduling_algorithm/samples/default.cc",
-        "-pl",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "-sp",
       ]
     },
     {
@@ -38,11 +38,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/paper_experiments/long_type_H10_sub4/config.yml",
-        "-p",
-        "./scheduling_algorithm/samples/default.cc",
-        "-pl",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "-sp",
       ]
     },
     {
@@ -54,11 +54,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/paper_experiments/only_bottom_binary_type_A/config_sub16.yml",
-        "-p",
-        "./scheduling_algorithm/samples/default.cc",
-        "-pl",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "-sp",
       ]
     },
     {
@@ -70,10 +70,10 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/paper_experiments/binary_type_A_period/config_period10_20.yml",
-        "-p",
-        "./scheduling_algorithm/samples/default.cc"
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc"
       ]
     },
     {
@@ -85,11 +85,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/paper_experiments/overhead_profile/config_sub4_super4_overhead.yml",
-        "-p",
-        "./scheduling_algorithm/samples/default.cc",
-        "-pl",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "-sp",
         "-pf",
       ]
     },
@@ -102,11 +102,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/paper_experiments/overhead_local_profile/config_sub4_super4_overhead.yml",
-        "-p",
-        "./scheduling_algorithm/samples/default.cc",
-        "-pl",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "-sp",
         "-pf",
       ]
     },
@@ -119,11 +119,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/paper_experiments/binary_type_A_sub4_super32/config.yml",
-        "-p",
-        "./scheduling_algorithm/samples/default.cc",
-        "-pl",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "-sp",
       ]
     },
     {
@@ -135,11 +135,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_home_local",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -151,11 +151,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_home_local_multi_env",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -167,11 +167,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_home_remote",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -183,11 +183,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_building_local",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -199,11 +199,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_building_remote",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -215,11 +215,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_campus_local",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -231,11 +231,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_campus_local_random",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -247,11 +247,11 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "-e",
+        "-c",
         "./sim_env_samples/simple_campus_remote",
-        "-p",
+        "-po",
         "./scheduling_algorithm/samples",
-        "-pl",
+        "-sp",
       ]
     },
     {
@@ -263,12 +263,44 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "--only_profile",
-        "-log",
-        "./remote_logs/simulation_log_20230524_112653",
+        "-only_pf",
+        "-lg",
+        "./remote_logs/simulation_log_20230526_094645",
         "-pt",
-        "Execute"
+        "execute"
       ]
-    }
+    },
+    {
+      "name": "run binary_type_A_period experiment simulation test",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-c",
+        "./sim_env_samples/paper_experiments/binary_type_A_period",
+        "-po",
+        "./scheduling_algorithm/samples",
+        "-sp"
+      ]
+    },
+    {
+      "name": "run binary_type_A_period experiment simulation test (binary_type_A_period5_10, policy_default.cc)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-c",
+        "./sim_env_samples/paper_experiments/binary_type_A_period/config_period5_10.yml",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "-sp"
+      ]
+    },
   ]
 }

@@ -219,7 +219,7 @@ This section explains the terminology used in the Scheduling Framework.
 
 ## Config Files
 
-This section explains the format of the configuration files used by the IoT simulator, including the **Device Pool file**, **Simulation Environment file**, **Manual Middleware Tree file**, **Scheduling Algorithm file**. Each file is described using the following format for each element:
+This section explains the format of the configuration files used by the IoT simulator, including the **Device Pool file**, **Simulation Environment file**, **Manual Middleware Tree file**, **Scheduling Algorithm file**. Each file is described using the following format for each component:
 
 - **Option name**: `data type`
 

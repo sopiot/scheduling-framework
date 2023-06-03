@@ -1,5 +1,6 @@
 
-from simulation_framework.core.elements import *
+from simulation_framework.core.components import *
+from simulation_framework.config import *
 from simulation_framework.ssh_client import *
 from simulation_framework.mqtt_client import *
 
@@ -7,9 +8,17 @@ from big_thing_py.common.soptype import SoPProtocolType, SoPErrorType, SoPType
 from big_thing_py.common.thread import SoPThread, Event, Empty
 
 
-class SoPEventType(Enum):
-    UNDEFINED = 'UNDEFINED'
+class SoPSimulationEnv:
+    def __init__(self, config: SoPSimulationConfig, root_middleware: SoPMiddleware = None, event_timeline: List['SoPEvent'] = [],
+                 service_pool: List[SoPService] = [], thing_pool: List[SoPThing] = []) -> None:
+        self.config = config
+        self.root_middleware = root_middleware
+        self.event_timeline = event_timeline
+        self.service_pool = service_pool
+        self.thing_pool = thing_pool
 
+
+class SoPEventType(Enum):
     START = 'START'                                                     # Simulation 시작 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 시작된다.
     END = 'END'                                                         # Simulation 종료 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 종료된다.
     DELAY = 'DELAY'                                                     # Delay 이벤트. 명세된 시간만큼 딜레이를 발생시킨다.
@@ -58,6 +67,11 @@ class SoPEventType(Enum):
     SCENARIO_ADD_CHECK = 'SCENARIO_ADD_CHECK'                           # 모든 Scenario가 추가 완료될 때까지 기다리는 이벤트.
     SCENARIO_RUN_CHECK = 'SCENARIO_RUN_CHECK'                           # 모든 Scenario가 실행 완료될 때까지 기다리는 이벤트.
 
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
+
     @classmethod
     def get(cls, name: str):
         try:
@@ -68,17 +82,17 @@ class SoPEventType(Enum):
 
 class SoPEvent:
 
-    def __init__(self, event_type: SoPEventType, element: 'SoPElement' = None, middleware_element: 'SoPMiddlewareElement' = None, thing_element: 'SoPThingElement' = None, service_element: 'SoPServiceElement' = None, scenario_element: 'SoPScenarioElement' = None,
+    def __init__(self, event_type: SoPEventType, component: 'SoPComponent' = None, middleware_component: 'SoPMiddleware' = None, thing_component: 'SoPThing' = None, service_component: 'SoPService' = None, scenario_component: 'SoPScenario' = None,
                  timestamp: float = 0, duration: float = None, delay: float = None,
                  error: SoPErrorType = None, return_type: SoPType = None, return_value: ReturnType = None,
                  requester_middleware_name: str = None, super_thing_name: str = None, super_function_name: str = None) -> None:
         self.event_type = event_type
 
-        self.element = element
-        self.middleware_element = middleware_element
-        self.thing_element = thing_element
-        self.service_element = service_element
-        self.scenario_element = scenario_element
+        self.component = component
+        self.middleware_component = middleware_component
+        self.thing_component = thing_component
+        self.service_component = service_component
+        self.scenario_component = scenario_component
 
         self.timestamp = timestamp
         self.duration = duration
@@ -95,11 +109,11 @@ class SoPEvent:
     def load(self, data: dict):
         self.event_type = SoPEventType.get(
             data['event_type']) if data['event_type'] is str else data['event_type']
-        self.element = SoPElement.load(data['element'])
-        self.middleware_element = SoPElement.load(data['middleware_element'])
-        self.thing_element = SoPElement.load(data['thing_element'])
-        self.service_element = SoPElement.load(data['service_element'])
-        self.scenario_element = SoPElement.load(data['scenario_element'])
+        self.component = SoPComponent.load(data['component'])
+        self.middleware_component = SoPComponent.load(data['middleware_component'])
+        self.thing_component = SoPComponent.load(data['thing_component'])
+        self.service_component = SoPComponent.load(data['service_component'])
+        self.scenario_component = SoPComponent.load(data['scenario_component'])
         self.timestamp = data['timestamp']
         self.duration = data['duration']
         self.delay = data['delay']
@@ -112,11 +126,11 @@ class SoPEvent:
 
     def dict(self) -> dict:
         return dict(event_type=self.event_type.value,
-                    element=self.element.name if self.element else None,
-                    middleware_element=self.middleware_element.name if self.middleware_element else None,
-                    thing_element=self.thing_element.name if self.thing_element else None,
-                    service_element=self.service_element.name if self.service_element else None,
-                    scenario_element=self.scenario_element.name if self.scenario_element else None,
+                    component=self.component.name if self.component else None,
+                    middleware_component=self.middleware_component.name if self.middleware_component else None,
+                    thing_component=self.thing_component.name if self.thing_component else None,
+                    service_component=self.service_component.name if self.service_component else None,
+                    scenario_component=self.scenario_component.name if self.scenario_component else None,
                     timestamp=self.timestamp,
                     duration=self.duration,
                     delay=self.delay,
@@ -128,20 +142,20 @@ class SoPEvent:
 
 class SoPEventHandler:
 
-    def __init__(self, simulation_env: SoPMiddlewareElement = None, event_log: List[SoPEvent] = [], timeout: float = 5.0, mqtt_debug: bool = False, middleware_debug: bool = False, running_time: float = None,
-                 download_logs: bool = False) -> None:
-        self.simulation_env = simulation_env
-        self.middleware_list: List[SoPMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
-        self.thing_list: List[SoPThingElement] = get_thing_list_recursive(self.simulation_env)
-        self.scenario_list: List[SoPScenarioElement] = get_scenario_list_recursive(self.simulation_env)
-        self.device_list: List[SoPDeviceElement] = []
+    def __init__(self, root_middleware: SoPMiddleware = None, event_log: List[SoPEvent] = [], timeout: float = 5.0, running_time: float = None, download_logs: bool = False,
+                 mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
+        self.root_middleware = root_middleware
+        self.middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(self.root_middleware)
+        self.thing_list: List[SoPThing] = get_thing_list_recursive(self.root_middleware)
+        self.scenario_list: List[SoPScenario] = get_scenario_list_recursive(self.root_middleware)
+        self.device_list: List[SoPDevice] = []
 
         self.mqtt_client_list: List[SoPMQTTClient] = []
         self.ssh_client_list: List[SoPSSHClient] = []
 
         self.event_listener_event = Event()
         # self.event_listener_lock = Lock()
-        self.event_listener_thread: SoPThread = SoPThread(name='event_listener', target=self.event_listener, args=(self.event_listener_event, ))
+        self.event_listener_thread = SoPThread(name='event_listener', target=self.event_listener, args=(self.event_listener_event, ))
 
         # simulator와 같은 인스턴스를 공유한다.
         self.simulation_start_time = 0
@@ -180,7 +194,7 @@ class SoPEventHandler:
             return False
 
     def update_middleware_thing_device_list(self):
-        device_list: List[SoPDeviceElement] = [
+        device_list: List[SoPDevice] = [
             middleware.device for middleware in self.middleware_list] + [thing.device for thing in self.thing_list]
 
         for device in device_list:
@@ -188,7 +202,7 @@ class SoPEventHandler:
                 continue
             self.device_list.append(device)
 
-        # 미들웨어가 같은 디바이스를 가지는 경우 같은 SoPDeviceElement인스턴스를 공유한다.
+        # 미들웨어가 같은 디바이스를 가지는 경우 같은 SoPDeviceComponent인스턴스를 공유한다.
         for middleware in self.middleware_list:
             for device in self.device_list:
                 if device == middleware.device:
@@ -196,7 +210,7 @@ class SoPEventHandler:
 
     def init_ssh_client_list(self):
 
-        def task(device: SoPDeviceElement):
+        def task(device: SoPDevice):
             ssh_client = SoPSSHClient(device)
             ssh_client.connect(use_ssh_config=False)
 
@@ -236,14 +250,14 @@ class SoPEventHandler:
             mqtt_client = SoPMQTTClient(middleware, debug=self.mqtt_debug)
             self.add_mqtt_client(mqtt_client)
 
-    def find_ssh_client(self, element: Union[SoPMiddlewareElement, SoPThingElement]) -> SoPSSHClient:
+    def find_ssh_client(self, component: Union[SoPMiddleware, SoPThing]) -> SoPSSHClient:
         for ssh_client in self.ssh_client_list:
-            if ssh_client.device == element.device:
+            if ssh_client.device == component.device:
                 return ssh_client
         else:
             return None
 
-    def find_mqtt_client(self, middleware: SoPMiddlewareElement) -> SoPMQTTClient:
+    def find_mqtt_client(self, middleware: SoPMiddleware) -> SoPMQTTClient:
         for mqtt_client in self.mqtt_client_list:
             if mqtt_client.middleware == middleware:
                 return mqtt_client
@@ -257,28 +271,28 @@ class SoPEventHandler:
         else:
             return None
 
-    def find_middleware(self, target_middleware_name: str) -> SoPMiddlewareElement:
+    def find_middleware(self, target_middleware_name: str) -> SoPMiddleware:
         for middleware in self.middleware_list:
             if middleware.name == target_middleware_name:
                 return middleware
         else:
             return None
 
-    def find_scenario(self, target_scenario_name: str) -> SoPScenarioElement:
+    def find_scenario(self, target_scenario_name: str) -> SoPScenario:
         for scenario in self.scenario_list:
             if scenario.name == target_scenario_name:
                 return scenario
         else:
             return None
 
-    def find_thing(self, target_thing_name: str) -> SoPThingElement:
+    def find_thing(self, target_thing_name: str) -> SoPThing:
         for thing in self.thing_list:
             if thing.name == target_thing_name:
                 return thing
         else:
             return None
 
-    def find_service(self, target_service_name: str) -> SoPServiceElement:
+    def find_service(self, target_service_name: str) -> SoPService:
         for thing in self.thing_list:
             for service in thing.service_list:
                 if service.name == target_service_name:
@@ -286,45 +300,45 @@ class SoPEventHandler:
         else:
             return None
 
-    def find_element_middleware(self, element: Union[SoPMiddlewareElement, SoPScenarioElement, SoPThingElement, SoPServiceElement, str]) -> SoPMiddlewareElement:
-        if not element:
-            raise ValueError('element is None')
+    def find_component_middleware(self, component: Union[SoPMiddleware, SoPScenario, SoPThing, SoPService, str]) -> SoPMiddleware:
+        if not component:
+            raise ValueError('component is None')
 
-        if not isinstance(element, str):
-            element_name = element.name
+        if not isinstance(component, str):
+            component_name = component.name
         else:
-            element_name = element
+            component_name = component
 
         for middleware in self.middleware_list:
-            if isinstance(element, SoPMiddlewareElement):
+            if isinstance(component, SoPMiddleware):
                 for child_middleware in middleware.child_middleware_list:
-                    if child_middleware.name == element_name:
+                    if child_middleware.name == component_name:
                         return middleware
-            elif isinstance(element, SoPScenarioElement):
+            elif isinstance(component, SoPScenario):
                 for scenario in middleware.scenario_list:
-                    if scenario.name == element_name:
+                    if scenario.name == component_name:
                         return middleware
-            elif isinstance(element, SoPThingElement):
+            elif isinstance(component, SoPThing):
                 for thing in middleware.thing_list:
-                    if thing.name == element_name:
+                    if thing.name == component_name:
                         return middleware
-            elif isinstance(element, SoPServiceElement):
+            elif isinstance(component, SoPService):
                 for thing in middleware.thing_list:
                     for service in thing.service_list:
-                        if service.name == element_name:
+                        if service.name == component_name:
                             return middleware
         else:
             return None
 
-    def event_listener_start(self):
+    def start_event_listener(self):
         self.event_listener_thread.start()
 
-    def event_listener_stop(self):
+    def stop_event_listener(self):
         self.event_listener_event.set()
 
     def download_log_file(self) -> str:
 
-        def task(middleware: SoPMiddlewareElement):
+        def task(middleware: SoPMiddleware):
             ssh_client = self.find_ssh_client(middleware)
             ssh_client.open_sftp()
 
@@ -405,56 +419,56 @@ class SoPEventHandler:
             self.refresh(timeout=self.timeout,
                          service_check=True, scenario_check=True)
 
-            self.event_listener_stop()
-            self.kill_all_simulation_instance()
+            self.stop_event_listener()
+            self.kill_every_process()
             # if self.download_logs:
             #     self.download_log_file(
             #         self.middleware_commit_id, self.mosquitto_conf_trim)
             # self.wrapup()
             return True
         else:
-            target_element = event.element
+            target_component = event.component
             if event.event_type == SoPEventType.MIDDLEWARE_RUN:
-                parent_middleware = self.find_element_middleware(
-                    target_element)
+                parent_middleware = self.find_component_middleware(
+                    target_component)
                 if parent_middleware:
                     while not parent_middleware.online:
                         time.sleep(BUSY_WAIT_TIMEOUT)
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.run_middleware, args=(target_element, 10, )).start()
-                self.subscribe_scenario_finish_topic(middleware=target_element)
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.run_middleware, args=(target_component, 10, )).start()
+                self.subscribe_scenario_finish_topic(middleware=target_component)
             elif event.event_type == SoPEventType.MIDDLEWARE_KILL:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.kill_middleware, args=(target_element, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.kill_middleware, args=(target_component, )).start()
             elif event.event_type == SoPEventType.THING_RUN:
-                while not self.check_middleware_online(target_element):
+                while not self.check_middleware_online(target_component):
                     time.sleep(BUSY_WAIT_TIMEOUT)
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.run_thing, args=(target_element, 30, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.run_thing, args=(target_component, 30, )).start()
             elif event.event_type == SoPEventType.THING_KILL:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.kill_thing, args=(target_element, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.kill_thing, args=(target_component, )).start()
             elif event.event_type == SoPEventType.THING_UNREGISTER:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.unregister_thing, args=(target_element, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.unregister_thing, args=(target_component, )).start()
             elif event.event_type == SoPEventType.SCENARIO_VERIFY:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.verify_scenario, args=(target_element, self.timeout, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.verify_scenario, args=(target_component, self.timeout, )).start()
             elif event.event_type == SoPEventType.SCENARIO_ADD:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.add_scenario, args=(target_element, self.timeout, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.add_scenario, args=(target_component, self.timeout, )).start()
             elif event.event_type == SoPEventType.SCENARIO_RUN:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.run_scenario, args=(target_element, self.timeout, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.run_scenario, args=(target_component, self.timeout, )).start()
             elif event.event_type == SoPEventType.SCENARIO_STOP:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.stop_scenario, args=(target_element, self.timeout, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.stop_scenario, args=(target_component, self.timeout, )).start()
             elif event.event_type == SoPEventType.SCENARIO_UPDATE:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.update_scenario, args=(target_element, self.timeout, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.update_scenario, args=(target_component, self.timeout, )).start()
             elif event.event_type == SoPEventType.SCENARIO_DELETE:
-                SoPThread(name=f'{event.event_type.value}_{event.element.name}',
-                          target=self.delete_scenario, args=(target_element, self.timeout, )).start()
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.delete_scenario, args=(target_component, self.timeout, )).start()
             elif event.event_type == SoPEventType.REFRESH:
                 self.refresh(timeout=self.timeout,
                              service_check=True, scenario_check=True)
@@ -482,7 +496,7 @@ class SoPEventHandler:
             while not stop_event.wait(BUSY_WAIT_TIMEOUT / 100):
                 for mqtt_client in self.mqtt_client_list:
                     try:
-                        recv_msg = mqtt_client.recv_message_queue.get(
+                        recv_msg = mqtt_client._recv_message_queue.get(
                             timeout=BUSY_WAIT_TIMEOUT / 100)
                         self.on_recv_message(recv_msg)
                     except Empty:
@@ -495,7 +509,7 @@ class SoPEventHandler:
 
     ####  middleware   #############################################################################################################
 
-    def run_mosquitto(self, middleware: SoPMiddlewareElement, ssh_client: SoPSSHClient, remote_home_dir: str):
+    def run_mosquitto(self, middleware: SoPMiddleware, ssh_client: SoPSSHClient, remote_home_dir: str):
         ssh_client.send_command(
             f'/sbin/mosquitto -c {middleware.remote_mosquitto_conf_file_path.replace("~", remote_home_dir)} -v 2> {middleware.remote_middleware_config_path.replace("~", remote_home_dir)}/{middleware.name}_mosquitto.log &', ignore_result=True)
         target_mosquitto_pid_list = ssh_client.send_command(
@@ -503,24 +517,24 @@ class SoPEventHandler:
         if len(target_mosquitto_pid_list) > 0:
             return True
 
-    def init_middleware(self, middleware: SoPMiddlewareElement, ssh_client: SoPSSHClient, remote_home_dir: str):
+    def init_middleware(self, middleware: SoPMiddleware, ssh_client: SoPSSHClient, remote_home_dir: str):
         ssh_client.send_command(
             f'chmod +x {middleware.remote_init_script_file_path.replace("~",remote_home_dir)}; bash {middleware.remote_init_script_file_path.replace("~",remote_home_dir)}')
 
-    def subscribe_scenario_finish_topic(self, middleware: SoPMiddlewareElement):
+    def subscribe_scenario_finish_topic(self, middleware: SoPMiddleware):
         mqtt_client = self.find_mqtt_client(middleware)
         while not mqtt_client.is_run:
             time.sleep(BUSY_WAIT_TIMEOUT)
         mqtt_client.subscribe('SIM/FINISH')
 
-    def run_middleware(self, middleware: SoPMiddlewareElement, timeout: float = 5):
+    def run_middleware(self, middleware: SoPMiddleware, timeout: float = 5):
 
-        def check_parent_middleware_online(parent_middleware: SoPMiddlewareElement):
+        def check_parent_middleware_online(parent_middleware: SoPMiddleware):
             if parent_middleware:
                 while not parent_middleware.online:
                     time.sleep(BUSY_WAIT_TIMEOUT)
 
-        def middleware_run_command(middleware: SoPMiddlewareElement, remote_home_dir: str):
+        def middleware_run_command(middleware: SoPMiddleware, remote_home_dir: str):
             log_file_path = ''
             for line in middleware.middleware_cfg.split('\n'):
                 if 'log_file_path = ' in line:
@@ -568,7 +582,7 @@ class SoPEventHandler:
 
         ssh_client = self.find_ssh_client(middleware)
         mqtt_client = self.find_mqtt_client(middleware)
-        parent_middleware = self.find_element_middleware(middleware)
+        parent_middleware = self.find_component_middleware(middleware)
 
         SOPTEST_LOG_DEBUG(
             f'Wait for middleware {middleware.name} online', SoPTestLogLevel.INFO, 'yellow')
@@ -585,9 +599,9 @@ class SoPEventHandler:
             self.kill_middleware(middleware)
             self.run_middleware(middleware, timeout=timeout)
 
-    def kill_middleware(self, middleware: SoPMiddlewareElement):
+    def kill_middleware(self, middleware: SoPMiddleware):
         ssh_client = self.find_ssh_client(middleware)
-        pid_list = self.get_element_proc_pid(ssh_client, middleware)
+        pid_list = self.get_component_proc_pid(ssh_client, middleware)
 
         if pid_list['middleware_pid_list']:
             for middleware_pid in pid_list['middleware_pid_list']:
@@ -600,7 +614,7 @@ class SoPEventHandler:
 
     ####  thing   #############################################################################################################
 
-    def check_thing_register(self, thing: SoPThingElement, timeout: float = 5):
+    def check_thing_register(self, thing: SoPThing, timeout: float = 5):
         _, payload, _ = self.expect(
             thing,
             target_topic=SoPProtocolType.Base.TM_REGISTER.value % thing.name,
@@ -632,7 +646,7 @@ class SoPEventHandler:
                 f'Register fail of thing {thing.name} with register packet error... error code: {payload["error"]}', SoPTestLogLevel.FAIL)
             return False
 
-    def subscribe_thing_topic(self, thing: SoPThingElement, mqtt_client: SoPMQTTClient):
+    def subscribe_thing_topic(self, thing: SoPThing, mqtt_client: SoPMQTTClient):
         for service in thing.service_list:
             mqtt_client.subscribe([SoPProtocolType.Base.MT_EXECUTE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
                                    (SoPProtocolType.Base.MT_EXECUTE.value % (
@@ -662,10 +676,10 @@ class SoPEventHandler:
         #     mqtt_client.subscribe([SoPProtocolType.Default.TM_VALUE_PUBLISH.value % (thing.name, value['name']),
         #                                         SoPProtocolType.Default.TM_VALUE_PUBLISH_OLD.value % (thing.name, value['name'])])
 
-    def run_thing(self, thing: SoPThingElement, timeout: float = 5):
+    def run_thing(self, thing: SoPThing, timeout: float = 5):
         # SOPTEST_LOG_DEBUG(
         #     f'Thing {thing.name} run start...', SoPTestLogLevel.PASS)
-        middleware = self.find_element_middleware(thing)
+        middleware = self.find_component_middleware(thing)
         ssh_client = self.find_ssh_client(thing)
         mqtt_client = self.find_mqtt_client(middleware)
 
@@ -693,13 +707,13 @@ class SoPEventHandler:
             self.kill_thing(thing)
             self.run_thing(thing, timeout=timeout)
 
-    def unregister_thing(self, thing: SoPThingElement):
+    def unregister_thing(self, thing: SoPThing):
         SOPTEST_LOG_DEBUG(
             f'Unregister Thing {thing.name}...', SoPTestLogLevel.INFO, color='yellow')
         ssh_client = self.find_ssh_client(thing)
         ssh_client.send_command(f'kill -2 {thing.pid}')
 
-    def kill_thing(self, thing: SoPThingElement):
+    def kill_thing(self, thing: SoPThing):
         SOPTEST_LOG_DEBUG(
             f'Kill Thing {thing.name}...', SoPTestLogLevel.INFO, color='yellow')
         ssh_client = self.find_ssh_client(thing)
@@ -709,7 +723,7 @@ class SoPEventHandler:
 
     def refresh(self, timeout: float, service_check: bool = False, scenario_check: bool = False):
 
-        def task(middleware: SoPMiddlewareElement):
+        def task(middleware: SoPMiddleware):
             SOPTEST_LOG_DEBUG(
                 f'Refresh Start... middleware: {middleware.name}', SoPTestLogLevel.INFO)
 
@@ -733,7 +747,7 @@ class SoPEventHandler:
 
                 if set(target_scenario_service_name_list).issubset(set(whole_service_name_info)):
                     for thing in middleware.thing_list:
-                        thing: SoPThingElement
+                        thing: SoPThing
                         mqtt_client = self.find_mqtt_client(middleware)
                         self.subscribe_thing_topic(thing, mqtt_client)
                         thing.registered = True
@@ -808,8 +822,8 @@ class SoPEventHandler:
 
         return True
 
-    def verify_scenario(self, scenario: SoPScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def verify_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_component_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
         trigger_topic = SoPProtocolType.WebClient.EM_VERIFY_SCENARIO.value % mqtt_client.get_client_id()
@@ -828,11 +842,11 @@ class SoPEventHandler:
 
         if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
-                f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_VERIFY.value} failed...', SoPTestLogLevel.FAIL)
+                f'{SoPComponentType.SCENARIO.value} {scenario.name} {SoPComponentActionType.SCENARIO_VERIFY.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def add_scenario(self, scenario: SoPScenarioElement, timeout: float = 5, check_interval: float = 1.0):
-        middleware = self.find_element_middleware(scenario)
+    def add_scenario(self, scenario: SoPScenario, timeout: float = 5, check_interval: float = 1.0):
+        middleware = self.find_component_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
         trigger_topic = SoPProtocolType.WebClient.EM_ADD_SCENARIO.value % mqtt_client.get_client_id()
@@ -852,7 +866,7 @@ class SoPEventHandler:
 
         if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
-                f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_ADD.value} failed...', SoPTestLogLevel.FAIL)
+                f'{SoPComponentType.SCENARIO.value} {scenario.name} {SoPComponentActionType.SCENARIO_ADD.value} failed...', SoPTestLogLevel.FAIL)
             SOPTEST_LOG_DEBUG(
                 f'==== Fault Scenario ====', SoPTestLogLevel.FAIL)
             SOPTEST_LOG_DEBUG(
@@ -862,7 +876,7 @@ class SoPEventHandler:
             scenario.schedule_timeout = True
             return True
 
-    def run_scenario(self, scenario: SoPScenarioElement, timeout: float = 5):
+    def run_scenario(self, scenario: SoPScenario, timeout: float = 5):
         # NOTE: 이미 add_scenario를 통해 시나리오가 정상적으로 init되어있는 것이 확인되어있는 상태이므로 다시 시나리오상태를 확인할 필요는 없다.
 
         if not scenario.state:
@@ -880,7 +894,7 @@ class SoPEventHandler:
             scenario.schedule_timeout = True
             return False
 
-        middleware = self.find_element_middleware(scenario)
+        middleware = self.find_component_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
         trigger_topic = SoPProtocolType.WebClient.EM_RUN_SCENARIO.value % mqtt_client.get_client_id()
@@ -900,11 +914,11 @@ class SoPEventHandler:
 
         if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
-                f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_RUN.value} failed...', SoPTestLogLevel.FAIL)
+                f'{SoPComponentType.SCENARIO.value} {scenario.name} {SoPComponentActionType.SCENARIO_RUN.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def stop_scenario(self, scenario: SoPScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def stop_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_component_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
         trigger_topic = SoPProtocolType.WebClient.EM_STOP_SCENARIO.value % mqtt_client.get_client_id()
@@ -930,11 +944,11 @@ class SoPEventHandler:
 
         if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
-                f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_STOP.value} failed...', SoPTestLogLevel.FAIL)
+                f'{SoPComponentType.SCENARIO.value} {scenario.name} {SoPComponentActionType.SCENARIO_STOP.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def update_scenario(self, scenario: SoPScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def update_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_component_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
         trigger_topic = SoPProtocolType.WebClient.EM_UPDATE_SCENARIO.value % mqtt_client.get_client_id()
@@ -960,11 +974,11 @@ class SoPEventHandler:
 
         if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
-                f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_UPDATE.value} failed...', SoPTestLogLevel.FAIL)
+                f'{SoPComponentType.SCENARIO.value} {scenario.name} {SoPComponentActionType.SCENARIO_UPDATE.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def delete_scenario(self, scenario: SoPScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def delete_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_component_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
         trigger_topic = SoPProtocolType.WebClient.EM_DELETE_SCENARIO.value % mqtt_client.get_client_id()
@@ -989,10 +1003,10 @@ class SoPEventHandler:
 
         if self.check_result_payload(payload) == None:
             SOPTEST_LOG_DEBUG(
-                f'{SoPElementType.SCENARIO.value} {scenario.name} {SoPElementActionType.SCENARIO_DELETE.value} failed...', SoPTestLogLevel.FAIL)
+                f'{SoPComponentType.SCENARIO.value} {scenario.name} {SoPComponentActionType.SCENARIO_DELETE.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def get_whole_scenario_info(self, middleware: SoPMiddlewareElement, timeout: float) -> Union[List[SoPScenarioInfo], bool]:
+    def get_whole_scenario_info(self, middleware: SoPMiddleware, timeout: float) -> Union[List[SoPScenarioInfo], bool]:
         mqtt_client = self.find_mqtt_client(middleware)
 
         _, payload, _ = self.publish_and_expect(
@@ -1016,7 +1030,7 @@ class SoPEventHandler:
                 f'Get whole scenario info of {middleware.name} failed -> MQTT timeout...', SoPTestLogLevel.FAIL)
             return False
 
-    def get_whole_service_list_info(self, middleware: SoPMiddlewareElement, timeout: float) -> List[dict]:
+    def get_whole_service_list_info(self, middleware: SoPMiddleware, timeout: float) -> List[dict]:
         mqtt_client = self.find_mqtt_client(middleware)
 
         _, payload, _ = self.publish_and_expect(
@@ -1052,15 +1066,15 @@ class SoPEventHandler:
         elif len(pid_list) == 1:
             return pid_list
 
-    def get_element_proc_pid(self, ssh_client: SoPSSHClient, element: SoPElement) -> List[int]:
-        if isinstance(element, SoPMiddlewareElement):
+    def get_component_proc_pid(self, ssh_client: SoPSSHClient, component: SoPComponent) -> List[int]:
+        if isinstance(component, SoPMiddleware):
             middleware_pid_list = self.get_proc_pid(
-                ssh_client, 'sopiot_middleware', element.mqtt_port)
+                ssh_client, 'sopiot_middleware', component.mqtt_port)
             mosquitto_pid_list = self.get_proc_pid(
-                ssh_client, 'mosquitto', element.mqtt_port)
+                ssh_client, 'mosquitto', component.mqtt_port)
             return dict(middleware_pid_list=middleware_pid_list, mosquitto_pid_list=mosquitto_pid_list)
-        elif isinstance(element, SoPThingElement):
-            middleware = self.find_element_middleware(element)
+        elif isinstance(component, SoPThing):
+            middleware = self.find_component_middleware(component)
             thing_pid_list = self.get_proc_pid(
                 ssh_client, 'python', middleware.mqtt_port)
             return dict(thing_pid_list=thing_pid_list)
@@ -1102,7 +1116,7 @@ class SoPEventHandler:
             mqtt_client.stop()
             del mqtt_client
 
-    def kill_all_simulation_instance(self):
+    def kill_every_process(self):
         SOPTEST_LOG_DEBUG(f'Kill simulation instance...',
                           SoPTestLogLevel.INFO, 'red')
 
@@ -1142,14 +1156,14 @@ class SoPEventHandler:
 
     #### expect ##########################################################################################################################
 
-    def expect(self, element: SoPElement, target_topic: str = None, auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5) -> Union[Tuple[str, dict], str]:
+    def expect(self, component: SoPComponent, target_topic: str = None, auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5) -> Union[Tuple[str, dict], str]:
         cur_time = get_current_time()
-        if isinstance(element, SoPMiddlewareElement):
-            target_middleware = element
+        if isinstance(component, SoPMiddleware):
+            target_middleware = component
         else:
-            target_middleware = self.find_element_middleware(element)
+            target_middleware = self.find_component_middleware(component)
 
-        target_middleware: SoPMiddlewareElement
+        target_middleware: SoPMiddleware
         mqtt_client = self.find_mqtt_client(target_middleware)
 
         if not mqtt_client.is_run:
@@ -1163,7 +1177,7 @@ class SoPEventHandler:
                 if get_current_time() - cur_time > timeout:
                     raise Empty('Timeout')
 
-                topic, payload, timestamp = decode_MQTT_message(element.recv_queue.get(timeout=timeout))
+                topic, payload, timestamp = decode_MQTT_message(component.recv_queue.get(timeout=timeout))
 
                 if target_topic:
                     topic_slice = topic.split('/')
@@ -1174,7 +1188,7 @@ class SoPEventHandler:
                     else:
                         return topic, payload, timestamp
                 else:
-                    element.recv_queue.put(
+                    component.recv_queue.put(
                         encode_MQTT_message(topic, payload, timestamp))
         except Empty as e:
             # SOPLOG_DEBUG(f'SoPMQTTClient Timeout for {target_topic}', 'red')
@@ -1186,13 +1200,13 @@ class SoPEventHandler:
                 if target_topic:
                     mqtt_client.unsubscribe(target_topic)
 
-    def publish_and_expect(self, element: SoPElement, trigger_msg: mqtt.MQTTMessage = None, target_topic: str = None, auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5):
-        if isinstance(element, SoPMiddlewareElement):
-            target_middleware = element
+    def publish_and_expect(self, component: SoPComponent, trigger_msg: mqtt.MQTTMessage = None, target_topic: str = None, auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5):
+        if isinstance(component, SoPMiddleware):
+            target_middleware = component
         else:
-            target_middleware = self.find_element_middleware(element)
+            target_middleware = self.find_component_middleware(component)
 
-        target_middleware: SoPMiddlewareElement
+        target_middleware: SoPMiddleware
         mqtt_client = self.find_mqtt_client(target_middleware)
 
         if not mqtt_client.is_run:
@@ -1204,18 +1218,18 @@ class SoPEventHandler:
             trigger_msg, mode=str)
         mqtt_client.publish(trigger_topic, trigger_payload, retain=False)
 
-        ret = self.expect(element, target_topic,
+        ret = self.expect(component, target_topic,
                           auto_subscribe, auto_unsubscribe, timeout)
         return ret
 
-    def command_and_expect(self, element: SoPElement, trigger_command: Union[List[str], str] = None, target_topic: str = None,
+    def command_and_expect(self, component: SoPComponent, trigger_command: Union[List[str], str] = None, target_topic: str = None,
                            auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5):
-        if isinstance(element, SoPMiddlewareElement):
-            target_middleware = element
+        if isinstance(component, SoPMiddleware):
+            target_middleware = component
         else:
-            target_middleware = self.find_element_middleware(element)
+            target_middleware = self.find_component_middleware(component)
 
-        target_middleware: SoPMiddlewareElement
+        target_middleware: SoPMiddleware
         mqtt_client = self.find_mqtt_client(target_middleware)
         ssh_client = self.find_ssh_client(target_middleware)
 
@@ -1229,12 +1243,12 @@ class SoPEventHandler:
                 ssh_client.send_command(command)
         else:
             ssh_client.send_command(trigger_command)
-        ret = self.expect(element, target_topic,
+        ret = self.expect(component, target_topic,
                           auto_subscribe, auto_unsubscribe, timeout)
         return ret
 
-    def check_middleware_online(self, thing: SoPThingElement):
-        middleware = self.find_element_middleware(thing)
+    def check_middleware_online(self, thing: SoPThing):
+        middleware = self.find_component_middleware(thing)
         return middleware.online
 
     #### on_recv_message ##########################################################################################################################
@@ -1277,19 +1291,19 @@ class SoPEventHandler:
             thing_name = topic.split('/')[2]
 
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
+            middleware = self.find_component_middleware(thing)
             thing.recv_queue.put(msg)
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.THING_REGISTER, middleware_element=middleware, thing_element=thing, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.THING_REGISTER, middleware_component=middleware, thing_component=thing, timestamp=timestamp, duration=0))
         elif SoPProtocolType.Base.MT_RESULT_REGISTER.get_prefix() in topic:
             thing_name = topic.split('/')[3]
 
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
+            middleware = self.find_component_middleware(thing)
             thing.registered = True
             thing.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == thing and event.event_type == SoPEventType.THING_REGISTER:
+                if event.middleware_component == middleware and event.thing_component == thing and event.event_type == SoPEventType.THING_REGISTER:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
 
@@ -1303,18 +1317,18 @@ class SoPEventHandler:
             thing_name = topic.split('/')[2]
 
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
+            middleware = self.find_component_middleware(thing)
             thing.recv_queue.put(msg)
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.THING_UNREGISTER, middleware_element=middleware, thing_element=thing, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.THING_UNREGISTER, middleware_component=middleware, thing_component=thing, timestamp=timestamp, duration=0))
         elif SoPProtocolType.Base.MT_RESULT_UNREGISTER.get_prefix() in topic:
             thing_name = topic.split('/')[3]
 
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
+            middleware = self.find_component_middleware(thing)
             thing.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == thing and event.event_type == SoPEventType.THING_UNREGISTER:
+                if event.middleware_component == middleware and event.thing_component == thing and event.event_type == SoPEventType.THING_UNREGISTER:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     SOPTEST_LOG_DEBUG(
@@ -1325,7 +1339,7 @@ class SoPEventHandler:
             thing_name = topic.split('/')[3]
 
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
+            middleware = self.find_component_middleware(thing)
             scenario = self.find_scenario(scenario_name)
             service = thing.find_service_by_name(function_name)
 
@@ -1348,14 +1362,14 @@ class SoPEventHandler:
             else:
                 event_type = SoPEventType.FUNCTION_EXECUTE
             self.event_log.append(SoPEvent(
-                event_type=event_type, middleware_element=middleware, thing_element=thing, service_element=service, scenario_element=scenario,
+                event_type=event_type, middleware_component=middleware, thing_component=thing, service_component=service, scenario_component=scenario,
                 timestamp=timestamp, duration=0, requester_middleware_name=requester_middleware_name, super_thing_name=super_thing_name, super_function_name=super_function_name))
         elif SoPProtocolType.Base.TM_RESULT_EXECUTE.get_prefix() in topic:
             function_name = topic.split('/')[3]
             thing_name = topic.split('/')[4]
 
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
+            middleware = self.find_component_middleware(thing)
             scenario = self.find_scenario(scenario_name)
             service = thing.find_service_by_name(function_name)
 
@@ -1373,7 +1387,7 @@ class SoPEventHandler:
                 requester_middleware_name = None
 
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == thing and event.service_element == service and event.scenario_element == scenario and event.requester_middleware_name == requester_middleware_name and event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]:
+                if event.middleware_component == middleware and event.thing_component == thing and event.service_component == service and event.scenario_component == scenario and event.requester_middleware_name == requester_middleware_name and event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     event.return_type = return_type
@@ -1394,17 +1408,17 @@ class SoPEventHandler:
                     break
         elif SoPProtocolType.WebClient.EM_VERIFY_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SCENARIO_VERIFY, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SCENARIO_VERIFY, middleware_component=middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
         elif SoPProtocolType.WebClient.ME_RESULT_VERIFY_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             scenario.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == SoPEventType.SCENARIO_VERIFY:
+                if event.middleware_component == middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_VERIFY:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     SOPTEST_LOG_DEBUG(
@@ -1412,13 +1426,13 @@ class SoPEventHandler:
                     break
         elif SoPProtocolType.WebClient.EM_ADD_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SCENARIO_ADD, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SCENARIO_ADD, middleware_component=middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
         elif SoPProtocolType.WebClient.ME_RESULT_ADD_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             if not scenario.is_super():
                 scenario.schedule_success = True
@@ -1427,7 +1441,7 @@ class SoPEventHandler:
             scenario.schedule_timeout = False
             scenario.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == SoPEventType.SCENARIO_ADD:
+                if event.middleware_component == middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_ADD:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
 
@@ -1439,17 +1453,17 @@ class SoPEventHandler:
                     break
         elif SoPProtocolType.WebClient.EM_RUN_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SCENARIO_RUN, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SCENARIO_RUN, middleware_component=middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
         elif SoPProtocolType.WebClient.ME_RESULT_RUN_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             scenario.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == SoPEventType.SCENARIO_RUN:
+                if event.middleware_component == middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_RUN:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     SOPTEST_LOG_DEBUG(
@@ -1457,17 +1471,17 @@ class SoPEventHandler:
                     break
         elif SoPProtocolType.WebClient.EM_STOP_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SCENARIO_STOP, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SCENARIO_STOP, middleware_component=middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
         elif SoPProtocolType.WebClient.ME_RESULT_STOP_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             scenario.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == SoPEventType.SCENARIO_STOP:
+                if event.middleware_component == middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_STOP:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     SOPTEST_LOG_DEBUG(
@@ -1475,17 +1489,17 @@ class SoPEventHandler:
                     break
         elif SoPProtocolType.WebClient.EM_UPDATE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SCENARIO_UPDATE, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SCENARIO_UPDATE, middleware_component=middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
         elif SoPProtocolType.WebClient.ME_RESULT_UPDATE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             scenario.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == SoPEventType.SCENARIO_UPDATE:
+                if event.middleware_component == middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_UPDATE:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     SOPTEST_LOG_DEBUG(
@@ -1493,17 +1507,17 @@ class SoPEventHandler:
                     break
         elif SoPProtocolType.WebClient.EM_DELETE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SCENARIO_DELETE, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SCENARIO_DELETE, middleware_component=middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
         elif SoPProtocolType.WebClient.ME_RESULT_DELETE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
+            middleware = self.find_component_middleware(scenario)
 
             scenario.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == SoPEventType.SCENARIO_DELETE:
+                if event.middleware_component == middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_DELETE:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     SOPTEST_LOG_DEBUG(
@@ -1519,13 +1533,13 @@ class SoPEventHandler:
             super_function_name = topic.split('/')[2]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
+            middleware = self.find_component_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(
                 super_function_name)
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SUPER_SCHEDULE, middleware_element=middleware, thing_element=super_thing, service_element=super_service, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SUPER_SCHEDULE, middleware_component=middleware, thing_component=super_thing, service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
             SOPTEST_LOG_DEBUG(
                 f'[SUPER_SCHEDULE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name}', SoPTestLogLevel.INFO)
         elif SoPProtocolType.Super.SM_SCHEDULE.get_prefix() in topic:
@@ -1569,7 +1583,7 @@ class SoPEventHandler:
             super_function_name = topic.split('/')[3]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
+            middleware = self.find_component_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(
                 super_function_name)
@@ -1579,7 +1593,7 @@ class SoPEventHandler:
                 scenario.service_check = True
 
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == super_thing and event.service_element == super_service and event.scenario_element == scenario and event.event_type == SoPEventType.SUPER_SCHEDULE:
+                if event.middleware_component == middleware and event.thing_component == super_thing and event.service_component == super_service and event.scenario_component == scenario and event.event_type == SoPEventType.SUPER_SCHEDULE:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     event.return_type = return_type
@@ -1598,7 +1612,7 @@ class SoPEventHandler:
             requester_middleware_name = topic.split('/')[5]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
+            middleware = self.find_component_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(
                 super_function_name)
@@ -1610,7 +1624,7 @@ class SoPEventHandler:
             #     subfunction.energy = 0
 
             self.event_log.append(SoPEvent(
-                event_type=SoPEventType.SUPER_FUNCTION_EXECUTE, middleware_element=middleware, thing_element=super_thing, service_element=super_service, scenario_element=scenario, timestamp=timestamp, duration=0))
+                event_type=SoPEventType.SUPER_FUNCTION_EXECUTE, middleware_component=middleware, thing_component=super_thing, service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
             passed_time = get_current_time() - self.simulation_start_time
             progress = passed_time / self.running_time
             SOPTEST_LOG_DEBUG(
@@ -1656,13 +1670,13 @@ class SoPEventHandler:
             super_function_name = topic.split('/')[3]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
+            middleware = self.find_component_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(
                 super_function_name)
 
             for event in list(reversed(self.event_log)):
-                if event.event_type == SoPEventType.SUPER_FUNCTION_EXECUTE and event.middleware_element == middleware and event.thing_element == super_thing and event.service_element == super_service and event.scenario_element == scenario:
+                if event.event_type == SoPEventType.SUPER_FUNCTION_EXECUTE and event.middleware_component == middleware and event.thing_component == super_thing and event.service_component == super_service and event.scenario_component == scenario:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
                     event.return_type = return_type
