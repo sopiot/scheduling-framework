@@ -31,7 +31,7 @@ class SoPEnvGenerator:
                                 'sec', 'min', 'hour', 'day', 'month', 'all', 'single', 'random']
 
     def __init__(self, service_parallel: bool) -> None:
-        self.service_parallel = service_parallel
+        self._service_parallel = service_parallel
 
         self._service_pool: List[SoPService] = []
         self._thing_pool: List[SoPThing] = []
@@ -41,12 +41,13 @@ class SoPEnvGenerator:
         self._service_name_pool: List[str] = []
         self._super_service_name_pool: List[str] = []
 
-        self._middleware_generator: SoPMiddlewareGenerator = None
-        self._service_generator: SoPServiceGenerator = None
-        self._thing_generator: SoPThingGenerator = None
-        self._scenario_generator: SoPServiceGenerator = None
+        self._generate_start_time: str = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    def load(self, config: SoPSimulationConfig, service_pool: List[SoPService] = [], thing_pool: List[SoPThing] = []):
+        # self._middleware_generator: SoPMiddlewareGenerator = None
+        # self._thing_generator: SoPThingGenerator = None
+        # self._scenario_generator: SoPServiceGenerator = None
+
+    def load(self, config: SoPSimulationConfig):
         """A method to load SoPEvnGenerator for generate simulation environment
 
         Args:
@@ -57,21 +58,22 @@ class SoPEnvGenerator:
         Raises:
             Exception: _description_
         """
-        self._service_pool: List[SoPService] = service_pool
-        self._thing_pool: List[SoPThing] = thing_pool
         self._config = config
+
+        self._middleware_device_pool: List[SoPDevice] = []
+        self._thing_device_pool: List[SoPDevice] = []
 
         device_pool_path = self._config.device_pool_path.abs_path()
         if not os.path.exists(device_pool_path):
             save_yaml(device_pool_path, {})
 
-        device_pool = load_yaml(device_pool_path)
-        if not 'localhost' in device_pool:
+        device_pool_dict = load_yaml(device_pool_path)
+        if not 'localhost' in device_pool_dict:
             SOPTEST_LOG_DEBUG(f'localhost device config is not exist in device pool...', SoPTestLogLevel.WARN)
-            device_pool = self._add_localhost_info(device_pool)
-            save_yaml(device_pool_path, device_pool)
+            device_pool_dict = self._add_localhost_info(device_pool_dict)
+            save_yaml(device_pool_path, device_pool_dict)
 
-        self.whole_device_pool = self._load_device_pool(device_pool_path)
+        device_pool = self._load_device_pool(device_pool_path)
 
         # If local_mode is True, the program terminates if device_pool is defined or if localhost
         # does not exist in device_pool.
@@ -79,20 +81,20 @@ class SoPEnvGenerator:
             SOPTEST_LOG_DEBUG(f'local_mode is True, below config will be ignored. \n'
                               'device pool                    (simulation.device_pool) \n'
                               'manual middleware config path  (middleware.manual)', SoPTestLogLevel.WARN)
-            middleware_device_pool = [device for device in self.whole_device_pool if device.name == 'localhost']
-            thing_device_pool = [device for device in self.whole_device_pool if device.name == 'localhost']
+            self._middleware_device_pool = [device for device in device_pool if device.name == 'localhost']
+            self._thing_device_pool = [device for device in device_pool if device.name == 'localhost']
         else:
             if not self._config.middleware_config.device_pool:
-                middleware_device_pool = [device for device in self.whole_device_pool if device.name != 'localhost']
+                self._middleware_device_pool = [device for device in device_pool if device.name != 'localhost']
             else:
-                middleware_device_pool = [device for device in self.whole_device_pool if device.name in self._config.middleware_config.device_pool]
+                self._middleware_device_pool = [device for device in device_pool if device.name in self._config.middleware_config.device_pool]
 
             # In the case of things, it defaults to running on a simulator device with relatively
             # high performance rather than running on an embedded device with low performance.
             if not self._config.thing_config.device_pool:
-                thing_device_pool = [device for device in self.whole_device_pool if device.name == 'localhost']
+                self._thing_device_pool = [device for device in device_pool if device.name == 'localhost']
             else:
-                thing_device_pool = [device for device in self.whole_device_pool if device.name in self._config.thing_config.device_pool]
+                self._thing_device_pool = [device for device in device_pool if device.name in self._config.thing_config.device_pool]
 
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         if manual_middleware_tree:
@@ -100,23 +102,23 @@ class SoPEnvGenerator:
                 SOPTEST_LOG_DEBUG('random is defined in middleware config, but manual_middleware_tree is defined. '
                                   'random config will be ignored.', SoPTestLogLevel.WARN)
                 self._config.middleware_config.random = None
+            middleware_num = len(manual_middleware_tree.descendants) + 1
         elif self._config.middleware_config.random:
-            middleware_device_pool = [device for device in self.whole_device_pool if device.name != 'localhost']
-            thing_device_pool = [device for device in self.whole_device_pool if device.name == 'localhost']
+            self._middleware_device_pool = [device for device in device_pool if device.name != 'localhost']
+            self._thing_device_pool = [device for device in device_pool if device.name == 'localhost']
             self._config.middleware_config.manual = None
+            middleware_num = calculate_tree_node_num(self._config.middleware_config.random.height[1], self._config.middleware_config.random.width[1])
         else:
             raise Exception('If manual_middleware_tree is not defined, random config must be defined.')
 
-        remote_device_list = [device for device in self.whole_device_pool if device.name != 'localhost']
-        middleware_num = count_tree_node(root=manual_middleware_tree, get_child=lambda x: x['child'], filter=lambda x: True)
-
+        remote_device_list = [device for device in device_pool if device.name != 'localhost']
         if not self._config.local_mode and len(remote_device_list) < middleware_num:
             raise Exception(f'device pool is not enough for {os.path.basename(os.path.dirname(self._config.config_path))} simulation. (Requires at least {middleware_num} devices)')
 
-        self._service_generator = SoPServiceGenerator(self._config)
-        self._thing_generator = SoPThingGenerator(self._config, thing_device_pool)
-        self._middleware_generator = SoPMiddlewareGenerator(self._config, middleware_device_pool)
-        self._scenario_generator = SoPScenarioGenerator(self._config)
+        # self._service_generator = SoPServiceGenerator(self._config)
+        # self._thing_generator = SoPThingGenerator(self._config, thing_device_pool)
+        # self._middleware_generator = SoPMiddlewareGenerator(self._config, middleware_device_pool)
+        # self._scenario_generator = SoPScenarioGenerator(self._config)
 
     def _generate_random_words(self, num_word: int = None, user_word_dictionary_file: List[str] = [], ban_word_list: List[str] = []) -> List[str]:
         selected_words: List[str] = []
@@ -157,10 +159,10 @@ class SoPEnvGenerator:
 
         return selected_words
 
-    def _generate_name_pool(self, ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
+    def generate_name_pool(self, ban_name_list: List[str] = []) -> Tuple[List[str], List[str]]:
         tag_type_num = self._config.service_config.tag_type_num
         service_type_num = self._config.service_config.normal.service_type_num
-        super_service_type_num = self._config.service_config.super.service_type_num
+        # super_service_type_num = self._config.service_config.super.service_type_num
 
         ban_name_list = ban_name_list + self._PREDEFINED_KEYWORD_LIST
 
@@ -168,35 +170,25 @@ class SoPEnvGenerator:
                                                                   ban_word_list=ban_name_list), tag_type_num)
         service_name_pool = random.sample(self._generate_random_words(num_word=service_type_num * 10,
                                                                       ban_word_list=ban_name_list), service_type_num)
-        super_service_name_pool = random.sample(self._generate_random_words(num_word=super_service_type_num * 10,
-                                                                            ban_word_list=ban_name_list), super_service_type_num)
-        return tag_name_pool, service_name_pool, super_service_name_pool
+        # super_service_name_pool = random.sample(self._generate_random_words(num_word=super_service_type_num * 10,
+        #                                                                     ban_word_list=ban_name_list), super_service_type_num)
+        return tag_name_pool, service_name_pool
 
-    def _generate_service_attribute(self, service_name: str):
-        service_name = f'function_{service_name}'
-        tag_list = random.sample(self._tag_name_pool, random.randint(self._config.service_config.tag_per_service[0],
-                                                                     self._config.service_config.tag_per_service[1]))
-        if len(tag_list) != len(set(tag_list)):
-            SOPTEST_LOG_DEBUG(
-                f'service {service_name}\'s tag_list has duplicated words! check this out...', SoPTestLogLevel.FAIL)
-            tag_list = list(set(tag_list))
-
-        energy = random.randint(
-            self._config.service_config.normal.energy[0], self._config.service_config.normal.energy[1])
-        execute_time = random.uniform(
-            self._config.service_config.normal.execute_time[0], self._config.service_config.normal.execute_time[1])
-        return_value = random.randint(0, 1000)
-
-        return service_name, tag_list, energy, execute_time, return_value
-
-    def _generate_service_pool(self) -> List[SoPService]:
-        self._tag_name_pool, self._service_name_pool, self._super_service_name_pool = self._generate_name_pool()
-
+    def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str]) -> List[SoPService]:
         service_pool = []
-        for service_name in self._service_name_pool:
-            # is_trade_off가 True이면 execute_time, energy가 서로 반비례하게 생성된다.
-            service_name, tag_list, energy, execute_time, return_value = self._generate_service_attribute(
-                service_name=service_name)
+        for service_name in service_name_pool:
+            tag_per_service_range = self._config.service_config.tag_per_service
+            energy_range = self._config.service_config.normal.energy
+            execute_time_range = self._config.service_config.normal.execute_time
+            return_value_range = (0, 1000)
+
+            service_name = f'function_{service_name}'
+            tag_per_service = random.randint(*tag_per_service_range)
+            tag_list = random.sample(tag_name_pool, tag_per_service)
+            energy = random.randint(*energy_range)
+            execute_time = random.uniform(*execute_time_range)
+            return_value = random.randint(*return_value_range)
+
             service = SoPService(name=service_name,
                                  level=None,
                                  component_type=SoPComponentType.SERVICE,
@@ -206,17 +198,100 @@ class SoPEnvGenerator:
                                  execute_time=execute_time,
                                  return_value=return_value)
             service_pool.append(service)
-        SOPTEST_LOG_DEBUG(
-            f'generated {len(service_pool)} normal services', SoPTestLogLevel.PASS)
+        SOPTEST_LOG_DEBUG(f'Generated service pool size of {len(service_pool)}', SoPTestLogLevel.INFO)
         return service_pool
 
-    def generate_thing_pool(self) -> List[SoPThing]:
-        thing_pool = self._thing_generator.generate()
+    def generate_thing_pool(self, service_pool: List[SoPService]) -> List[SoPThing]:
+        manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+        if manual_middleware_tree:
+            middleware_config_list = [manual_middleware_tree] + list(manual_middleware_tree.descendants)
+            max_thing_num = sum([middleware_config.thing_num[1] for middleware_config in middleware_config_list])
+        else:
+            max_middleware_num = calculate_tree_node_num(self._config.middleware_config.random.height[1], self._config.middleware_config.random.width[1])
+            max_thing_num = max_middleware_num * self._config.middleware_config.random.normal.thing_per_middleware[1]
+
+        thing_pool = []
+        for _ in range(max_thing_num):
+            device = random.choice(self._thing_device_pool)
+            thing_name = ''
+            level = -1
+            is_super = False
+            fail_rate = self._config.thing_config.normal.fail_error_rate
+            # broken_rate = self._config.thing_config.normal.broken_rate
+            # unregister_rate = self._config.thing_config.normal.unregister_rate
+
+            service_list = copy.deepcopy(random.sample(service_pool, random.randint(*self._config.thing_config.normal.service_per_thing)))
+            for service in service_list:
+                thing_w = random.uniform(0, 0.5)
+                service.execute_time = service.execute_time * (1 - thing_w)
+                service.energy = service.energy * (1 + thing_w)
+
+            config_dir = os.path.dirname(self._config.config_path)
+            simulation_folder_path = f'{config_dir}/simulation_{self._config.name}_{self._generate_start_time}'
+            thing = SoPThing(name=thing_name,
+                             level=level,
+                             component_type=SoPComponentType.THING,
+                             service_list=service_list,
+                             is_super=is_super,
+                             is_parallel=self._service_parallel,
+                             alive_cycle=60 * 5,
+                             device=device,
+                             thing_file_path=f'{simulation_folder_path}/thing/base_thing/{thing_name}.py',
+                             remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing_name}.py',
+                             fail_rate=fail_rate)
+            thing_pool.append(thing)
+
+        SOPTEST_LOG_DEBUG(f'Generated thing pool size of {max_thing_num}', SoPTestLogLevel.INFO)
         return thing_pool
 
+    def generate_middleware_tree(self, thing_pool: List[SoPThing]) -> SoPMiddleware:
+        device_pool = copy.deepcopy(self._middleware_device_pool)
+
+        # f'{upper_middleware.name}__{name}_level{height}_{index}'
+        # {name}_level{height}_{index}
+        manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+
+        if manual_middleware_tree:
+            def manual_inner(config_node: AnyNode, index: int):
+                height = config_node.height + 1
+                if config_node.is_root:
+                    middleware_name = f'middleware_level{height}_0'
+                else:
+                    middleware_name = f'{config_node.parent.name}__{config_node.name}_level{height}_{index}'
+                device = random.choice(device_pool)
+                device_pool.remove(device)
+
+                middleware = SoPMiddleware(name=middleware_name,
+                                           level=height,
+                                           component_type=SoPComponentType.MIDDLEWARE,
+                                           thing_list=[],
+                                           scenario_list=[],
+                                           children=[],
+                                           device=device,
+                                           remote_middleware_path=self._config.middleware_config.remote_middleware_path,
+                                           remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
+                                           mqtt_port=device.mqtt_port)
+                if height == 1:
+                    return middleware
+
+                for index, child_middleware_config in enumerate(config_node.children):
+                    child_middleware = manual_inner(config_node=child_middleware_config, index=index)
+                    child_middleware.parent = middleware
+
+                return middleware
+
+            root_middleware = manual_inner(config_node=manual_middleware_tree, index=0)
+        elif self._config.middleware_config.random:
+            def random_inner():
+                pass
+        else:
+            raise Exception('No middleware config')
+
+        # cprint(RenderTree(root_middleware).by_attr('name'), 'cyan')
+        return root_middleware
+
     def generate_super_thing_pool(self, root_middleware: SoPMiddleware, service_pool: List[SoPService]) -> List[SoPThing]:
-        super_thing_pool = self._thing_generator.generate_super()
-        return super_thing_pool
+        pass
 
     def generate(self):
         simulation_folder_path = f'{os.path.dirname(self._config.config_path)}/simulation_{self._config.name}_{get_current_time(TimeFormat.DATETIME2)}'
@@ -542,6 +617,12 @@ class SoPEnvGenerator:
         updated_device_pool.update(device_pool)
         return updated_device_pool
 
+    def _make_thing_name(self, index: int, is_super: bool):
+        # normal_thing_level3_0__middleware_level2_0__middleware_level1_1_0
+        prefix_name = 'super' if is_super else 'normal'
+        name = f'{prefix_name}_thing_{middleware_index}_{index}'.replace(' ', '_')
+        return name
+
 
 # ===========================================================================================================================
 #                                                            _                                            _
@@ -635,7 +716,7 @@ class SoPMiddlewareGenerator(SoPComponentGenerator):
                                    component_type=SoPComponentType.MIDDLEWARE,
                                    thing_list=[],
                                    scenario_list=[],
-                                   child_middleware_list=[],
+                                   children=[],
                                    device=device,
                                    remote_middleware_path=self._config.middleware_config.remote_middleware_path,
                                    remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
@@ -793,43 +874,6 @@ class SoPMiddlewareGenerator(SoPComponentGenerator):
 
 class SoPServiceGenerator(SoPComponentGenerator):
 
-    def generate(self) -> List[SoPService]:
-
-        def generate_service_property(service_name: str):
-            service_name = f'function_{service_name}'
-            tag_list = random.sample(self.tag_name_pool, random.randint(
-                self._config.service_config.tag_per_service[0], self._config.service_config.tag_per_service[1]))
-            if len(tag_list) != len(set(tag_list)):
-                SOPTEST_LOG_DEBUG(
-                    f'service {service_name}\'s tag_list has duplicated words! check this out...', SoPTestLogLevel.FAIL)
-                tag_list = list(set(tag_list))
-
-            energy = random.randint(
-                self._config.service_config.normal.energy[0], self._config.service_config.normal.energy[1])
-            execute_time = random.uniform(
-                self._config.service_config.normal.execute_time[0], self._config.service_config.normal.execute_time[1])
-            return_value = random.randint(0, 1000)
-
-            return service_name, tag_list, energy, execute_time, return_value
-
-        service_pool = []
-        for service_name in self.service_name_pool:
-            # is_trade_off가 True이면 execute_time, energy가 서로 반비례하게 생성된다.
-            service_name, tag_list, energy, execute_time, return_value = generate_service_property(
-                service_name=service_name)
-            service = SoPService(name=service_name,
-                                 level=None,
-                                 component_type=SoPComponentType.SERVICE,
-                                 tag_list=tag_list,
-                                 is_super=False,
-                                 energy=energy,
-                                 execute_time=execute_time,
-                                 return_value=return_value)
-            service_pool.append(service)
-        SOPTEST_LOG_DEBUG(
-            f'generated {len(service_pool)} normal services', SoPTestLogLevel.PASS)
-        return service_pool
-
     def generate_super(self, middleware: SoPMiddleware, thing_config: SoPThingConfig = None) -> List[SoPService]:
 
         def get_candidate_sub_service_list(super_middleware: SoPMiddleware):
@@ -909,11 +953,6 @@ class SoPServiceGenerator(SoPComponentGenerator):
 
 class SoPThingGenerator(SoPComponentGenerator):
 
-    def __init__(self, config: SoPSimulationConfig = None, thing_device_pool: List[SoPDevice] = []) -> None:
-        super().__init__(config)
-
-        self.thing_device_pool: List[SoPDevice] = thing_device_pool
-
     def make_thing_name(self, index: int, is_super: bool, middleware: SoPMiddleware):
         middleware_index = '_'.join(middleware.name.split('_')[1:])  # levelN_M
         prefix_name = 'super' if is_super else 'normal'
@@ -932,10 +971,8 @@ class SoPThingGenerator(SoPComponentGenerator):
         return fail_rate
 
     def generate_thing_property(self, middleware: SoPMiddleware, index: int, is_super: bool, service_list: List[SoPService] = []):
-        fail_rate = self.generate_error_property(
-            is_super=is_super)
-        thing_name = self.make_thing_name(
-            index=index, is_super=is_super, middleware=middleware)
+        fail_rate = self.generate_error_property(is_super=is_super)
+        thing_name = self.make_thing_name(index=index, is_super=is_super, middleware=middleware)
 
         # NOTE: super thing은 미들웨어와 같은 device를 사용한다.
         if is_super:
@@ -961,8 +998,7 @@ class SoPThingGenerator(SoPComponentGenerator):
                                                 middleware.thing_num[1])
 
             # 이미 생성된 thing이 있으면, 기존 thing에 누적해서 추가분을 더 생성
-            prev_thing_num = len(
-                [thing for thing in middleware.thing_list if not thing.is_super])
+            prev_thing_num = len([thing for thing in middleware.thing_list if not thing.is_super])
             for index in range(base_thing_num - prev_thing_num):
                 thing_name, device, fail_rate, picked_service_list = self.generate_thing_property(middleware=middleware,
                                                                                                   index=index + prev_thing_num,

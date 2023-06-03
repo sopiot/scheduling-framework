@@ -1,5 +1,7 @@
 from simulation_framework.typing import *
 from termcolor import cprint, colored
+from dataclasses import *
+from anytree import *
 
 from tabulate import tabulate
 from pathlib import Path
@@ -55,33 +57,68 @@ class Direction(Enum):
             return cls.UNDEFINED
 
 
-def get_tree_node(root: object, get_child: Callable, get_target: Callable) -> Union[object, None]:
+def get_tree_node(root: object, get_children: Callable, get_target: Callable) -> Union[object, None]:
     if get_target(root):
         return root
-
-    child_list = get_child(root)
-    if not child_list:
+    children_list = get_children(root)
+    if not children_list:
         return None
-    for child_node in get_child(root):
-        found_node = get_tree_node(child_node, get_child, get_target)
+
+    for children_node in get_children(root):
+        found_node = get_tree_node(children_node, get_children, get_target)
         if found_node:
             return found_node
 
     return None
 
 
-def count_tree_node(root: object, get_child: Callable, filter: Callable):
+def get_tree_node_list(root, get_children: Callable):
+    node_list = [root]
+    children_list = get_children(root)
+    if not children_list:
+        return node_list
+
+    for children_node in get_children(root):
+        node_list.extend(get_tree_node_list(children_node, get_children))
+
+    return node_list
+
+
+def count_tree_node_num(root: object, get_children: Callable, filter: Callable):
     count = 0
     if filter(root):
         count += 1
-
-    child_list = get_child(root)
-    if not child_list:
+    children_list = get_children(root)
+    if not children_list:
         return count
-    for child_node in get_child(root):
-        count += count_tree_node(child_node, get_child, filter)
+
+    for children_node in get_children(root):
+        count += count_tree_node_num(children_node, get_children, filter)
 
     return count
+
+
+def calculate_tree_node_num(height, num_children):
+    if height == 1:
+        return 1
+
+    node_count = 1
+    for _ in range(num_children):
+        node_count += calculate_tree_node_num(height - 1, num_children)
+
+    return node_count
+
+
+def get_tree_height(root: object, get_children: Callable):
+    height = 1
+    children_list = get_children(root)
+    if not children_list:
+        return height
+
+    for children_node in get_children(root):
+        height = max(height, get_tree_height(children_node, get_children))
+
+    return height + 1
 
 
 def find_json_pattern(payload: str) -> str:
@@ -97,16 +134,19 @@ def find_json_pattern(payload: str) -> str:
 
 def get_current_time(mode: TimeFormat = TimeFormat.UNIXTIME):
     if mode == TimeFormat.DATETIME1:
-        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        cur_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     elif mode == TimeFormat.DATETIME2:
-        return time.strftime("%Y%m%d_%H%M%S", time.localtime())
+        cur_time = time.strftime("%Y%m%d_%H%M%S", time.localtime())
     elif mode == TimeFormat.DATE:
-        return time.strftime("%Y-%m-%d", time.localtime())
+        cur_time = time.strftime("%Y-%m-%d", time.localtime())
     elif mode == TimeFormat.TIME:
-        return time.strftime("%H:%M:%S", time.localtime())
+        cur_time = time.strftime("%H:%M:%S", time.localtime())
     elif mode == TimeFormat.UNIXTIME:
-        return time.time()
-    return time.time()
+        cur_time = time.time()
+    else:
+        cur_time = time.time()
+
+    return cur_time
 
 
 def json_string_to_dict(json_string: str) -> Union[str, dict]:

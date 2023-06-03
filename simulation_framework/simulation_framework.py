@@ -238,7 +238,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
 
     def generate_simulation_env(self) -> List[SoPSimulationEnv]:
         self.env_generator = SoPEnvGenerator(service_parallel=self._service_parallel)
-        service_pool, thing_pool = [], []
+        service_pool: List[SoPService] = []
+        thing_pool: List[SoPThing] = []
 
         for simulation_env in self._simulation_env_list:
             simulation_config = simulation_env.config
@@ -247,15 +248,19 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
             # if service_thing_pool is given in config, load it
             if os.path.exists(service_thing_pool_path):
                 service_pool, thing_pool = self.load_service_thing_pool(service_thing_pool_path=service_thing_pool_path)
-                self.env_generator.load(service_pool=service_pool, thing_pool=thing_pool, config=simulation_env.config)
+                self.env_generator.load(config=simulation_env.config)
             # else generate service_thing_pool
             else:
                 self.env_generator.load(config=simulation_env.config)
-                service_pool = self.env_generator._generate_service_pool()
-                thing_pool = self.env_generator.generate_thing_pool()
+                tag_name_pool, service_name_pool = self.env_generator.generate_name_pool()
+                service_pool = self.env_generator.generate_service_pool(tag_name_pool=tag_name_pool, service_name_pool=service_name_pool)
+                thing_pool = self.env_generator.generate_thing_pool(service_pool=service_pool)
 
-            simulation_env.root_middleware, simulation_env.event_timeline = self.env_generator.generate()
-            simulation_env = self.env_generator.generate()
+            root_middleware = self.env_generator.generate_middleware_tree(thing_pool=thing_pool)
+
+            # TODO: mapping thing to middleware tree
+            # TODO: generate_scenario and mapping to middleware tree
+            # TODO: generate super thing, scenario, and mapping to middleware tree
 
             simulation_info = dict(simulation_file_path=simulation_file_path,
                                    config_path=config_path,

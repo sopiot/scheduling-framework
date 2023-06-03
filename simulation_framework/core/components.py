@@ -301,7 +301,7 @@ class SoPDevice(SoPComponent):
                     localserver_port=self.localserver_port)
 
 
-class SoPMiddleware(SoPComponent):
+class SoPMiddleware(SoPComponent, NodeMixin):
 
     CFG_TEMPLATE = '''%s
 broker_uri = "tcp://%s:%d"
@@ -318,6 +318,7 @@ log_file_path = "%s/simulation_log/%s_middleware.log"
 log_max_size = 300
 log_backup_num = 100'''
 
+    # port: int
     MOSQUITTO_CONF_TEMPLATE = Template('''set_tcp_nodelay true
 log_timestamp true
 log_timestamp_format %Y/%m/%d %H:%M:%S
@@ -325,45 +326,6 @@ log_timestamp_format %Y/%m/%d %H:%M:%S
 listener $port 0.0.0.0
 protocol mqtt
 allow_anonymous true''')
-
-#     MOSQUITTO_CONF_TEMPLATE = '''set_tcp_nodelay true
-
-# listener %d 0.0.0.0
-# protocol mqtt
-# allow_anonymous true
-
-# listener %d 0.0.0.0
-# protocol websockets
-# allow_anonymous true'''
-
-#     MOSQUITTO_CONF_TEMPLATE_OLD = '''persistence true
-# persistence_location /var/lib/mosquitto/
-
-# include_dir /etc/mosquitto/conf.d
-
-# listener %d 0.0.0.0
-# protocol mqtt
-# allow_anonymous true
-
-# listener %d 0.0.0.0
-# protocol websockets
-# allow_anonymous true
-
-# listener %d 0.0.0.0
-# protocol mqtt
-# allow_anonymous true
-# cafile /etc/mosquitto/ca_certificates/ca.crt
-# certfile /etc/mosquitto/certs/host.crt
-# keyfile /etc/mosquitto/certs/host.key
-# require_certificate true
-
-# listener %d 0.0.0.0
-# protocol websockets
-# allow_anonymous true
-# cafile /etc/mosquitto/ca_certificates/ca.crt
-# certfile /etc/mosquitto/certs/host.crt
-# keyfile /etc/mosquitto/certs/host.key
-# require_certificate true'''
 
     INIT_SCRIPT_TEMPLATE = '''MAIN_DB=%s/%s_Main.db
 VALUE_LOG_DB=%s/%s_ValueLog.db
@@ -379,16 +341,16 @@ sqlite3 $MAIN_DB < %s/MainDBCreate
 sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
     def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
-                 thing_list: List['SoPThing'] = [], scenario_list: List['SoPScenario'] = [], child_middleware_list: List['SoPMiddleware'] = [],
+                 thing_list: List['SoPThing'] = [], scenario_list: List['SoPScenario'] = [], parent: 'SoPMiddleware' = None, children: List['SoPMiddleware'] = [],
                  device: SoPDevice = None,
                  remote_middleware_path: str = None, remote_middleware_config_path: str = None,
-                 mqtt_port: int = None, mqtt_ssl_port: int = None, websocket_port: int = None, websocket_ssl_port: int = None, localserver_port: int = 58132,
-                 thing_num: List[int] = None, scenario_num: List[int] = None, super_thing_num: List[int] = None, super_scenario_num: List[int] = None) -> None:
+                 mqtt_port: int = None, mqtt_ssl_port: int = None, websocket_port: int = None, websocket_ssl_port: int = None, localserver_port: int = 58132) -> None:
         super().__init__(name, level, component_type)
 
         self.thing_list = thing_list
         self.scenario_list = scenario_list
-        self.child_middleware_list = child_middleware_list
+        self.parent = parent
+        self.children = children
 
         self.device = device
 
@@ -411,12 +373,6 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.websocket_port = websocket_port
         self.websocket_ssl_port = websocket_ssl_port
         self.localserver_port = localserver_port
-
-        # for middleware_tree config option
-        self.thing_num = thing_num
-        self.super_thing_num = super_thing_num
-        self.scenario_num = scenario_num
-        self.super_scenario_num = super_scenario_num
 
         self.online = False
 
@@ -445,11 +401,6 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         middleware.websocket_ssl_port = data['websocket_ssl_port']
         middleware.localserver_port = data['localserver_port']
 
-        middleware.thing_num = data['thing_num']
-        middleware.super_thing_num = data['super_thing_num']
-        middleware.scenario_num = data['scenario_num']
-        middleware.super_scenario_num = data['super_scenario_num']
-
         return middleware
 
     def dict(self):
@@ -467,11 +418,7 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
             mqtt_ssl_port=self.mqtt_ssl_port,
             websocket_port=self.websocket_port,
             websocket_ssl_port=self.websocket_ssl_port,
-            localserver_port=self.localserver_port,
-            thing_num=self.thing_num,
-            super_thing_num=self.super_thing_num,
-            scenario_num=self.scenario_num,
-            super_scenario_num=self.super_scenario_num)
+            localserver_port=self.localserver_port)
 
     def set_port(self, mqtt_port: int, mqtt_ssl_port: int, websocket_port: int, websocket_ssl_port: int, localserver_port: int):
         self.mqtt_port = mqtt_port

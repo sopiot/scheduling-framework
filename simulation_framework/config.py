@@ -1,5 +1,6 @@
 from simulation_framework.utils import *
 from simulation_framework.logger import *
+from anytree.importer import DictImporter
 import os
 
 
@@ -111,9 +112,12 @@ class SoPMiddlewareConfig:
 
         self.manual = SoPPath(config_path=os.path.abspath(config_path),
                               path=data.get('manual', ''))
-        self.manual_middleware_tree = {}
+        self.manual_middleware_tree: AnyNode = None
+
         if self.manual.abs_path():
-            self.manual_middleware_tree = load_yaml(self.manual.abs_path())
+            importer = DictImporter()
+            manual_middleware_tree_dict = load_yaml(self.manual.abs_path())
+            self.manual_middleware_tree = importer.import_(manual_middleware_tree_dict)
         self.random = SoPMiddlewareConfig.RandomConfig(data['random']) if 'random' in data else None
         if not 'manual' in data and not 'random' in data:
             raise SOPTEST_LOG_DEBUG(f'random: and manual: are not set...', SoPTestLogLevel.FAIL)
