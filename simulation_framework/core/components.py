@@ -340,12 +340,12 @@ fi
 sqlite3 $MAIN_DB < %s/MainDBCreate
 sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
-    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
+    def __init__(self, name: str = '', level: int = -1,
                  thing_list: List['SoPThing'] = [], scenario_list: List['SoPScenario'] = [], parent: 'SoPMiddleware' = None, children: List['SoPMiddleware'] = [],
                  device: SoPDevice = None,
                  remote_middleware_path: str = None, remote_middleware_config_path: str = None,
                  mqtt_port: int = None, mqtt_ssl_port: int = None, websocket_port: int = None, websocket_ssl_port: int = None, localserver_port: int = 58132) -> None:
-        super().__init__(name, level, component_type)
+        super().__init__(name, level, component_type=SoPComponentType.MIDDLEWARE)
 
         self.thing_list = thing_list
         self.scenario_list = scenario_list
@@ -382,12 +382,9 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
     def load(cls, data: dict) -> 'SoPMiddleware':
         middleware: SoPMiddleware = super().load(data=data)
 
-        middleware.thing_list = [SoPThing.load(thing_info)
-                                 for thing_info in data['thing_list']]
-        middleware.scenario_list = [SoPScenario.load(
-            scenario_info) for scenario_info in data['scenario_list']]
-        middleware.child_middleware_list = [SoPMiddleware.load(
-            child_middleware_info) for child_middleware_info in data['child_middleware_list']]
+        middleware.thing_list = [SoPThing.load(thing_info) for thing_info in data['thing_list']]
+        middleware.scenario_list = [SoPScenario.load(scenario_info) for scenario_info in data['scenario_list']]
+        middleware.children = [SoPMiddleware.load(child_middleware_info) for child_middleware_info in data['child_middleware_list']]
 
         middleware.device = SoPDevice.load(data['device'])
 
@@ -404,21 +401,19 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         return middleware
 
     def dict(self):
-        return dict(
-            **super().dict(),
-            thing_list=[thing.dict() for thing in self.thing_list],
-            scenario_list=[scenario.dict()
-                           for scenario in self.scenario_list],
-            child_middleware_list=[child_middleware.dict(
-            ) for child_middleware in self.child_middleware_list],
-            device=self.device.dict(),
-            remote_middleware_path=self.remote_middleware_path,
-            remote_middleware_config_path=self.remote_middleware_config_path,
-            mqtt_port=self.mqtt_port,
-            mqtt_ssl_port=self.mqtt_ssl_port,
-            websocket_port=self.websocket_port,
-            websocket_ssl_port=self.websocket_ssl_port,
-            localserver_port=self.localserver_port)
+        self.children: List[SoPMiddleware]
+        return dict(**super().dict(),
+                    thing_list=[thing.dict() for thing in self.thing_list],
+                    scenario_list=[scenario.dict() for scenario in self.scenario_list],
+                    child_middleware_list=[child_middleware.dict() for child_middleware in self.children],
+                    device=self.device.dict(),
+                    remote_middleware_path=self.remote_middleware_path,
+                    remote_middleware_config_path=self.remote_middleware_config_path,
+                    mqtt_port=self.mqtt_port,
+                    mqtt_ssl_port=self.mqtt_ssl_port,
+                    websocket_port=self.websocket_port,
+                    websocket_ssl_port=self.websocket_ssl_port,
+                    localserver_port=self.localserver_port)
 
     def set_port(self, mqtt_port: int, mqtt_ssl_port: int, websocket_port: int, websocket_ssl_port: int, localserver_port: int):
         self.mqtt_port = mqtt_port
@@ -452,18 +447,6 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         return self.middleware_cfg
 
     def mosquitto_conf_file(self):
-        # if mosquitto_conf_trim:
-        #     self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
-        #                                                                    self.websocket_port,)
-        # else:
-        #     self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE_OLD % (self.mqtt_port,
-        #                                                                        self.mqtt_ssl_port,
-        #                                                                        self.websocket_port,
-        #                                                                        self.websocket_ssl_port)
-
-        # self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE % (self.mqtt_port,
-        #                                                                self.websocket_port,)
-
         mosquitto_port = self.mqtt_port if self.mqtt_port else self.device.mqtt_port
         self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
 
@@ -538,10 +521,10 @@ def %s(self, key) -> str:
         raise Exception('super execute fail...')
 '''
 
-    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
+    def __init__(self, name: str = '', level: int = -1,
                  tag_list: List[str] = [], is_super: bool = False, energy: float = 0, execute_time: float = 0, return_value: int = 0,
-                 sub_service_list: List['SoPService'] = []) -> None:
-        super().__init__(name, level, component_type)
+                 sub_service_list: List['SoPService'] = [], thing: 'SoPThing' = None) -> None:
+        super().__init__(name, level, component_type=SoPComponentType.SERVICE)
 
         self.tag_list = tag_list
         self.is_super = is_super
@@ -550,6 +533,7 @@ def %s(self, key) -> str:
         self.return_value = return_value
 
         self.sub_service_list = sub_service_list
+        self.thing = thing
 
     def tag_code(self) -> str:
         tag_code = ', '.join([f'SoPTag("{tag}")' for tag in self.tag_list])
@@ -566,23 +550,21 @@ elif thing_start_time == 1:
 
         return error_code.rstrip()
 
-    def reqline_code(self) -> str:
-        reqline_code_list = []
+    def sub_service_request_code(self) -> str:
+        sub_service_request_code_list = []
         for subfunction in self.sub_service_list:
-            picked_tag_list = random.sample(subfunction.tag_list, random.randint(
-                1, len(subfunction.tag_list)))
+            picked_tag_list = random.sample(subfunction.tag_list, random.randint(1, len(subfunction.tag_list)))
             if len(picked_tag_list) != len(set(picked_tag_list)):
-                SOPTEST_LOG_DEBUG(
-                    f'request line of {self.name}:{subfunction.name}\'s tag_list has duplicated words! check this out...', SoPTestLogLevel.FAIL)
+                SOPTEST_LOG_DEBUG(f'request line of {self.name}:{subfunction.name}\'s tag_list has duplicated words! check this out...', SoPTestLogLevel.FAIL)
                 picked_tag_list = list(set(picked_tag_list))
 
             # TODO: policy(ALL, SINGLE) 비율을 조정할 수 있도록 수정하면 좋을 것 같다. (현재는 1:1로 고정)
             policy = random.choice(['SINGLE'])
 
-            reqline_code_list.append(self.SUBFUNCTION_TEMPLATE % (subfunction.name,
-                                                                  picked_tag_list,
-                                                                  policy))
-        return '\n'.join(reqline_code_list).rstrip()
+            sub_service_request_code_list.append(self.SUBFUNCTION_TEMPLATE % (subfunction.name,
+                                                                              picked_tag_list,
+                                                                              policy))
+        return '\n'.join(sub_service_request_code_list).rstrip()
 
     def service_instance_code(self) -> str:
         tag_code = self.tag_code()
@@ -601,8 +583,7 @@ elif thing_start_time == 1:
         return service_instance_code
 
     def service_code(self, fail_rate: float, is_super: bool) -> str:
-        error_code = append_indent(self.error_code(
-            fail_rate, is_super))
+        error_code = append_indent(self.error_code(fail_rate, is_super))
         if not self.is_super:
             service_code = self.FUNCTION_TEMPLATE % (self.name,
                                                      self.return_value,
@@ -611,10 +592,9 @@ elif thing_start_time == 1:
                                                      self.execute_time,
                                                      self.energy)
         else:
-            # NOTE: in case of super service, error_code is not used.
-            reqline_code = append_indent(self.reqline_code())
-            service_code = self.SUPER_FUNCTION_TEMPLATE % (self.name,
-                                                           reqline_code)
+            # in case of super service, error_code is not used.
+            sub_service_request_code = append_indent(self.sub_service_request_code())
+            service_code = self.SUPER_FUNCTION_TEMPLATE % (self.name, sub_service_request_code)
         return service_code
 
     @classmethod
@@ -755,12 +735,12 @@ if __name__ == '__main__':
     thing.run()
 '''
 
-    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
+    def __init__(self, name: str = '', level: int = -1,
                  service_list: List['SoPService'] = [], is_super: bool = False, is_parallel: bool = False, alive_cycle: float = 0,
-                 device: SoPDevice = None,
+                 device: SoPDevice = None, middleware: SoPMiddleware = None,
                  thing_file_path: str = '', remote_thing_file_path: str = '',
                  fail_rate: float = None) -> None:
-        super().__init__(name, level, component_type)
+        super().__init__(name, level, component_type=SoPComponentType.THING)
 
         self.service_list = service_list
         self.is_super = is_super
@@ -768,6 +748,7 @@ if __name__ == '__main__':
         self.alive_cycle = alive_cycle
 
         self.device = device
+        self.middleware = middleware
 
         self.thing_file_path = thing_file_path
         self.remote_thing_file_path = remote_thing_file_path
@@ -800,8 +781,7 @@ if __name__ == '__main__':
 
     def dict(self):
         return dict(**super().dict(),
-                    service_list=[service.dict()
-                                  for service in self.service_list],
+                    service_list=[service.dict() for service in self.service_list],
                     is_super=self.is_super,
                     is_parallel=self.is_parallel,
                     alive_cycle=self.alive_cycle,
@@ -858,14 +838,15 @@ class SoPScenario(SoPComponent):
 }
 '''
 
-    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = None,
+    def __init__(self, name: str = '', level: int = -1,
                  service_list: List[SoPService] = [], period: float = None,
-                 scenario_file_path: str = '') -> None:
-        super().__init__(name, level, component_type)
+                 scenario_file_path: str = '', middleware: SoPMiddleware = None) -> None:
+        super().__init__(name, level, component_type=SoPComponentType.SCENARIO)
 
         self.service_list = service_list
         self.period = period
         self.scenario_file_path = scenario_file_path
+        self.middleware = middleware
 
         self.state: SoPScenarioState = None
         self.schedule_success = False

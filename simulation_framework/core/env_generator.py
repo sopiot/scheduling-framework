@@ -8,6 +8,15 @@ from getpass import getpass
 import platform
 
 
+def print_middleware_tree(root_middleware: SoPMiddleware, show: Callable = lambda node: None):
+    pre: str
+    fill: str
+    node: SoPMiddleware
+    cprint(f'==== Middleware Tree Structure ====', 'green')
+    for pre, fill, node in RenderTree(root_middleware):
+        cprint(f'{pre}{node.name} - {show(node)}', 'cyan')
+
+
 class SoPComponentGenerateMode(Enum):
     ALL_RANDOM = 'all_random'
     APPEND = 'append'
@@ -191,7 +200,6 @@ class SoPEnvGenerator:
 
             service = SoPService(name=service_name,
                                  level=None,
-                                 component_type=SoPComponentType.SERVICE,
                                  tag_list=tag_list,
                                  is_super=False,
                                  energy=energy,
@@ -220,8 +228,14 @@ class SoPEnvGenerator:
             # broken_rate = self._config.thing_config.normal.broken_rate
             # unregister_rate = self._config.thing_config.normal.unregister_rate
 
-            service_list = copy.deepcopy(random.sample(service_pool, random.randint(*self._config.thing_config.normal.service_per_thing)))
-            for service in service_list:
+            service_per_thing_range = self._config.thing_config.normal.service_per_thing
+            service_per_thing = random.randint(*service_per_thing_range)
+            selected_service_list = random.sample(service_pool, service_per_thing)
+
+            # set trade off between energy and execute time
+            # if energy is getting high, execute time will be getting low
+            selected_service_list_copy = copy.deepcopy(selected_service_list)
+            for service in selected_service_list_copy:
                 thing_w = random.uniform(0, 0.5)
                 service.execute_time = service.execute_time * (1 - thing_w)
                 service.energy = service.energy * (1 + thing_w)
@@ -230,8 +244,7 @@ class SoPEnvGenerator:
             simulation_folder_path = f'{config_dir}/simulation_{self._config.name}_{self._generate_start_time}'
             thing = SoPThing(name=thing_name,
                              level=level,
-                             component_type=SoPComponentType.THING,
-                             service_list=service_list,
+                             service_list=selected_service_list_copy,
                              is_super=is_super,
                              is_parallel=self._service_parallel,
                              alive_cycle=60 * 5,
@@ -239,6 +252,9 @@ class SoPEnvGenerator:
                              thing_file_path=f'{simulation_folder_path}/thing/base_thing/{thing_name}.py',
                              remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing_name}.py',
                              fail_rate=fail_rate)
+            for service in thing.service_list:
+                service.thing = thing
+
             thing_pool.append(thing)
 
         SOPTEST_LOG_DEBUG(f'Generated thing pool size of {max_thing_num}', SoPTestLogLevel.INFO)
@@ -246,13 +262,10 @@ class SoPEnvGenerator:
 
     def generate_middleware_tree(self, thing_pool: List[SoPThing]) -> SoPMiddleware:
         device_pool = copy.deepcopy(self._middleware_device_pool)
-
-        # f'{upper_middleware.name}__{name}_level{height}_{index}'
-        # {name}_level{height}_{index}
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
 
         if manual_middleware_tree:
-            def manual_inner(config_node: AnyNode, node: SoPMiddleware, index: int) -> SoPMiddleware:
+            def manual_inner(node: SoPMiddleware, config_node: AnyNode, index: int) -> SoPMiddleware:
                 height = config_node.height + 1
                 if config_node.is_root:
                     middleware_name = f'middleware_level{height}_0'
@@ -263,7 +276,6 @@ class SoPEnvGenerator:
 
                 middleware = SoPMiddleware(name=middleware_name,
                                            level=height,
-                                           component_type=SoPComponentType.MIDDLEWARE,
                                            thing_list=[],
                                            scenario_list=[],
                                            children=[],
@@ -275,12 +287,12 @@ class SoPEnvGenerator:
                     return middleware
 
                 for index, child_middleware_config in enumerate(config_node.children):
-                    child_middleware = manual_inner(config_node=child_middleware_config, node=middleware, index=index)
+                    child_middleware = manual_inner(node=middleware, config_node=child_middleware_config, index=index)
                     child_middleware.parent = middleware
 
                 return middleware
 
-            root_middleware = manual_inner(config_node=manual_middleware_tree, node=None, index=0)
+            root_middleware = manual_inner(node=None, config_node=manual_middleware_tree, index=0)
         elif self._config.middleware_config.random:
             def random_inner(node: SoPMiddleware, height: int, width_range: ConfigRandomIntRange, index: int) -> SoPMiddleware:
                 if node == None:
@@ -292,7 +304,6 @@ class SoPEnvGenerator:
 
                 middleware = SoPMiddleware(name=middleware_name,
                                            level=height,
-                                           component_type=SoPComponentType.MIDDLEWARE,
                                            thing_list=[],
                                            scenario_list=[],
                                            children=[],
@@ -315,10 +326,55 @@ class SoPEnvGenerator:
             height = random.randint(*height_range)
             root_middleware = random_inner(node=None, height=height, width_range=width_range, index=0)
         else:
-            raise Exception('No middleware config')
+            raise Exception('Unknown error')
 
-        # cprint(RenderTree(root_middleware).by_attr('name'), 'cyan')
+        print_middleware_tree(root_middleware)
         return root_middleware
+
+    def map_thing_to_middleware(self, root_middleware: SoPMiddleware, thing_pool: List[SoPThing]) -> None:
+        manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+
+        if manual_middleware_tree:
+            def manual_inner(node: SoPMiddleware, config_node: AnyNode) -> None:
+                thing_per_middleware_range = config_node.thing_num
+                thing_per_middleware = random.randint(*thing_per_middleware_range)
+                selected_thing_list = random.sample(thing_pool, thing_per_middleware)
+                node.thing_list = selected_thing_list
+
+                for index, thing in enumerate(node.thing_list):
+                    thing.middleware = node
+                    thing.level = node.level + 1
+                    thing.name = f'normal_thing_{index}__{node.name}'
+
+                if not node.children:
+                    return
+                for child_middleware, child_middleware_config in zip(node.children, config_node.children):
+                    manual_inner(node=child_middleware, config_node=child_middleware_config)
+
+            manual_inner(node=root_middleware, config_node=manual_middleware_tree)
+        elif self._config.middleware_config.random:
+            thing_per_middleware_range = self._config.middleware_config.random.normal.thing_per_middleware
+
+            def random_inner(node: SoPMiddleware) -> SoPMiddleware:
+                thing_per_middleware = random.randint(*thing_per_middleware_range)
+                selected_thing_list = random.sample(thing_pool, thing_per_middleware)
+                node.thing_list = selected_thing_list
+
+                for index, thing in enumerate(node.thing_list):
+                    thing.middleware = node
+                    thing.level = node.level + 1
+                    thing.name = f'normal_thing_{index}__{node.name}'
+
+                if not node.children:
+                    return
+                for child_middleware in node.children:
+                    random_inner(child_middleware)
+
+            random_inner(node=root_middleware)
+        else:
+            raise Exception('Unknown error')
+
+        print_middleware_tree(root_middleware=root_middleware, show=lambda node: '\n'.join([f'{thing.name} level: {thing.level} service_num: {len(thing.service_list)}' for thing in node.thing_list]))
 
     def generate_super_thing_pool(self, root_middleware: SoPMiddleware, service_pool: List[SoPService]) -> List[SoPThing]:
         pass
@@ -675,222 +731,6 @@ class SoPComponentGenerator(metaclass=ABCMeta):
         pass
 
 
-# ==============================================================================================================================
-#             _      _      _  _                                                                             _
-#            (_)    | |    | || |                                                                           | |
-#  _ __ ___   _   __| |  __| || |  ___ __      __  __ _  _ __   ___    __ _   ___  _ __    ___  _ __   __ _ | |_   ___   _ __
-# | '_ ` _ \ | | / _` | / _` || | / _ \\ \ /\ / / / _` || '__| / _ \  / _` | / _ \| '_ \  / _ \| '__| / _` || __| / _ \ | '__|
-# | | | | | || || (_| || (_| || ||  __/ \ V  V / | (_| || |   |  __/ | (_| ||  __/| | | ||  __/| |   | (_| || |_ | (_) || |
-# |_| |_| |_||_| \__,_| \__,_||_| \___|  \_/\_/   \__,_||_|    \___|  \__, | \___||_| |_| \___||_|    \__,_| \__| \___/ |_|
-#                                                                      __/ |
-#                                                                     |___/
-# ==============================================================================================================================
-
-class SoPMiddlewareGenerator(SoPComponentGenerator):
-    def __init__(self, config: SoPSimulationConfig = None, device_pool: List[SoPDevice] = []) -> None:
-        super().__init__(config)
-
-        self.device_pool = device_pool
-        self.used_device_list: List[SoPDevice] = []
-
-    def find_device(self, device_name: str) -> SoPDevice:
-        for device in self.device_pool:
-            if device.name == device_name:
-                return device
-        else:
-            raise Exception(
-                f'Cannot find device {device_name} in device pool')
-
-    def generate_middleware(self, height: int, index: int, name: str = 'middleware', upper_middleware: SoPMiddleware = None, target_device_pool: Union[str, List[str]] = None,
-                            thing_num: List[int] = None, super_thing_num: List[int] = None, scenario_num: List[int] = None, super_scenario_num: List[int] = None,
-                            mqtt_port: int = None) -> dict:
-
-        def get_unselected_device(target_device_pool: List[SoPDevice]) -> SoPDevice:
-            while True:
-                device: SoPDevice = random.choice(target_device_pool)
-                if device not in self.used_device_list:
-                    self.used_device_list.append(device)
-                    return device
-                elif len(self.used_device_list) == len(target_device_pool):
-                    SOPTEST_LOG_DEBUG(
-                        f'All device in device pool is used. Use device duplicate mode on middleware: {name}', SoPTestLogLevel.WARN)
-                    return device
-                else:
-                    continue
-
-        # 미들웨어의 이름을 생성한다
-        if upper_middleware:
-            name = f'{upper_middleware.name}__{name}_level{height}_{index}'
-        else:
-            name = f'{name}_level{height}_{index}'
-
-        # 최대한 디바이스가 겹치지 않게 미들웨어에 디바이스를 할당한다
-        # 만약 디바이스 수가 모자라는 경우 경고를 출력하고 중복해서 할당한다
-        if not target_device_pool:
-            device = get_unselected_device(self.device_pool)
-        elif isinstance(target_device_pool, list):
-            target_device_pool: List[SoPDevice] = [
-                self.find_device(device) for device in target_device_pool]
-            device = get_unselected_device(target_device_pool)
-        elif isinstance(target_device_pool, str):
-            target_device_pool: List[SoPDevice] = [
-                self.find_device(target_device_pool)]
-            device = get_unselected_device(target_device_pool)
-        else:
-            raise Exception(
-                f'Invalid target_device_pool type: {type(target_device_pool)}')
-
-        name = 'middleware' if not name else name
-        middleware = SoPMiddleware(name=name,
-                                   level=height,
-                                   component_type=SoPComponentType.MIDDLEWARE,
-                                   thing_list=[],
-                                   scenario_list=[],
-                                   children=[],
-                                   device=device,
-                                   remote_middleware_path=self._config.middleware_config.remote_middleware_path,
-                                   remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
-                                   mqtt_port=mqtt_port if mqtt_port else device.mqtt_port,
-                                   thing_num=thing_num,
-                                   super_thing_num=super_thing_num,
-                                   scenario_num=scenario_num,
-                                   super_scenario_num=super_scenario_num)
-        SOPTEST_LOG_DEBUG(
-            f'generate middleware: {middleware.name}({middleware.level})', SoPTestLogLevel.PASS)
-        return middleware
-
-    def generate(self, simulation_env: SoPMiddleware = None, manual_height: int = None, manual_child_per_node: int = None):
-
-        def get_middleware_tree_height(middleware_tree: List[dict]):
-            if not middleware_tree:
-                return 0
-            return max(get_middleware_tree_height(middleware['child']) for middleware in middleware_tree) + 1
-
-        def generate_random_middleware_tree_recursive(height: int, width: Tuple[int], upper_middleware: SoPMiddleware):
-            upper_middleware.child_middleware_list.extend([self.generate_middleware(
-                height=height - 1,
-                index=i,
-                upper_middleware=upper_middleware) for i in range(random.randint(width[0], width[1]))])
-            if height - 1 > 1:
-                for child_middleware in upper_middleware.child_middleware_list:
-                    generate_random_middleware_tree_recursive(height - 1, width,
-                                                              child_middleware)
-
-            return upper_middleware
-
-        def generate_manual_middleware_tree_recursive(height: int, upper_middleware: SoPMiddleware, middleware_tree: list):
-            if not middleware_tree:
-                return upper_middleware
-
-            width = len(middleware_tree)
-            # NOTE: middleware debug mode only available in manual middleware tree mode
-            if upper_middleware.child_middleware_list:
-                for child_middleware, child_middleware_tree in zip(upper_middleware.child_middleware_list, middleware_tree):
-                    child_middleware.thing_num = child_middleware_tree['thing_num']
-                    child_middleware.super_thing_num = child_middleware_tree['super_thing_num']
-                    child_middleware.scenario_num = child_middleware_tree['scenario_num']
-                    child_middleware.super_scenario_num = child_middleware_tree['super_scenario_num']
-            else:
-                tmp_child_middleware_list = []
-                for i in range(width):
-                    target_device_pool = middleware_tree[i].get(
-                        'device', None)
-                    if not target_device_pool:
-                        target_device_pool = [
-                            device.name for device in self.device_pool]
-
-                    tmp_child_middleware_list.append(self.generate_middleware(
-                        height=height - 1,
-                        index=i,
-                        name=middleware_tree[i]['name'],
-                        upper_middleware=upper_middleware,
-                        target_device_pool=target_device_pool,
-                        thing_num=middleware_tree[i]['thing_num'],
-                        super_thing_num=middleware_tree[i]['super_thing_num'],
-                        scenario_num=middleware_tree[i]['scenario_num'],
-                        super_scenario_num=middleware_tree[i]['super_scenario_num'],
-                        mqtt_port=middleware_tree[i].get('mqtt_port', None)))
-                upper_middleware.child_middleware_list.extend(
-                    tmp_child_middleware_list)
-
-            if height - 1 > 1:
-                for child_middleware, child_middleware_tree in zip(upper_middleware.child_middleware_list, middleware_tree):
-                    generate_manual_middleware_tree_recursive(
-                        height - 1, child_middleware, child_middleware_tree['child'])
-
-            return upper_middleware
-
-        if manual_height is not None:
-            new_simulation_env: SoPMiddleware = self.generate_middleware(
-                height=manual_height,
-                index=0)
-            if manual_height > 1:
-                generate_random_middleware_tree_recursive(
-                    manual_height, [1, 1], new_simulation_env)
-
-            if simulation_env:
-                top_level = simulation_env.level
-                middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(
-                    new_simulation_env)
-                for middleware in middleware_list:
-                    if middleware.level == top_level + 1:
-                        middleware.child_middleware_list = [simulation_env]
-
-            return new_simulation_env
-        elif manual_child_per_node is not None:
-            if not simulation_env:
-                simulation_env: SoPMiddleware = self.generate_middleware(
-                    height=2,
-                    index=0)
-            for _ in range(1, manual_child_per_node - len(simulation_env.child_middleware_list) + 1):
-                index = len(simulation_env.child_middleware_list)
-                middleware_env: SoPMiddleware = self.generate_middleware(
-                    height=1,
-                    index=index)
-                simulation_env.child_middleware_list.append(middleware_env)
-            return simulation_env
-        elif self._config.middleware_config.manual:
-            max_height = get_middleware_tree_height(
-                self._config.middleware_config.manual)
-
-            if not simulation_env:
-                target_device_pool = self._config.middleware_config.manual[0].get(
-                    'device', None)
-                if not target_device_pool:
-                    target_device_pool = [
-                        device.name for device in self.device_pool]
-
-                middleware_env: SoPMiddleware = self.generate_middleware(
-                    height=max_height,
-                    index=0,
-                    name=self._config.middleware_config.manual[0]['name'],
-                    target_device_pool=target_device_pool,
-                    thing_num=self._config.middleware_config.manual[
-                        0]['thing_num'],
-                    super_thing_num=self._config.middleware_config.manual[
-                        0]['super_thing_num'],
-                    scenario_num=self._config.middleware_config.manual[
-                        0]['scenario_num'],
-                    super_scenario_num=self._config.middleware_config.manual[
-                        0]['super_scenario_num'],
-                    mqtt_port=self._config.middleware_config.manual[0].get(
-                        'mqtt_port', None)
-                )
-            else:
-                middleware_env = simulation_env
-            return generate_manual_middleware_tree_recursive(max_height, middleware_env, self._config.middleware_config.manual[0]['child'])
-        elif self._config.middleware_config.random:
-            height = random.randint(self._config.middleware_config.random.height[0],
-                                    self._config.middleware_config.random.height[1])
-            middleware_env: SoPMiddleware = self.generate_middleware(
-                height=height, index=0)
-            if height == 1:
-                return middleware_env
-            return generate_random_middleware_tree_recursive(height, self._config.middleware_config.random.width, middleware_env)
-        else:
-            raise Exception('No middleware config found')
-
-
 # ===================================================================================================
 #                          _                                                      _
 #                         (_)                                                    | |
@@ -959,7 +799,6 @@ class SoPServiceGenerator(SoPComponentGenerator):
                 candidate_sub_service_list=candidate_service_list, selected_sub_service_list=selected_service_list, super_service_list=super_service_list)
 
             super_service = SoPService(name=super_service_name,
-                                       component_type=SoPComponentType.SERVICE,
                                        tag_list=tag_list,
                                        is_super=True,
                                        energy=energy,
@@ -982,86 +821,6 @@ class SoPServiceGenerator(SoPComponentGenerator):
 # =========================================================================================
 
 class SoPThingGenerator(SoPComponentGenerator):
-
-    def make_thing_name(self, index: int, is_super: bool, middleware: SoPMiddleware):
-        middleware_index = '_'.join(middleware.name.split('_')[1:])  # levelN_M
-        prefix_name = 'super' if is_super else 'normal'
-        name = f'{prefix_name}_thing_{middleware_index}_{index}'
-
-        return name.replace(' ', '_')
-
-    def generate_error_property(self, is_super: bool):
-        if is_super:
-            config = self._config.thing_config.super
-        else:
-            config = self._config.thing_config.normal
-
-        fail_rate = config.fail_error_rate
-
-        return fail_rate
-
-    def generate_thing_property(self, middleware: SoPMiddleware, index: int, is_super: bool, service_list: List[SoPService] = []):
-        fail_rate = self.generate_error_property(is_super=is_super)
-        thing_name = self.make_thing_name(index=index, is_super=is_super, middleware=middleware)
-
-        # NOTE: super thing은 미들웨어와 같은 device를 사용한다.
-        if is_super:
-            device = middleware.device
-        else:
-            device = random.choice(self.thing_device_pool)
-
-        if service_list:
-            picked_service_list = random.sample(service_list, k=random.randint(self._config.thing_config.normal.service_per_thing[0],
-                                                                               self._config.thing_config.normal.service_per_thing[1]))
-        else:
-            picked_service_list = []
-        return thing_name, device, fail_rate, copy.deepcopy(picked_service_list)
-
-    def generate(self, simulation_env: SoPMiddleware, service_list: List[SoPService], simulation_folder_path: str, is_parallel: bool):
-
-        def inner(middleware: SoPMiddleware, service_list: List[SoPService]) -> SoPMiddleware:
-            if not self._config.middleware_config.manual:
-                base_thing_num = random.randint(self._config.middleware_config.random.normal.thing_per_middleware[0],
-                                                self._config.middleware_config.random.normal.thing_per_middleware[1])
-            else:
-                base_thing_num = random.randint(middleware.thing_num[0],
-                                                middleware.thing_num[1])
-
-            # 이미 생성된 thing이 있으면, 기존 thing에 누적해서 추가분을 더 생성
-            prev_thing_num = len([thing for thing in middleware.thing_list if not thing.is_super])
-            for index in range(base_thing_num - prev_thing_num):
-                thing_name, device, fail_rate, picked_service_list = self.generate_thing_property(middleware=middleware,
-                                                                                                  index=index + prev_thing_num,
-                                                                                                  is_super=False,
-                                                                                                  service_list=service_list)
-                for service in picked_service_list:
-                    thing_w = random.uniform(0, 0.5)
-                    service.execute_time = service.execute_time * (1 - thing_w)
-                    service.energy = service.energy * (1 + thing_w)
-
-                thing = SoPThing(name=thing_name,
-                                 level=middleware.level,
-                                 component_type=SoPComponentType.THING,
-                                 service_list=picked_service_list,
-                                 is_super=False,
-                                 is_parallel=is_parallel,
-                                 alive_cycle=300,
-                                 device=device,
-                                 thing_file_path=f'{simulation_folder_path}/thing/base_thing/{thing_name}.py',
-                                 remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing_name}.py',
-                                 fail_rate=fail_rate)
-                SOPTEST_LOG_DEBUG(
-                    f'generate thing: {thing.name} (level: {thing.level})', SoPTestLogLevel.PASS)
-
-                for service in thing.service_list:
-                    service.level = middleware.level
-                middleware.thing_list.append(thing)
-
-            for child_middleware in middleware.child_middleware_list:
-                inner(child_middleware, service_list)
-
-        inner(simulation_env, service_list)
-        return simulation_env
 
     def generate_super(self, simulation_env: SoPMiddleware, service_generator: SoPServiceGenerator, simulation_folder_path: str) -> SoPMiddleware:
 
@@ -1100,7 +859,6 @@ class SoPThingGenerator(SoPComponentGenerator):
                 # NOTE: super thing은 항상 is_parallel=True 이다.
                 super_thing = SoPThing(name=thing_name,
                                        level=middleware.level,
-                                       component_type=SoPComponentType.THING,
                                        service_list=super_service_list,
                                        is_super=True,
                                        is_parallel=True,
@@ -1189,7 +947,6 @@ class SoPScenarioGenerator(SoPComponentGenerator):
 
                 scenario = SoPScenario(name=scenario_name,
                                        level=middleware.level,
-                                       component_type=SoPComponentType.SCENARIO,
                                        service_list=picked_service_list,
                                        period=period,
                                        scenario_file_path=f'{simulation_folder_path}/application/base_application/{scenario_name}.txt')
@@ -1247,7 +1004,6 @@ class SoPScenarioGenerator(SoPComponentGenerator):
 
                 scenario = SoPScenario(name=scenario_name,
                                        level=middleware.level,
-                                       component_type=SoPComponentType.SCENARIO,
                                        service_list=picked_service_list,
                                        period=period,
                                        scenario_file_path=f'{simulation_folder_path}/application/super_application/{scenario_name}.txt')

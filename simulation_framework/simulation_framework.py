@@ -236,6 +236,10 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
 
         return True
 
+    def export_service_thing_pool(self, service_thing_pool_path: str, service_pool: List[SoPService], thing_pool: List[SoPThing]):
+        service_thing_pool = {'service_pool': service_pool, 'thing_pool': thing_pool}
+        save_json(service_thing_pool, service_thing_pool_path)
+
     def generate_simulation_env(self) -> List[SoPSimulationEnv]:
         self.env_generator = SoPEnvGenerator(service_parallel=self._service_parallel)
         service_pool: List[SoPService] = []
@@ -257,8 +261,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                 thing_pool = self.env_generator.generate_thing_pool(service_pool=service_pool)
 
             root_middleware = self.env_generator.generate_middleware_tree(thing_pool=thing_pool)
+            self.env_generator.map_thing_to_middleware(root_middleware=root_middleware, thing_pool=thing_pool)
 
-            # TODO: mapping thing to middleware tree
             # TODO: generate_scenario and mapping to middleware tree
             # TODO: generate super thing, scenario, and mapping to middleware tree
 
