@@ -252,12 +252,12 @@ class SoPEnvGenerator:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
 
         if manual_middleware_tree:
-            def manual_inner(config_node: AnyNode, index: int):
+            def manual_inner(config_node: AnyNode, node: SoPMiddleware, index: int) -> SoPMiddleware:
                 height = config_node.height + 1
                 if config_node.is_root:
                     middleware_name = f'middleware_level{height}_0'
                 else:
-                    middleware_name = f'{config_node.parent.name}__{config_node.name}_level{height}_{index}'
+                    middleware_name = f'{node.name}__middleware_level{height}_{index}'
                 device = random.choice(device_pool)
                 device_pool.remove(device)
 
@@ -275,15 +275,45 @@ class SoPEnvGenerator:
                     return middleware
 
                 for index, child_middleware_config in enumerate(config_node.children):
-                    child_middleware = manual_inner(config_node=child_middleware_config, index=index)
+                    child_middleware = manual_inner(config_node=child_middleware_config, node=middleware, index=index)
                     child_middleware.parent = middleware
 
                 return middleware
 
-            root_middleware = manual_inner(config_node=manual_middleware_tree, index=0)
+            root_middleware = manual_inner(config_node=manual_middleware_tree, node=None, index=0)
         elif self._config.middleware_config.random:
-            def random_inner():
-                pass
+            def random_inner(node: SoPMiddleware, height: int, width_range: ConfigRandomIntRange, index: int) -> SoPMiddleware:
+                if node == None:
+                    middleware_name = f'middleware_level{height}_0'
+                else:
+                    middleware_name = f'{node.name}__middleware_level{height}_{index}'
+                device = random.choice(device_pool)
+                device_pool.remove(device)
+
+                middleware = SoPMiddleware(name=middleware_name,
+                                           level=height,
+                                           component_type=SoPComponentType.MIDDLEWARE,
+                                           thing_list=[],
+                                           scenario_list=[],
+                                           children=[],
+                                           device=device,
+                                           remote_middleware_path=self._config.middleware_config.remote_middleware_path,
+                                           remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
+                                           mqtt_port=device.mqtt_port)
+
+                if height == 1:
+                    return middleware
+
+                width = random.randint(*width_range)
+                for index in range(width):
+                    child_middleware = random_inner(middleware, height - 1, width_range=width_range, index=index)
+                    child_middleware.parent = middleware
+                return middleware
+
+            height_range = self._config.middleware_config.random.height
+            width_range = self._config.middleware_config.random.width
+            height = random.randint(*height_range)
+            root_middleware = random_inner(node=None, height=height, width_range=width_range, index=0)
         else:
             raise Exception('No middleware config')
 

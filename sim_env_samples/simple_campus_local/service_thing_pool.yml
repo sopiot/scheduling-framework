@@ -1,0 +1,2906 @@
+{
+    "service_pool": [
+        {
+            "name": "function_hurt",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1644,
+            "execute_time": 0.7451910514118154,
+            "return_value": 223,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_sufficient",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1380,
+            "execute_time": 0.20970586068931552,
+            "return_value": 161,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_dated",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1437,
+            "execute_time": 0.37361997801938185,
+            "return_value": 379,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_brussels",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1707,
+            "execute_time": 0.8987190727404779,
+            "return_value": 440,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_monroe",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1286,
+            "execute_time": 0.8024443350826728,
+            "return_value": 750,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_roots",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1731,
+            "execute_time": 0.6314428973905011,
+            "return_value": 77,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_folding",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1841,
+            "execute_time": 0.1378851087157676,
+            "return_value": 741,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_requested",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1486,
+            "execute_time": 0.1908297015866425,
+            "return_value": 837,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_mel",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1437,
+            "execute_time": 0.6761154010786091,
+            "return_value": 389,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_assuming",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1568,
+            "execute_time": 0.14684310035573087,
+            "return_value": 573,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_hydrogen",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1786,
+            "execute_time": 0.3028924995804665,
+            "return_value": 221,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_arrest",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1783,
+            "execute_time": 0.15572670004095837,
+            "return_value": 627,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_floors",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1791,
+            "execute_time": 0.7132847101959653,
+            "return_value": 686,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_receives",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1777,
+            "execute_time": 0.4600018077055368,
+            "return_value": 866,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_wto",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1398,
+            "execute_time": 0.4862457866776627,
+            "return_value": 269,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_grey",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1903,
+            "execute_time": 0.4263123418349848,
+            "return_value": 80,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_quiz",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1948,
+            "execute_time": 0.21129507670136316,
+            "return_value": 458,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_andale",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1403,
+            "execute_time": 0.6576932454398497,
+            "return_value": 94,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_took",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1990,
+            "execute_time": 0.7778141631899791,
+            "return_value": 1,
+            "subfunction_list": []
+        },
+        {
+            "name": "function_magnet",
+            "level": -1,
+            "component_type": "SERVICE",
+            "tag_list": [
+                "costs"
+            ],
+            "is_super": false,
+            "energy": 1334,
+            "execute_time": 0.5955123598788173,
+            "return_value": 161,
+            "subfunction_list": []
+        }
+    ],
+    "thing_pool": [
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_requested",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1935.9166472803295,
+                    "execute_time": 0.13305213796661022,
+                    "return_value": 837,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1738.057508971689,
+                    "execute_time": 0.7025567363243524,
+                    "return_value": 223,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_magnet",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1790.9778215031567,
+                    "execute_time": 0.3915124041849449,
+                    "return_value": 161,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1808.4671864561828,
+                    "execute_time": 0.3434790198795558,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_folding",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1886.8584601412658,
+                    "execute_time": 0.13445045430940358,
+                    "return_value": 741,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1858.9289472183004,
+                    "execute_time": 0.4775958051320702,
+                    "return_value": 389,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_magnet",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1720.1005242884742,
+                    "execute_time": 0.423152813874711,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_quiz",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1992.7285837331965,
+                    "execute_time": 0.20644347016612238,
+                    "return_value": 458,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1849.5005576557564,
+                    "execute_time": 0.3292069856456693,
+                    "return_value": 269,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1645.7078707523076,
+                    "execute_time": 0.40008919978195123,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1909.1569056615476,
+                    "execute_time": 0.42493306444610857,
+                    "return_value": 80,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2163.08135134507,
+                    "execute_time": 0.5099022570218529,
+                    "return_value": 223,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_andale",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1523.6088793589317,
+                    "execute_time": 0.6011546529277763,
+                    "return_value": 94,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_monroe",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1784.144394032451,
+                    "execute_time": 0.49160985060014467,
+                    "return_value": 750,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_assuming",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2025.4332376870136,
+                    "execute_time": 0.10400450671560264,
+                    "return_value": 573,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_floors",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2041.7574866811206,
+                    "execute_time": 0.6134178865126533,
+                    "return_value": 686,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2262.1909883155913,
+                    "execute_time": 0.11387429886330694,
+                    "return_value": 627,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_dated",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1621.2644314695478,
+                    "execute_time": 0.32571122865584234,
+                    "return_value": 379,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2483.773290123129,
+                    "execute_time": 0.09452136524133978,
+                    "return_value": 627,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1994.8294460941622,
+                    "execute_time": 0.27865937499779897,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1998.1576002119743,
+                    "execute_time": 0.5339878025680042,
+                    "return_value": 77,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_assuming",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2172.449929798602,
+                    "execute_time": 0.09023640284206338,
+                    "return_value": 573,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1915.0716924803849,
+                    "execute_time": 0.451180373865175,
+                    "return_value": 389,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_floors",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2074.7783092931104,
+                    "execute_time": 0.6002669943366479,
+                    "return_value": 686,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_quiz",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2777.8671669453174,
+                    "execute_time": 0.12128129503213636,
+                    "return_value": 458,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_took",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2540.676104230036,
+                    "execute_time": 0.5625761364561083,
+                    "return_value": 1,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_folding",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2277.5229840642364,
+                    "execute_time": 0.10519091039168907,
+                    "return_value": 741,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_monroe",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1748.8112050826862,
+                    "execute_time": 0.5136572202060112,
+                    "return_value": 750,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_dated",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1586.1517127807456,
+                    "execute_time": 0.3348405349778402,
+                    "return_value": 379,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1985.2652587986734,
+                    "execute_time": 0.4078831799168957,
+                    "return_value": 80,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1934.5531566467107,
+                    "execute_time": 0.14249009153541564,
+                    "return_value": 627,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_receives",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2452.9600056066083,
+                    "execute_time": 0.2850199143371155,
+                    "return_value": 866,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_floors",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2403.0632009162246,
+                    "execute_time": 0.4695240609010775,
+                    "return_value": 686,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_receives",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2343.3300863610307,
+                    "execute_time": 0.31339918334757,
+                    "return_value": 866,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_floors",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2523.9449843188504,
+                    "execute_time": 0.42138161096120386,
+                    "return_value": 686,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1773.1986030520743,
+                    "execute_time": 0.6160494784551843,
+                    "return_value": 77,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_dated",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1682.6687893803419,
+                    "execute_time": 0.3097460965382882,
+                    "return_value": 379,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_assuming",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1942.7142209059448,
+                    "execute_time": 0.11175113738046864,
+                    "return_value": 573,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_brussels",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2407.376783198114,
+                    "execute_time": 0.5299774364400868,
+                    "return_value": 440,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2139.6247938747347,
+                    "execute_time": 0.3733033717808814,
+                    "return_value": 80,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1678.084182121786,
+                    "execute_time": 0.38882822339312945,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_assuming",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1620.934948021566,
+                    "execute_time": 0.14188574583745522,
+                    "return_value": 573,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_receives",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2147.4592048501613,
+                    "execute_time": 0.36410315609482774,
+                    "return_value": 866,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2504.9146752778684,
+                    "execute_time": 0.3491304046750268,
+                    "return_value": 77,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_floors",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1794.8523056937672,
+                    "execute_time": 0.7117504886714734,
+                    "return_value": 686,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2322.047104041387,
+                    "execute_time": 0.33243690711977086,
+                    "return_value": 80,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_magnet",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1681.3058306928328,
+                    "execute_time": 0.44047119433491777,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_floors",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2329.849369673342,
+                    "execute_time": 0.49868224426256025,
+                    "return_value": 686,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1760.3390062648166,
+                    "execute_time": 0.15190925296287905,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_monroe",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1388.0519539249178,
+                    "execute_time": 0.7387654763648126,
+                    "return_value": 750,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1898.2715845736982,
+                    "execute_time": 0.45908490531645774,
+                    "return_value": 389,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_dated",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1743.8663082515263,
+                    "execute_time": 0.2938347425678689,
+                    "return_value": 379,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1478.3698420264147,
+                    "execute_time": 0.45829192611879754,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1494.5680914228358,
+                    "execute_time": 0.1922960054578967,
+                    "return_value": 161,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_hydrogen",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2179.483999825136,
+                    "execute_time": 0.23616049943939404,
+                    "return_value": 221,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2843.890825540464,
+                    "execute_time": 0.21553285090108706,
+                    "return_value": 80,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1957.1325170520588,
+                    "execute_time": 0.12200435980511765,
+                    "return_value": 161,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2091.4636137066104,
+                    "execute_time": 0.24504853318760142,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1727.2755578078356,
+                    "execute_time": 0.539539357104662,
+                    "return_value": 389,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2377.740956852485,
+                    "execute_time": 0.10378219830801418,
+                    "return_value": 627,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_folding",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2520.409470597724,
+                    "execute_time": 0.08699947660501839,
+                    "return_value": 741,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2697.5456803752527,
+                    "execute_time": 0.24831726579943808,
+                    "return_value": 80,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_monroe",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1317.9134963894028,
+                    "execute_time": 0.7825308013421148,
+                    "return_value": 750,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1622.829490862215,
+                    "execute_time": 0.4080466503023865,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hydrogen",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2094.670700338837,
+                    "execute_time": 0.25054421292151724,
+                    "return_value": 221,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_receives",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1970.4356130399246,
+                    "execute_time": 0.4099282389531484,
+                    "return_value": 866,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1498.6739415909299,
+                    "execute_time": 0.4512298496770742,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1984.3484392158457,
+                    "execute_time": 0.4185853318300551,
+                    "return_value": 389,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_took",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2253.4898592599993,
+                    "execute_time": 0.6748261509340184,
+                    "return_value": 1,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_took",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2677.6615794981685,
+                    "execute_time": 0.5090338033833122,
+                    "return_value": 1,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2131.9947957934005,
+                    "execute_time": 0.12524559635033897,
+                    "return_value": 627,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1858.1298793907085,
+                    "execute_time": 0.13704887671909294,
+                    "return_value": 161,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2370.5092970815454,
+                    "execute_time": 0.41587947783964035,
+                    "return_value": 223,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2054.547247722072,
+                    "execute_time": 0.5134177029685789,
+                    "return_value": 77,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1605.6628994098105,
+                    "execute_time": 0.41401745342495333,
+                    "return_value": 269,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_took",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2192.0601512317676,
+                    "execute_time": 0.6988366519113972,
+                    "return_value": 1,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1529.6042397046776,
+                    "execute_time": 0.1869718854356633,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1844.5797606827734,
+                    "execute_time": 0.6542724122663615,
+                    "return_value": 223,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_quiz",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2641.310767565017,
+                    "execute_time": 0.13609325339000217,
+                    "return_value": 458,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1896.3931237760787,
+                    "execute_time": 0.13123436469257144,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2498.169450474327,
+                    "execute_time": 0.0932640087944791,
+                    "return_value": 627,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2402.304716907797,
+                    "execute_time": 0.38656098203742817,
+                    "return_value": 77,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1584.089342843825,
+                    "execute_time": 0.17869228728454656,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1978.2073198759035,
+                    "execute_time": 0.40946430785735516,
+                    "return_value": 80,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2537.607554258864,
+                    "execute_time": 0.0898194963108903,
+                    "return_value": 627,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_sufficient",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2055.414260361724,
+                    "execute_time": 0.107069390550915,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1840.6443272140887,
+                    "execute_time": 0.4861988066544902,
+                    "return_value": 389,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2142.034148099058,
+                    "execute_time": 0.37276362535855817,
+                    "return_value": 80,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_floors",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2172.7885758437865,
+                    "execute_time": 0.5612333681094965,
+                    "return_value": 686,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_quiz",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2896.5344845342515,
+                    "execute_time": 0.10840972420467289,
+                    "return_value": 458,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_requested",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2000.3795213767357,
+                    "execute_time": 0.12477392058623706,
+                    "return_value": 837,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_dated",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1445.5179580999586,
+                    "execute_time": 0.3714053090436848,
+                    "return_value": 379,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1902.6054775680063,
+                    "execute_time": 0.14528039250955707,
+                    "return_value": 627,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_brussels",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2316.844794826556,
+                    "execute_time": 0.5776416570860378,
+                    "return_value": 440,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_assuming",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2188.1217352670965,
+                    "execute_time": 0.08876873925586085,
+                    "return_value": 573,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_monroe",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1575.0162448395924,
+                    "execute_time": 0.6221026178055361,
+                    "return_value": 750,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1708.3395587814946,
+                    "execute_time": 0.7160272658547873,
+                    "return_value": 223,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2229.9619172703697,
+                    "execute_time": 0.35306594107703004,
+                    "return_value": 80,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_receives",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2509.893314966906,
+                    "execute_time": 0.27028191477358404,
+                    "return_value": 866,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_brussels",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2516.260238570483,
+                    "execute_time": 0.47265134502296036,
+                    "return_value": 440,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2096.727542431829,
+                    "execute_time": 0.49803096264257407,
+                    "return_value": 77,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_monroe",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1386.420400091221,
+                    "execute_time": 0.7397835410080726,
+                    "return_value": 750,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_wto",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1707.538384005961,
+                    "execute_time": 0.37858360138588093,
+                    "return_value": 269,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1914.151652643921,
+                    "execute_time": 0.4516132570266497,
+                    "return_value": 389,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_magnet",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1941.98290798118,
+                    "execute_time": 0.324102062803961,
+                    "return_value": 161,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_magnet",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1829.1551780686307,
+                    "execute_time": 0.3744696098054543,
+                    "return_value": 161,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1899.2264895320995,
+                    "execute_time": 0.5700763913431401,
+                    "return_value": 77,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_grey",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1961.5721921445195,
+                    "execute_time": 0.41319092911846417,
+                    "return_value": 80,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_receives",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1896.1259147739631,
+                    "execute_time": 0.42916436474515485,
+                    "return_value": 866,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_roots",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2175.070340661324,
+                    "execute_time": 0.46945268216671543,
+                    "return_value": 77,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_arrest",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1891.962674428116,
+                    "execute_time": 0.14620993183213737,
+                    "return_value": 627,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_requested",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2004.54539682502,
+                    "execute_time": 0.12423894564098592,
+                    "return_value": 837,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_mel",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2153.3903569870063,
+                    "execute_time": 0.3390502977083114,
+                    "return_value": 389,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2440.757448549552,
+                    "execute_time": 0.3840374499490196,
+                    "return_value": 223,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_receives",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2137.349103469041,
+                    "execute_time": 0.36672030010799683,
+                    "return_value": 866,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_andale",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1838.7264163859852,
+                    "execute_time": 0.4534349981720137,
+                    "return_value": 94,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2217.5850077363384,
+                    "execute_time": 0.4851968817104186,
+                    "return_value": 223,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        },
+        {
+            "name": "",
+            "level": -1,
+            "component_type": "THING",
+            "service_list": [
+                {
+                    "name": "function_folding",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1915.7588319308106,
+                    "execute_time": 0.13228590737505946,
+                    "return_value": 741,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hurt",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 2321.0199217113445,
+                    "execute_time": 0.4383119837191015,
+                    "return_value": 223,
+                    "subfunction_list": []
+                },
+                {
+                    "name": "function_hydrogen",
+                    "level": -1,
+                    "component_type": "SERVICE",
+                    "tag_list": [
+                        "costs"
+                    ],
+                    "is_super": false,
+                    "energy": 1880.302167126644,
+                    "execute_time": 0.286899543747967,
+                    "return_value": 221,
+                    "subfunction_list": []
+                }
+            ],
+            "is_super": false,
+            "is_parallel": true,
+            "alive_cycle": 300,
+            "device": {
+                "name": "localhost",
+                "level": -1,
+                "component_type": "DEVICE",
+                "host": "localhost",
+                "user": "thsvkd",
+                "ssh_port": 33333,
+                "password": "thsxogud1",
+                "mqtt_port": null,
+                "mqtt_ssl_port": "Not used",
+                "websocket_port": "Not used",
+                "websocket_ssl_port": "Not used",
+                "localserver_port": 58132
+            },
+            "thing_file_path": "./sim_env_samples/simple_campus_local/simulation_sim_simple_campus_local_20230606_181222/thing/base_thing/.py",
+            "remote_thing_file_path": "/mnt/ramdisk/thing/base_thing/.py",
+            "fail_rate": 0
+        }
+    ]
+}
