@@ -121,6 +121,14 @@ def get_tree_height(root: object, get_children: Callable):
     return height + 1
 
 
+def flatten_list(nested_list: List[list]):
+    flat_list = []
+    for sublist in nested_list:
+        for item in sublist:
+            flat_list.append(item)
+    return flat_list
+
+
 def find_json_pattern(payload: str) -> str:
     # 만약 payload가 json 형식이라면 json 형식으로 변환
     pattern = re.compile(r'{[\s\S]*}')

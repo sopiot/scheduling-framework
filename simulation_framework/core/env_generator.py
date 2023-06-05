@@ -44,13 +44,14 @@ class SoPEnvGenerator:
 
         self._service_pool: List[SoPService] = []
         self._thing_pool: List[SoPThing] = []
-        self._config: SoPSimulationConfig = None
+        self._config: SoPSimulationConfig
 
         self._tag_name_pool: List[str] = []
         self._service_name_pool: List[str] = []
         self._super_service_name_pool: List[str] = []
 
         self._generate_start_time: str = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self._simulation_folder_path: str = ''
 
         # self._middleware_generator: SoPMiddlewareGenerator = None
         # self._thing_generator: SoPThingGenerator = None
@@ -68,6 +69,7 @@ class SoPEnvGenerator:
             Exception: _description_
         """
         self._config = config
+        self._simulation_folder_path = f'{os.path.dirname(self._config.config_path)}/simulation_{self._config.name}_{self._generate_start_time}'
 
         self._middleware_device_pool: List[SoPDevice] = []
         self._thing_device_pool: List[SoPDevice] = []
@@ -106,17 +108,18 @@ class SoPEnvGenerator:
                 self._thing_device_pool = [device for device in device_pool if device.name in self._config.thing_config.device_pool]
 
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+        random_middleware_config = self._config.middleware_config.random
         if manual_middleware_tree:
-            if self._config.middleware_config.random:
+            if random_middleware_config:
                 SOPTEST_LOG_DEBUG('random is defined in middleware config, but manual_middleware_tree is defined. '
                                   'random config will be ignored.', SoPTestLogLevel.WARN)
-                self._config.middleware_config.random = None
+                random_middleware_config = None
             middleware_num = len(manual_middleware_tree.descendants) + 1
-        elif self._config.middleware_config.random:
+        elif random_middleware_config:
             self._middleware_device_pool = [device for device in device_pool if device.name != 'localhost']
             self._thing_device_pool = [device for device in device_pool if device.name == 'localhost']
             self._config.middleware_config.manual = None
-            middleware_num = calculate_tree_node_num(self._config.middleware_config.random.height[1], self._config.middleware_config.random.width[1])
+            middleware_num = calculate_tree_node_num(random_middleware_config.height[1], random_middleware_config.width[1])
         else:
             raise Exception('If manual_middleware_tree is not defined, random config must be defined.')
 
@@ -168,24 +171,24 @@ class SoPEnvGenerator:
 
         return selected_words
 
-    def generate_name_pool(self, ban_name_list: List[str] = []) -> Tuple[List[str], List[str]]:
+    def generate_name_pool(self, ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
         tag_type_num = self._config.service_config.tag_type_num
         service_type_num = self._config.service_config.normal.service_type_num
-        # super_service_type_num = self._config.service_config.super.service_type_num
+        super_service_type_num = self._config.service_config.super.service_type_num
 
         ban_name_list = ban_name_list + self._PREDEFINED_KEYWORD_LIST
 
-        tag_name_pool = random.sample(self._generate_random_words(num_word=tag_type_num * 10,
-                                                                  ban_word_list=ban_name_list), tag_type_num)
-        service_name_pool = random.sample(self._generate_random_words(num_word=service_type_num * 10,
-                                                                      ban_word_list=ban_name_list), service_type_num)
-        # super_service_name_pool = random.sample(self._generate_random_words(num_word=super_service_type_num * 10,
-        #                                                                     ban_word_list=ban_name_list), super_service_type_num)
-        return tag_name_pool, service_name_pool
+        tag_name_pool = self._generate_random_words(num_word=tag_type_num * 10, ban_word_list=ban_name_list)
+        service_name_pool = self._generate_random_words(num_word=service_type_num * 10, ban_word_list=ban_name_list)
+        super_service_name_pool = self._generate_random_words(num_word=super_service_type_num * 10, ban_word_list=ban_name_list)
+        return tag_name_pool, service_name_pool, super_service_name_pool
 
-    def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str]) -> List[SoPService]:
+    def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], service_num: int) -> List[SoPService]:
+        selected_tag_name_pool = random.sample(tag_name_pool, self._config.service_config.tag_type_num)
+        selected_service_name_pool = random.sample(service_name_pool, service_num)
+
         service_pool = []
-        for service_name in service_name_pool:
+        for service_name in selected_service_name_pool:
             tag_per_service_range = self._config.service_config.tag_per_service
             energy_range = self._config.service_config.normal.energy
             execute_time_range = self._config.service_config.normal.execute_time
@@ -194,7 +197,7 @@ class SoPEnvGenerator:
             service_name = f'function_{service_name}'
             level = -1
             tag_per_service = random.randint(*tag_per_service_range)
-            tag_list = random.sample(tag_name_pool, tag_per_service)
+            tag_list = random.sample(selected_tag_name_pool, tag_per_service)
             energy = random.randint(*energy_range)
             execute_time = random.uniform(*execute_time_range)
             return_value = random.randint(*return_value_range)
@@ -207,20 +210,12 @@ class SoPEnvGenerator:
                                  execute_time=execute_time,
                                  return_value=return_value)
             service_pool.append(service)
-        SOPTEST_LOG_DEBUG(f'Generated service pool size of {len(service_pool)}', SoPTestLogLevel.INFO)
+        SOPTEST_LOG_DEBUG(f'Generate service pool size of {len(service_pool)}', SoPTestLogLevel.INFO)
         return service_pool
 
-    def generate_thing_pool(self, service_pool: List[SoPService]) -> List[SoPThing]:
-        manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
-        if manual_middleware_tree:
-            middleware_config_list = [manual_middleware_tree] + list(manual_middleware_tree.descendants)
-            max_thing_num = sum([middleware_config.thing_num[1] for middleware_config in middleware_config_list])
-        else:
-            max_middleware_num = calculate_tree_node_num(self._config.middleware_config.random.height[1], self._config.middleware_config.random.width[1])
-            max_thing_num = max_middleware_num * self._config.middleware_config.random.normal.thing_per_middleware[1]
-
+    def generate_thing_pool(self, service_pool: List[SoPService], thing_num: int) -> List[SoPThing]:
         thing_pool = []
-        for _ in range(max_thing_num):
+        for _ in range(thing_num):
             device = random.choice(self._thing_device_pool)
             thing_name = ''
             level = -1
@@ -241,8 +236,6 @@ class SoPEnvGenerator:
                 service.execute_time = service.execute_time * (1 - thing_w)
                 service.energy = service.energy * (1 + thing_w)
 
-            config_dir = os.path.dirname(self._config.config_path)
-            simulation_folder_path = f'{config_dir}/simulation_{self._config.name}_{self._generate_start_time}'
             thing = SoPThing(name=thing_name,
                              level=level,
                              service_list=selected_service_list_copy,
@@ -250,7 +243,7 @@ class SoPEnvGenerator:
                              is_parallel=self._service_parallel,
                              alive_cycle=60 * 5,
                              device=device,
-                             thing_file_path=f'{simulation_folder_path}/thing/base_thing/{thing_name}.py',
+                             thing_file_path=f'{self._simulation_folder_path}/thing/base_thing/{thing_name}.py',
                              remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing_name}.py',
                              fail_rate=fail_rate)
             for service in thing.service_list:
@@ -258,22 +251,25 @@ class SoPEnvGenerator:
 
             thing_pool.append(thing)
 
-        SOPTEST_LOG_DEBUG(f'Generated thing pool size of {max_thing_num}', SoPTestLogLevel.INFO)
+        SOPTEST_LOG_DEBUG(f'Generate thing pool size of {thing_num}', SoPTestLogLevel.INFO)
         return thing_pool
 
     def generate_middleware_tree(self, thing_pool: List[SoPThing]) -> SoPMiddleware:
-        device_pool = copy.deepcopy(self._middleware_device_pool)
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+        random_middleware_config = self._config.middleware_config.random
+        device_pool = copy.deepcopy(self._middleware_device_pool)
 
         if manual_middleware_tree:
-            def manual_inner(node: SoPMiddleware, config_node: AnyNode, index: int) -> SoPMiddleware:
+            def generate_manual_middleware_tree(node: SoPMiddleware, config_node: AnyNode, index: int) -> SoPMiddleware:
                 height = config_node.height + 1
                 if config_node.is_root:
                     middleware_name = f'middleware_level{height}_0'
                 else:
                     middleware_name = f'{node.name}__middleware_level{height}_{index}'
                 device = random.choice(device_pool)
-                device_pool.remove(device)
+                # if local_mode is True, do not remove localhost device
+                if device.name != 'localhost':
+                    device_pool.remove(device)
 
                 middleware = SoPMiddleware(name=middleware_name,
                                            level=height,
@@ -288,20 +284,22 @@ class SoPEnvGenerator:
                     return middleware
 
                 for index, child_middleware_config in enumerate(config_node.children):
-                    child_middleware = manual_inner(node=middleware, config_node=child_middleware_config, index=index)
+                    child_middleware = generate_manual_middleware_tree(node=middleware, config_node=child_middleware_config, index=index)
                     child_middleware.parent = middleware
 
                 return middleware
 
-            root_middleware = manual_inner(node=None, config_node=manual_middleware_tree, index=0)
-        elif self._config.middleware_config.random:
-            def random_inner(node: SoPMiddleware, height: int, width_range: ConfigRandomIntRange, index: int) -> SoPMiddleware:
+            root_middleware = generate_manual_middleware_tree(node=None, config_node=manual_middleware_tree, index=0)
+        elif random_middleware_config:
+            def generate_random_middleware_tree(node: SoPMiddleware, height: int, width_range: ConfigRandomIntRange, index: int) -> SoPMiddleware:
                 if node == None:
                     middleware_name = f'middleware_level{height}_0'
                 else:
                     middleware_name = f'{node.name}__middleware_level{height}_{index}'
                 device = random.choice(device_pool)
-                device_pool.remove(device)
+                # if local_mode is True, do not remove localhost device
+                if device.name != 'localhost':
+                    device_pool.remove(device)
 
                 middleware = SoPMiddleware(name=middleware_name,
                                            level=height,
@@ -318,25 +316,26 @@ class SoPEnvGenerator:
 
                 width = random.randint(*width_range)
                 for index in range(width):
-                    child_middleware = random_inner(middleware, height - 1, width_range=width_range, index=index)
+                    child_middleware = generate_random_middleware_tree(middleware, height - 1, width_range=width_range, index=index)
                     child_middleware.parent = middleware
                 return middleware
 
-            height_range = self._config.middleware_config.random.height
-            width_range = self._config.middleware_config.random.width
+            height_range = random_middleware_config.height
+            width_range = random_middleware_config.width
             height = random.randint(*height_range)
-            root_middleware = random_inner(node=None, height=height, width_range=width_range, index=0)
+            root_middleware = generate_random_middleware_tree(node=None, height=height, width_range=width_range, index=0)
         else:
-            raise Exception('Unknown error')
+            raise Exception('Unknown simulation generator error')
 
         print_middleware_tree(root_middleware)
         return root_middleware
 
     def map_thing_to_middleware(self, root_middleware: SoPMiddleware, thing_pool: List[SoPThing]) -> None:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+        random_config = self._config.middleware_config.random
 
         if manual_middleware_tree:
-            def manual_inner(node: SoPMiddleware, config_node: AnyNode) -> None:
+            def map_thing_to_manual_middleware_tree(node: SoPMiddleware, config_node: AnyNode) -> None:
                 thing_per_middleware_range = config_node.thing_num
                 thing_per_middleware = random.randint(*thing_per_middleware_range)
                 selected_thing_list = random.sample(thing_pool, thing_per_middleware)
@@ -350,13 +349,13 @@ class SoPEnvGenerator:
                 if not node.children:
                     return
                 for child_middleware, child_middleware_config in zip(node.children, config_node.children):
-                    manual_inner(node=child_middleware, config_node=child_middleware_config)
+                    map_thing_to_manual_middleware_tree(node=child_middleware, config_node=child_middleware_config)
 
-            manual_inner(node=root_middleware, config_node=manual_middleware_tree)
-        elif self._config.middleware_config.random:
-            thing_per_middleware_range = self._config.middleware_config.random.normal.thing_per_middleware
+            map_thing_to_manual_middleware_tree(node=root_middleware, config_node=manual_middleware_tree)
+        elif random_config:
+            thing_per_middleware_range = random_config.normal.thing_per_middleware
 
-            def random_inner(node: SoPMiddleware) -> SoPMiddleware:
+            def map_thing_to_random_middleware_tree(node: SoPMiddleware) -> None:
                 thing_per_middleware = random.randint(*thing_per_middleware_range)
                 selected_thing_list = random.sample(thing_pool, thing_per_middleware)
                 node.thing_list = selected_thing_list
@@ -369,15 +368,89 @@ class SoPEnvGenerator:
                 if not node.children:
                     return
                 for child_middleware in node.children:
-                    random_inner(child_middleware)
+                    map_thing_to_random_middleware_tree(child_middleware)
 
-            random_inner(node=root_middleware)
+            map_thing_to_random_middleware_tree(node=root_middleware)
         else:
-            raise Exception('Unknown error')
+            raise Exception('Unknown simulation generator error')
 
-        print_middleware_tree(root_middleware=root_middleware, show=lambda node: '\n'.join([f'{thing.name} level: {thing.level} service_num: {len(thing.service_list)}' for thing in node.thing_list]))
+        SOPTEST_LOG_DEBUG(f'Map thing to middleware tree', SoPTestLogLevel.INFO)
+        # print_middleware_tree(root_middleware=root_middleware, show=lambda node: '\n'.join([f'{thing.name} level: {thing.level} service_num: {len(thing.service_list)}' for thing in node.thing_list]))
 
-    def generate_super_thing_pool(self, root_middleware: SoPMiddleware, service_pool: List[SoPService]) -> List[SoPThing]:
+    def generate_application(self, root_middleware: SoPMiddleware):
+        manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+        random_config = self._config.middleware_config.random
+        service_per_scenario_range = self._config.application_config.normal.service_per_application
+
+        if manual_middleware_tree:
+            def generate_manual_middleware_tree_scenario(node: SoPMiddleware, config_node: AnyNode) -> None:
+                scenario_per_middleware_range = config_node.scenario_num
+                scenario_per_middleware = random.randint(*scenario_per_middleware_range)
+                available_service_list = flatten_list([thing.service_list for thing in node.thing_list])
+
+                for index in range(scenario_per_middleware):
+                    scenario_name = f'normal_scenario_{index}__{node.name}'
+                    level = node.level
+                    period_range = self._config.application_config.normal.period
+                    period = random.uniform(*period_range)
+                    service_per_scenario = random.randint(*service_per_scenario_range)
+                    selected_service_list: List[SoPService] = random.sample(available_service_list, service_per_scenario)
+
+                    scenario = SoPScenario(name=scenario_name,
+                                           level=level,
+                                           service_list=selected_service_list,
+                                           period=period,
+                                           scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
+                                           middleware=node)
+                    node.scenario_list.append(scenario)
+
+                if not node.children:
+                    return
+                for child_middleware, child_middleware_config in zip(node.children, config_node.children):
+                    generate_manual_middleware_tree_scenario(node=child_middleware, config_node=child_middleware_config)
+
+            generate_manual_middleware_tree_scenario(node=root_middleware, config_node=manual_middleware_tree)
+        elif random_config:
+            scenario_per_middleware_range = random_config.normal.scenario_per_middleware
+            service_per_scenario_range = self._config.application_config.normal.service_per_application
+
+            def generate_random_middleware_tree_scenario(node: SoPMiddleware) -> None:
+                scenario_per_middleware = random.randint(*scenario_per_middleware_range)
+                available_service_list = flatten_list([thing.service_list for thing in node.thing_list])
+
+                for index in range(scenario_per_middleware):
+                    scenario_name = f'normal_scenario_{index}__{node.name}'
+                    level = node.level
+                    period_range = self._config.application_config.normal.period
+                    period = random.uniform(*period_range)
+                    service_per_scenario = random.randint(*service_per_scenario_range)
+                    selected_service_list: List[SoPService] = random.sample(available_service_list, service_per_scenario)
+
+                    scenario = SoPScenario(name=scenario_name,
+                                           level=level,
+                                           service_list=selected_service_list,
+                                           period=period,
+                                           scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
+                                           middleware=node)
+                    node.scenario_list.append(scenario)
+
+                for index, thing in enumerate(node.thing_list):
+                    thing.middleware = node
+                    thing.level = node.level + 1
+                    thing.name = f'normal_thing_{index}__{node.name}'
+
+                if not node.children:
+                    return
+                for child_middleware in node.children:
+                    generate_random_middleware_tree_scenario(child_middleware)
+
+            generate_random_middleware_tree_scenario(node=root_middleware)
+        else:
+            raise Exception('Unknown simulation generator error')
+
+        SOPTEST_LOG_DEBUG(f'Generate application to middleware tree', SoPTestLogLevel.INFO)
+
+    def generate_super_thing_scenario(self, root_middleware: SoPMiddleware, service_pool: List[SoPService]) -> List[SoPThing]:
         pass
 
     def generate(self):
@@ -520,7 +593,7 @@ class SoPEnvGenerator:
             SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
 
         # scenario add start
-        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component_recursive(self.simulation_env, scenario)[1]).dict()
+        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(self.simulation_env, scenario)[1]).dict()
                                  for scenario in scenario_list]
         event_timeline.extend(
             sorted(scenario_add_timeline, key=lambda x: x['timestamp']))
@@ -577,9 +650,9 @@ class SoPEnvGenerator:
 
     def generate_data(self, simulation_env: SoPMiddleware):
         # generate simulation env
-        middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(simulation_env)
-        thing_list: List[SoPThing] = get_thing_list_recursive(simulation_env)
-        scenario_list: List[SoPScenario] = get_scenario_list_recursive(simulation_env)
+        middleware_list: List[SoPMiddleware] = get_middleware_list(simulation_env)
+        thing_list: List[SoPThing] = get_thing_list(simulation_env)
+        scenario_list: List[SoPScenario] = get_scenario_list(simulation_env)
 
         longest_scenario = max(scenario_list, key=lambda x: x.period)
         if longest_scenario.period * 1.2 > self.simulation_config.running_time:
@@ -704,12 +777,6 @@ class SoPEnvGenerator:
         updated_device_pool.update(device_pool)
         return updated_device_pool
 
-    def _make_thing_name(self, index: int, is_super: bool):
-        # normal_thing_level3_0__middleware_level2_0__middleware_level1_1_0
-        prefix_name = 'super' if is_super else 'normal'
-        name = f'{prefix_name}_thing_{middleware_index}_{index}'.replace(' ', '_')
-        return name
-
 
 # ===========================================================================================================================
 #                                                            _                                            _
@@ -826,7 +893,7 @@ class SoPThingGenerator(SoPComponentGenerator):
     def generate_super(self, simulation_env: SoPMiddleware, service_generator: SoPServiceGenerator, simulation_folder_path: str) -> SoPMiddleware:
 
         def inner(middleware: SoPMiddleware, service_generator: SoPServiceGenerator) -> SoPMiddleware:
-            middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(
+            middleware_list: List[SoPMiddleware] = get_middleware_list(
                 self.simulation_env)
             if middleware_list[0].level == middleware.level:
                 # 미들웨어 레벨이 최상위 인 경우에만 super thing을 생성한다.
@@ -971,7 +1038,7 @@ class SoPScenarioGenerator(SoPComponentGenerator):
                     whole_super_service_list += thing.service_list
 
             middleware_list: List[SoPMiddleware] = sorted(
-                get_middleware_list_recursive(simulation_env), key=lambda x: x.level)
+                get_middleware_list(simulation_env), key=lambda x: x.level)
             if middleware.level == middleware_list[0].level or middleware.level == middleware_list[-1].level:
                 # 미들웨어 레벨이 최상위, 최하위인 경우에만 super scenario를 생성한다.
                 SOPTEST_LOG_DEBUG(

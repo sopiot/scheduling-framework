@@ -300,17 +300,17 @@ class SoPEvaluator:
     def classify_event_log(self):
         for event in self.event_log:
             if event.event_type in SoPEvaluator.MIDDLEWARE_EVENT:
-                middleware, _ = find_component_recursive(self.simulation_env, event.middleware_component)
+                middleware, _ = find_component(self.simulation_env, event.middleware_component)
                 if not hasattr(middleware, 'event_log'):
                     middleware.event_log: List[SoPEvent] = []
                 middleware.event_log.append(event)
             if event.event_type in SoPEvaluator.THING_EVENT:
-                thing, _ = find_component_recursive(self.simulation_env, event.thing_component)
+                thing, _ = find_component(self.simulation_env, event.thing_component)
                 if not hasattr(thing, 'event_log'):
                     thing.event_log: List[SoPEvent] = []
                 thing.event_log.append(event)
             if event.event_type in SoPEvaluator.SCENARIO_EVENT:
-                scenario, _ = find_component_recursive(self.simulation_env, event.scenario_component)
+                scenario, _ = find_component(self.simulation_env, event.scenario_component)
                 if not hasattr(scenario, 'event_log'):
                     scenario.event_log: List[SoPEvent] = []
                 scenario.event_log.append(event)
@@ -389,7 +389,7 @@ class SoPEvaluator:
             else:
                 # FIXME: 매핑이 잘 되는지만 보려고 추가한 코드임. 나중에 삭제해야함
                 avg_execute_time = 0
-                thing_list: List[SoPThing] = get_thing_list_recursive(self.simulation_env)
+                thing_list: List[SoPThing] = get_thing_list(self.simulation_env)
                 service_list: List[SoPService] = []
                 for thing in thing_list:
                     service_list += thing.service_list
@@ -598,7 +598,7 @@ class SoPEvaluator:
             return scenario_result_list, local_scenario_result_list, super_scenario_result_list
 
         middleware_result_list: List[SoPMiddlewareResult] = []
-        middleware_list = get_middleware_list_recursive(self.simulation_env)
+        middleware_list = get_middleware_list(self.simulation_env)
         for middleware in middleware_list:
             middleware_result = self.evaluate_middleware(middleware)
             middleware_result_list.append(middleware_result)
@@ -689,11 +689,11 @@ class SoPEvaluator:
                 continue
 
             if event.middleware_component:
-                middleware, _ = find_component_recursive(self.simulation_env, event.middleware_component)
+                middleware, _ = find_component(self.simulation_env, event.middleware_component)
             elif event.thing_component:
-                _, middleware = find_component_recursive(self.simulation_env, event.thing_component)
+                _, middleware = find_component(self.simulation_env, event.thing_component)
             elif event.scenario_component:
-                _, middleware = find_component_recursive(self.simulation_env, event.scenario_component)
+                _, middleware = find_component(self.simulation_env, event.scenario_component)
 
             middleware: SoPMiddleware
             requester_middleware = event.requester_middleware_name if event.service_component else None
@@ -715,7 +715,7 @@ class SoPEvaluator:
         return table, header
 
     def export_txt(self, simulation_result: SoPSimulationResult, simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
-        middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(self.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_middleware_list(self.simulation_env)
         # scenario_list: List[SoPScenarioComponent] = get_scenario_list_recursive(
         #     self.simulation_env)
 
@@ -793,7 +793,7 @@ class SoPEvaluator:
             profile_result_table.append(['total target_thing_middleware_comm', f'{simulation_overhead.avg_total_target_thing__middleware_comm_overhead().total_seconds():8.3f}'])
 
         # print simulation score
-        thing_list: List[SoPThing] = get_thing_list_recursive(self.simulation_env)
+        thing_list: List[SoPThing] = get_thing_list(self.simulation_env)
         thing_list = [thing for thing in thing_list if thing.is_super == False]
         main_title = f'Simulation result of label "{label}" is_parallel={thing_list[0].is_parallel} {get_current_time(mode=TimeFormat.DATETIME1)}'
         scenario_result_title = f'==== Scenario Result ===='
@@ -842,7 +842,7 @@ class SoPEvaluator:
                 f.write('\n')
 
     def export_csv(self, simulation_result: SoPSimulationResult,  simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
-        middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(self.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_middleware_list(self.simulation_env)
         acceptance_score = SoPAcceptanceScore(middleware_list)
 
         if not args.filename:

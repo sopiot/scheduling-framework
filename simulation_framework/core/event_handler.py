@@ -145,9 +145,9 @@ class SoPEventHandler:
     def __init__(self, root_middleware: SoPMiddleware = None, event_log: List[SoPEvent] = [], timeout: float = 5.0, running_time: float = None, download_logs: bool = False,
                  mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
         self.root_middleware = root_middleware
-        self.middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(self.root_middleware)
-        self.thing_list: List[SoPThing] = get_thing_list_recursive(self.root_middleware)
-        self.scenario_list: List[SoPScenario] = get_scenario_list_recursive(self.root_middleware)
+        self.middleware_list: List[SoPMiddleware] = get_middleware_list(self.root_middleware)
+        self.thing_list: List[SoPThing] = get_thing_list(self.root_middleware)
+        self.scenario_list: List[SoPScenario] = get_scenario_list(self.root_middleware)
         self.device_list: List[SoPDevice] = []
 
         self.mqtt_client_list: List[SoPMQTTClient] = []

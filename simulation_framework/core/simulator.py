@@ -73,7 +73,7 @@ class SoPSimulator:
         self.simulation_config = config
         self.root_middleware = simulation_env.root_middleware
         self.event_timeline = [SoPEvent(event_type=SoPEventType.get(event['event_type']),
-                                        component=find_component_by_name_recursive(self.simulation_env, event['component'])[0],
+                                        component=find_component_by_name(self.simulation_env, event['component'])[0],
                                         timestamp=event['timestamp'],
                                         duration=event['duration'],
                                         delay=event['delay'],
@@ -119,12 +119,12 @@ class SoPSimulator:
 
         whole_scenario_add_timeline = [
             event for event in self.simulation_event_timeline if event.event_type in [SoPEventType.SCENARIO_ADD, SoPEventType.SCENARIO_ADD_CHECK, SoPEventType.REFRESH, SoPEventType.DELAY]][1:]
-        middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(self.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_middleware_list(self.simulation_env)
 
         middleware_scenario_add_timeline_list = []
         for middleware in middleware_list:
             scenario_add_timeline = [
-                event for event in [event for event in whole_scenario_add_timeline if event.event_type == SoPEventType.SCENARIO_ADD] if find_component_recursive(self.simulation_env, event.component)[1].name == middleware.name]
+                event for event in [event for event in whole_scenario_add_timeline if event.event_type == SoPEventType.SCENARIO_ADD] if find_component(self.simulation_env, event.component)[1].name == middleware.name]
             middleware_scenario_add_timeline_list.append(scenario_add_timeline)
 
         scenario_check_timeline_list = [event for event in whole_scenario_add_timeline if event.event_type in [
@@ -170,7 +170,7 @@ class SoPSimulator:
         Args:
             simulation_env (SoPMiddlewareComponent): _description_
         """
-        middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(simulation_env)
+        middleware_list: List[SoPMiddleware] = get_middleware_list(simulation_env)
         for middleware in middleware_list:
             ssh_client = self.event_handler.find_ssh_client(middleware)
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
@@ -193,13 +193,13 @@ class SoPSimulator:
                        middleware.init_script)
 
     def generate_thing_codes(self, simulation_env: SoPMiddleware):
-        thing_list: List[SoPThing] = get_thing_list_recursive(simulation_env)
+        thing_list: List[SoPThing] = get_thing_list(simulation_env)
 
         for thing in thing_list:
             write_file(thing.thing_file_path, thing.thing_code())
 
     def generate_scenario_codes(self, simulation_env: SoPMiddleware):
-        scenario_list: List[SoPScenario] = get_scenario_list_recursive(
+        scenario_list: List[SoPScenario] = get_scenario_list(
             simulation_env)
         for scenario in scenario_list:
             write_file(scenario.scenario_file_path,
@@ -231,7 +231,7 @@ class SoPSimulator:
 
             return True
 
-        middleware_list: List[SoPMiddleware] = get_middleware_list_recursive(
+        middleware_list: List[SoPMiddleware] = get_middleware_list(
             simulation_env)
 
         pool_map(ssh_task, middleware_list)
@@ -266,7 +266,7 @@ class SoPSimulator:
 
             return True
 
-        thing_list: List[SoPThing] = get_thing_list_recursive(
+        thing_list: List[SoPThing] = get_thing_list(
             simulation_env)
 
         pool_map(ssh_task, thing_list)

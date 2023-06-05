@@ -6,39 +6,51 @@ from queue import Queue
 from abc import ABCMeta
 
 
-def get_middleware_list_recursive(middleware: 'SoPMiddleware' = None) -> List['SoPMiddleware']:
-    middleware_list = [middleware]
+def get_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddleware']:
+    # middleware_list = [middleware]
 
-    for child_middleware in middleware.child_middleware_list:
-        middleware_list.extend(get_middleware_list_recursive(child_middleware))
+    # for child_middleware in middleware.children:
+    #     middleware_list.extend(get_middleware_list(child_middleware))
 
-    middleware_list = sorted(middleware_list, key=lambda x: x.level, reverse=True)
+    # middleware_list = sorted(middleware_list, key=lambda x: x.level, reverse=True)
+    # return middleware_list
+
+    middleware_list = [middleware] + list(middleware.descendants)
     return middleware_list
 
 
-def get_thing_list_recursive(middleware: 'SoPMiddleware' = None) -> List['SoPThing']:
-    thing_list = [thing for thing in middleware.thing_list]
+def get_thing_list(middleware: 'SoPMiddleware' = None) -> List['SoPThing']:
+    # return [middleware] + list(middleware.descendants)
+    # thing_list = [thing for thing in middleware.thing_list]
 
-    for child_middleware in middleware.child_middleware_list:
-        thing_list.extend(get_thing_list_recursive(child_middleware))
+    # for child_middleware in middleware.children:
+    #     thing_list.extend(get_thing_list(child_middleware))
 
-    thing_list = sorted(thing_list, key=lambda x: x.level, reverse=True)
+    # thing_list = sorted(thing_list, key=lambda x: x.level, reverse=True)
+    # return thing_list
+
+    middleware_list = get_middleware_list(middleware)
+    thing_list = flatten_list([middleware.thing_list for middleware in middleware_list])
     return thing_list
 
 
-def get_scenario_list_recursive(middleware: 'SoPMiddleware' = None) -> List['SoPScenario']:
-    scenario_list = [scenario for scenario in middleware.scenario_list]
+def get_scenario_list(middleware: 'SoPMiddleware' = None) -> List['SoPScenario']:
+    # scenario_list = [scenario for scenario in middleware.scenario_list]
 
-    for child_middleware in middleware.child_middleware_list:
-        scenario_list.extend(get_scenario_list_recursive(child_middleware))
+    # for child_middleware in middleware.children:
+    #     scenario_list.extend(get_scenario_list(child_middleware))
 
-    scenario_list = sorted(scenario_list, key=lambda x: x.level, reverse=True)
+    # scenario_list = sorted(scenario_list, key=lambda x: x.level, reverse=True)
+    # return scenario_list
+
+    middleware_list = get_middleware_list(middleware)
+    scenario_list = flatten_list([middleware.scenario_list for middleware in middleware_list])
     return scenario_list
 
 
-def find_component_recursive(middleware: 'SoPMiddleware', component: 'SoPComponent', key: Callable = lambda x: x) -> Tuple[object, object]:
+def find_component(middleware: 'SoPMiddleware', component: 'SoPComponent', key: Callable = lambda x: x) -> Tuple[object, object]:
 
-    def inner(middleware: 'SoPMiddleware', component: 'SoPComponent'):
+    def find_component_recursive(middleware: 'SoPMiddleware', component: 'SoPComponent'):
         if key(middleware) == key(component):
             return middleware, None
 
@@ -48,29 +60,29 @@ def find_component_recursive(middleware: 'SoPMiddleware', component: 'SoPCompone
         for scenario in middleware.scenario_list:
             if key(scenario) == key(component):
                 return scenario, middleware
-        for child_middleware in middleware.child_middleware_list:
+        for child_middleware in middleware.children:
             if key(child_middleware) == key(component):
                 return child_middleware, middleware
 
-        for child_middleware in middleware.child_middleware_list:
-            result = inner(
+        for child_middleware in middleware.children:
+            result = find_component_recursive(
                 child_middleware, component)
             if result:
                 return result[0], result[1]
             else:
-                inner(
+                find_component_recursive(
                     child_middleware, component)
 
-    result = inner(middleware, component)
+    result = find_component_recursive(middleware, component)
     if result:
         return result[0], result[1]
     else:
         return None, None
 
 
-def find_component_by_name_recursive(middleware: 'SoPMiddleware', component_name: str):
+def find_component_by_name(middleware: 'SoPMiddleware', component_name: str):
 
-    def inner(middleware: 'SoPMiddleware', component_name: str):
+    def find_component_by_name_recursive(middleware: 'SoPMiddleware', component_name: str):
         if middleware.name == component_name:
             return middleware, None
 
@@ -80,18 +92,18 @@ def find_component_by_name_recursive(middleware: 'SoPMiddleware', component_name
         for scenario in middleware.scenario_list:
             if scenario.name == component_name:
                 return scenario, middleware
-        for child_middleware in middleware.child_middleware_list:
+        for child_middleware in middleware.children:
             if child_middleware.name == component_name:
                 return child_middleware, middleware
 
-        for child_middleware in middleware.child_middleware_list:
-            result = inner(child_middleware, component_name)
+        for child_middleware in middleware.children:
+            result = find_component_by_name_recursive(child_middleware, component_name)
             if result:
                 return result[0], result[1]
             else:
-                inner(child_middleware, component_name)
+                find_component_by_name_recursive(child_middleware, component_name)
 
-    result = inner(middleware, component_name)
+    result = find_component_by_name_recursive(middleware, component_name)
     if result:
         return result[0], result[1]
     else:
@@ -421,7 +433,7 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.localserver_port = localserver_port
 
     def middleware_cfg_file(self, simulation_env: 'SoPMiddleware', remote_home_dir: str):
-        _, parent_middleware = find_component_recursive(simulation_env, self)
+        _, parent_middleware = find_component(simulation_env, self)
         parent_middleware: SoPMiddleware
         if parent_middleware is None:
             parent_middleware_line = ''
