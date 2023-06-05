@@ -192,6 +192,7 @@ class SoPEnvGenerator:
             return_value_range = (0, 1000)
 
             service_name = f'function_{service_name}'
+            level = -1
             tag_per_service = random.randint(*tag_per_service_range)
             tag_list = random.sample(tag_name_pool, tag_per_service)
             energy = random.randint(*energy_range)
@@ -199,7 +200,7 @@ class SoPEnvGenerator:
             return_value = random.randint(*return_value_range)
 
             service = SoPService(name=service_name,
-                                 level=None,
+                                 level=level,
                                  tag_list=tag_list,
                                  is_super=False,
                                  energy=energy,

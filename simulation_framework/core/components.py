@@ -271,9 +271,6 @@ class SoPDevice(SoPComponent):
     def load(cls, data: dict) -> 'SoPDevice':
         device: SoPDevice = super().load(data=data)
 
-        device.name = data['name']
-        device.component_type = SoPComponentType.get(data['component_type'])
-
         device.host = data['host']
         device.ssh_port = data['ssh_port']
         device.user = data['user']
@@ -289,6 +286,7 @@ class SoPDevice(SoPComponent):
 
     def dict(self):
         return dict(name=self.name,
+                    level=self.level,
                     component_type=self.component_type.value,
                     host=self.host,
                     user=self.user,

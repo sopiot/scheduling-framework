@@ -54,7 +54,10 @@ class SoPSimulationFramework:
     def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[SoPService], List[SoPThing]]:
         service_thing_pool = load_json(service_thing_pool_path)
         service_pool = [SoPService.load(service_info) for service_info in service_thing_pool['service_pool']]
-        thing_pool = [SoPService.load(thing_info=thing_info) for thing_info in service_thing_pool['thing_pool']]
+        thing_pool = [SoPThing.load(thing_info) for thing_info in service_thing_pool['thing_pool']]
+        for thing in thing_pool:
+            for service in thing.service_list:
+                service.thing = thing
         return service_pool, thing_pool
 
     def load_simulation_data(self, simulation_data_path: str) -> Tuple[SoPSimulationConfig, List[SoPSimulationEnv]]:
@@ -237,8 +240,10 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
         return True
 
     def export_service_thing_pool(self, service_thing_pool_path: str, service_pool: List[SoPService], thing_pool: List[SoPThing]):
-        service_thing_pool = {'service_pool': service_pool, 'thing_pool': thing_pool}
-        save_json(service_thing_pool, service_thing_pool_path)
+        service_pool_dict = [service.dict() for service in service_pool]
+        thing_pool_dict = [thing.dict() for thing in thing_pool]
+        service_thing_pool = {'service_pool': service_pool_dict, 'thing_pool': thing_pool_dict}
+        save_json(service_thing_pool_path, service_thing_pool)
 
     def generate_simulation_env(self) -> List[SoPSimulationEnv]:
         self.env_generator = SoPEnvGenerator(service_parallel=self._service_parallel)
@@ -246,11 +251,11 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
         thing_pool: List[SoPThing] = []
 
         for simulation_env in self._simulation_env_list:
-            simulation_config = simulation_env.config
-            service_thing_pool_path = simulation_config.service_thing_pool_path.abs_path()
+            config = simulation_env.config
+            service_thing_pool_path = config.service_thing_pool_path.abs_path()
 
             # if service_thing_pool is given in config, load it
-            if os.path.exists(service_thing_pool_path):
+            if os.path.exists(service_thing_pool_path) and not config.force_generate:
                 service_pool, thing_pool = self.load_service_thing_pool(service_thing_pool_path=service_thing_pool_path)
                 self.env_generator.load(config=simulation_env.config)
             # else generate service_thing_pool
@@ -259,6 +264,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                 tag_name_pool, service_name_pool = self.env_generator.generate_name_pool()
                 service_pool = self.env_generator.generate_service_pool(tag_name_pool=tag_name_pool, service_name_pool=service_name_pool)
                 thing_pool = self.env_generator.generate_thing_pool(service_pool=service_pool)
+                self.export_service_thing_pool(service_thing_pool_path=service_thing_pool_path, service_pool=service_pool, thing_pool=thing_pool)
 
             root_middleware = self.env_generator.generate_middleware_tree(thing_pool=thing_pool)
             self.env_generator.map_thing_to_middleware(root_middleware=root_middleware, thing_pool=thing_pool)

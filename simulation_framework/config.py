@@ -61,6 +61,7 @@ class SoPSimulationConfig:
                                         path=config['simulation'].get('device_pool_path', 'device_pool.yml'))
         self.service_thing_pool_path = SoPPath(config_path=os.path.abspath(config_path),
                                                path=config['simulation'].get('service_thing_pool_path', 'service_thing_pool.json'))
+        self.force_generate = config['simulation'].get('force_generate', False)
         self.local_mode = config['simulation'].get('local_mode', False)
         self.middleware_config = SoPMiddlewareConfig(config['middleware'], config_path)
         self.service_config = SoPServiceConfig(config['service'])
