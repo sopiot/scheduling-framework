@@ -977,7 +977,7 @@ class Profiler:
         elif profile_type == ProfileType.EXECUTE:
             start_protocol = SoPProtocolType.Super.MS_EXECUTE
         else:
-            raise Exception(f"Invalid profile type: {profile_type}")
+            raise TypeError(f"Invalid profile type: {profile_type}")
 
         request_start_log_line_list: List[LogLine] = []
         for log_line in self.integrated_mqtt_log:
@@ -1003,7 +1003,7 @@ class Profiler:
         elif profile_type == ProfileType.EXECUTE:
             protocol_filter = EXECUTE_PROTOCOL
         else:
-            raise Exception(f"Invalid profile type: {profile_type}")
+            raise TypeError(f"Invalid profile type: {profile_type}")
 
         # target range: start ~ finish
         log_line_in_target_range = self.get_logs_time_range(log_data=self.integrated_mqtt_log,
@@ -1040,7 +1040,7 @@ class Profiler:
         elif profile_type == ProfileType.EXECUTE:
             start_protocol = SoPProtocolType.Super.SM_EXECUTE
         else:
-            raise Exception(f"Invalid profile type: {profile_type}")
+            raise TypeError(f"Invalid profile type: {profile_type}")
 
         target_start_log_list: List[LogLine] = []
         for log_line in request_log_list:
@@ -1076,7 +1076,7 @@ class Profiler:
         elif profile_type == ProfileType.EXECUTE:
             protocol_filter = EXECUTE_PROTOCOL
         else:
-            raise Exception(f"Invalid profile type: {profile_type}")
+            raise TypeError(f"Invalid profile type: {profile_type}")
 
         log_range = self.get_logs_time_range(request_log_list, target_start_log.timestamp - timedelta(milliseconds=3))
         target_log_list: List[LogLine] = []
@@ -1090,7 +1090,7 @@ class Profiler:
         if end_time == None:
             end_time = datetime.max
         if start_time > end_time:
-            raise Exception(f"Invalid time range: {start_time} ~ {end_time}")
+            raise ValueError(f"Invalid time range: {start_time} ~ {end_time}")
 
         log_range = [log_line for log_line in log_data if start_time <= log_line.timestamp <= end_time]
         return log_range
@@ -1132,7 +1132,7 @@ class Profiler:
 
     def profile(self, profile_type: ProfileType, export: bool = False) -> ProfileResult:
         if not profile_type in [ProfileType.SCHEDULE, ProfileType.EXECUTE]:
-            raise Exception(f"Invalid profile type: {profile_type}")
+            raise TypeError(f"Invalid profile type: {profile_type}")
 
         request_start_log_line_list = self.collect_request_start_log_line(profile_type=profile_type)
         if export:

@@ -4,19 +4,15 @@ import paho.mqtt.client as mqtt
 
 
 def encode_MQTT_message(topic: str, payload: Union[str, dict], timestamp: float = None) -> mqtt.MQTTMessage:
-    try:
-        msg = mqtt.MQTTMessage()
-        msg.topic = bytes(topic, encoding='utf-8')
-        if isinstance(payload, str):
-            msg.payload = bytes(payload, encoding='utf-8')
-        elif isinstance(payload, dict):
-            msg.payload = dict_to_json_string(payload)
-        msg.timestamp = timestamp
+    msg = mqtt.MQTTMessage()
+    msg.topic = bytes(topic, encoding='utf-8')
+    if isinstance(payload, str):
+        msg.payload = bytes(payload, encoding='utf-8')
+    elif isinstance(payload, dict):
+        msg.payload = dict_to_json_string(payload)
+    msg.timestamp = timestamp
 
-        return msg
-    except Exception as e:
-        print_error(e)
-        raise e
+    return msg
 
 
 def decode_MQTT_message(msg: mqtt.MQTTMessage, mode=dict) -> Tuple[str, dict]:
@@ -35,16 +31,16 @@ def decode_MQTT_message(msg: mqtt.MQTTMessage, mode=dict) -> Tuple[str, dict]:
         elif mode == dict:
             return topic, json_string_to_dict(payload), timestamp
         else:
-            raise Exception(f'Unexpected mode!!! - {mode}')
+            raise UnsupportedError(f'Unexpected mode!!! - {mode}')
     elif isinstance(payload, dict):
         if mode == str:
             return topic, dict_to_json_string(payload), timestamp
         elif mode == dict:
             return topic, payload, timestamp
         else:
-            raise Exception(f'Unexpected mode!!! - {mode}')
+            raise UnsupportedError(f'Unexpected mode!!! - {mode}')
     else:
-        raise Exception(f'Unexpected type!!! - {type(payload)}')
+        raise UnsupportedError(f'Unexpected type!!! - {type(payload)}')
 
 
 class SoPMQTTClient:

@@ -389,7 +389,7 @@ class SoPEvaluator:
             else:
                 # FIXME: 매핑이 잘 되는지만 보려고 추가한 코드임. 나중에 삭제해야함
                 avg_execute_time = 0
-                thing_list: List[SoPThing] = get_thing_list(self.simulation_env)
+                thing_list: List[SoPThing] = get_whole_thing_list(self.simulation_env)
                 service_list: List[SoPService] = []
                 for thing in thing_list:
                     service_list += thing.service_list
@@ -598,7 +598,7 @@ class SoPEvaluator:
             return scenario_result_list, local_scenario_result_list, super_scenario_result_list
 
         middleware_result_list: List[SoPMiddlewareResult] = []
-        middleware_list = get_middleware_list(self.simulation_env)
+        middleware_list = get_whole_middleware_list(self.simulation_env)
         for middleware in middleware_list:
             middleware_result = self.evaluate_middleware(middleware)
             middleware_result_list.append(middleware_result)
@@ -715,7 +715,7 @@ class SoPEvaluator:
         return table, header
 
     def export_txt(self, simulation_result: SoPSimulationResult, simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
-        middleware_list: List[SoPMiddleware] = get_middleware_list(self.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env)
         # scenario_list: List[SoPScenarioComponent] = get_scenario_list_recursive(
         #     self.simulation_env)
 
@@ -793,7 +793,7 @@ class SoPEvaluator:
             profile_result_table.append(['total target_thing_middleware_comm', f'{simulation_overhead.avg_total_target_thing__middleware_comm_overhead().total_seconds():8.3f}'])
 
         # print simulation score
-        thing_list: List[SoPThing] = get_thing_list(self.simulation_env)
+        thing_list: List[SoPThing] = get_whole_thing_list(self.simulation_env)
         thing_list = [thing for thing in thing_list if thing.is_super == False]
         main_title = f'Simulation result of label "{label}" is_parallel={thing_list[0].is_parallel} {get_current_time(mode=TimeFormat.DATETIME1)}'
         scenario_result_title = f'==== Scenario Result ===='
@@ -842,7 +842,7 @@ class SoPEvaluator:
                 f.write('\n')
 
     def export_csv(self, simulation_result: SoPSimulationResult,  simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
-        middleware_list: List[SoPMiddleware] = get_middleware_list(self.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env)
         acceptance_score = SoPAcceptanceScore(middleware_list)
 
         if not args.filename:

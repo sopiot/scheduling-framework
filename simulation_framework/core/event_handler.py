@@ -17,6 +17,13 @@ class SoPSimulationEnv:
         self.service_pool = service_pool
         self.thing_pool = thing_pool
 
+    def dict(self):
+        return dict(config=self.config.dict(),
+                    root_middleware=self.root_middleware.dict(),
+                    event_timeline=self.event_timeline,
+                    service_pool=self.service_pool,
+                    thing_pool=self.thing_pool)
+
 
 class SoPEventType(Enum):
     START = 'START'                                                     # Simulation 시작 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 시작된다.
@@ -145,9 +152,9 @@ class SoPEventHandler:
     def __init__(self, root_middleware: SoPMiddleware = None, event_log: List[SoPEvent] = [], timeout: float = 5.0, running_time: float = None, download_logs: bool = False,
                  mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
         self.root_middleware = root_middleware
-        self.middleware_list: List[SoPMiddleware] = get_middleware_list(self.root_middleware)
-        self.thing_list: List[SoPThing] = get_thing_list(self.root_middleware)
-        self.scenario_list: List[SoPScenario] = get_scenario_list(self.root_middleware)
+        self.middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.root_middleware)
+        self.thing_list: List[SoPThing] = get_whole_thing_list(self.root_middleware)
+        self.scenario_list: List[SoPScenario] = get_whole_scenario_list(self.root_middleware)
         self.device_list: List[SoPDevice] = []
 
         self.mqtt_client_list: List[SoPMQTTClient] = []

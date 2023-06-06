@@ -21,24 +21,17 @@ class SoPSimulationFramework:
         self._mqtt_debug = mqtt_debug
         self._middleware_debug = middleware_debug
 
-        self._simulation_env_list: List[SoPSimulationEnv] = []
+        self._config_list: List[SoPSimulationConfig] = []
         self._policy_path_list: List[str] = []
+        self._simulation_env_list: List[SoPSimulationEnv] = []
 
     def load(self, config_path: str = '', simulation_data_path: str = '', policy_path: str = '') -> None:
-        if (config_path and simulation_data_path) or (not config_path and not simulation_data_path):
-            raise Exception('Only one of config_path and simulation_data_path must be given.')
-
         if config_path:
-            config_list = self.load_config(config_path=config_path)
-            simulation_env_list: List[SoPSimulationEnv] = []
-            for config in config_list:
-                simulation_env = SoPSimulationEnv(config=config)
-                simulation_env_list.append(simulation_env)
-            self._simulation_env_list = simulation_env_list
+            self._config_list = self.load_config(config_path=config_path)
         elif simulation_data_path:
             self._simulation_env_list = self.load_simulation_data(simulation_data_path=simulation_data_path)
         else:
-            raise Exception('[SoPSimulationFramework.load] Unknown error')
+            raise ConfigPathError('Only one of config_path and simulation_data_path must be given.', path='not given')
 
         self._policy_path_list = self.load_policy(policy_path=policy_path)
 
@@ -52,6 +45,9 @@ class SoPSimulationFramework:
         return config_list
 
     def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[SoPService], List[SoPThing]]:
+        if not os.path.exists(service_thing_pool_path):
+            return [], []
+
         service_thing_pool = load_json(service_thing_pool_path)
         service_pool = [SoPService.load(service_info) for service_info in service_thing_pool['service_pool']]
         thing_pool = [SoPThing.load(thing_info) for thing_info in service_thing_pool['thing_pool']]
@@ -81,8 +77,8 @@ class SoPSimulationFramework:
 
     def start(self):
         # Generate simulation if any root_middleware in self._simulation_env_list is None.
-        if any([not simulation_env.root_middleware for simulation_env in self._simulation_env_list]):
-            self._simulation_env_list = self.generate_simulation_env()
+        if self._config_list:
+            self._simulation_env_list = self.generate_simulation_env(self._config_list)
 
         simulation_result_list: List[SoPSimulationResult] = []
         for simulation_data in self._simulation_env_list:
@@ -110,12 +106,13 @@ class SoPSimulationFramework:
                 ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86',
                                      f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
             ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
-            middleware_update_result = ssh_client.send_command_with_check_success(f'cd {home_dir_append(middleware_path, user)};'
-                                                                                  'chmod +x sopiot_middleware;'
-                                                                                  'cmake .;'
-                                                                                  'make -j')
+            command = (f'cd {home_dir_append(middleware_path, user)};'
+                       'chmod +x sopiot_middleware;'
+                       'cmake .;'
+                       'make -j')
+            middleware_update_result = ssh_client.send_command_with_check_success(command)
             if not middleware_update_result:
-                raise Exception(f'Install middleware to {ssh_client.device.name} failed')
+                raise SSHCommandFailError(command=command, reason=f'Install middleware to {ssh_client.device.name} failed')
 
             SOPTEST_LOG_DEBUG(f'Install middleware to {ssh_client.device.name} success', SoPTestLogLevel.INFO)
             return True
@@ -128,7 +125,7 @@ class SoPSimulationFramework:
             SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} start', SoPTestLogLevel.INFO)
             pip_install_result = ssh_client.send_command_with_check_success(thing_install_command)
             if not pip_install_result:
-                raise Exception(f'Install big-thing-py failed to {ssh_client.device.name}')
+                raise SSHCommandFailError(command=thing_install_command, reason=f'Install big-thing-py failed to {ssh_client.device.name}')
 
             SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} end', SoPTestLogLevel.INFO)
             return True
@@ -144,7 +141,7 @@ class SoPSimulationFramework:
                 for ramdisk_generate_command in ramdisk_generate_command_list:
                     result = ssh_client.send_command_with_check_success(ramdisk_generate_command)
                     if not result:
-                        raise Exception(f'Generate ramdisk failed to {ssh_client.device.name}')
+                        raise SSHCommandFailError(command=ramdisk_generate_command, reason=f'Generate ramdisk failed to {ssh_client.device.name}')
 
             return True
 
@@ -186,7 +183,7 @@ check_cpu_clock_setting'''
             if ssh_client.device.name != 'localhost':
                 set_cpu_clock_remote(ssh_client=ssh_client)
 
-        middleware_list: List[SoPMiddleware] = get_middleware_list(simulator.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(simulator.simulation_env)
 
         middleware_ssh_client_list = list(set([simulator.event_handler.find_ssh_client(middleware) for middleware in middleware_list]))
         thing_ssh_client_list = list(set([simulator.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
@@ -230,76 +227,93 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
 
         return True
 
-    def generate_simulation_env(self) -> List[SoPSimulationEnv]:
+    def calculate_num_thing_service_generate(self, config: SoPSimulationConfig, loaded_service_num: int, loaded_thing_num: int) -> Tuple[int, int]:
+        manual_middleware_tree = config.middleware_config.manual_middleware_tree
+        random_middleware_config = config.middleware_config.random
+
+        # Set service_num according to current config
+        service_num = config.service_config.normal.service_type_num
+        max_thing_num = 0
+
+        # Calculate max_thing_num according to current config
+        if manual_middleware_tree:
+            middleware_config_list = [manual_middleware_tree] + list(manual_middleware_tree.descendants)
+            max_thing_num = sum([middleware_config.thing_num[1] for middleware_config in middleware_config_list])
+        elif random_middleware_config:
+            max_middleware_num = calculate_tree_node_num(random_middleware_config.height[1], random_middleware_config.width[1])
+            max_thing_num = max_middleware_num * random_middleware_config.normal.thing_per_middleware[1]
+        else:
+            raise SimulationFailError('manual_middleware_tree and random_middleware_config are both None')
+
+        # If config.force_generate is True, generate service and thing pool according to current
+        # Else, generate services and things as much as the difference between the number of
+        # service thing pools to be created in the current setting and the number of service
+        # thing pools already created.
+        if config.force_generate:
+            pass
+        else:
+            service_num -= loaded_service_num
+            max_thing_num -= loaded_thing_num
+            if service_num <= 0:
+                service_num = 0
+            if max_thing_num <= 0:
+                max_thing_num = 0
+
+        return service_num, max_thing_num
+
+    def generate_simulation_env(self, config_list: List[SoPSimulationConfig]) -> List[SoPSimulationEnv]:
         self.env_generator = SoPEnvGenerator(service_parallel=self._service_parallel)
 
-        for simulation_env in self._simulation_env_list:
-            config = simulation_env.config
-            manual_middleware_tree = config.middleware_config.manual_middleware_tree
-            random_middleware_config = config.middleware_config.random
+        simulation_env_list: List[SoPSimulationEnv] = []
+        for config in config_list:
+            loaded_service_pool, loaded_thing_pool = [], []
+            simulation_env = SoPSimulationEnv(config=config)
             service_thing_pool_path = config.service_thing_pool_path.abs_path()
 
             self.env_generator.load(config=simulation_env.config)
-            tag_name_pool, service_name_pool, super_service_name_pool = self.env_generator.generate_name_pool()
+            tag_name_pool, service_name_pool = self.env_generator.generate_name_pool()
+            # TODO: load_service_thing_pool를 할때 tag_name_pool, service_name_pool도 가져와야한다.
 
             # If service_thing_pool path is given in config, load it
-            if os.path.exists(service_thing_pool_path):
+            if not config.force_generate:
                 loaded_service_pool, loaded_thing_pool = self.load_service_thing_pool(service_thing_pool_path=service_thing_pool_path)
-            else:
-                loaded_service_pool, loaded_thing_pool = [], []
 
-            # Set service_num according to current config
-            service_num = config.service_config.normal.service_type_num
+            # Calculate the number of services and things to be generated
+            num_service_generate, num_thing_generate = self.calculate_num_thing_service_generate(config=config,
+                                                                                                 loaded_service_num=len(loaded_service_pool), loaded_thing_num=len(loaded_thing_pool))
 
-            # Calculate max_thing_num according to current config
-            max_thing_num = 0
-            if config.middleware_config.manual_middleware_tree:
-                middleware_config_list = [manual_middleware_tree] + list(manual_middleware_tree.descendants)
-                max_thing_num = sum([middleware_config.thing_num[1] for middleware_config in middleware_config_list])
-            elif random_middleware_config:
-                max_middleware_num = calculate_tree_node_num(random_middleware_config.height[1], random_middleware_config.width[1])
-                max_thing_num = max_middleware_num * random_middleware_config.normal.thing_per_middleware[1]
-            else:
-                raise Exception('Unknown simulation generator error')
-
-            # If config.force_generate is True, generate service and thing pool according to current
-            # Else, generate services and things as much as the difference between the number of
-            # service thing pools to be created in the current setting and the number of service
-            # thing pools already created.
-            if config.force_generate:
-                pass
-            else:
-                service_num -= len(loaded_service_pool)
-                if service_num <= 0:
-                    service_num = 0
-                max_thing_num -= len(loaded_thing_pool)
-                if max_thing_num <= 0:
-                    max_thing_num = 0
-            generated_service_pool = self.env_generator.generate_service_pool(tag_name_pool=tag_name_pool, service_name_pool=service_name_pool,
-                                                                              service_num=service_num)
+            # Generate services and things
+            generated_service_pool = self.env_generator.generate_service_pool(tag_name_pool=tag_name_pool, service_name_pool=service_name_pool, num_service_generate=num_service_generate)
             service_pool = loaded_service_pool + generated_service_pool
-            generated_thing_pool = self.env_generator.generate_thing_pool(service_pool=service_pool, thing_num=max_thing_num)
+            generated_thing_pool = self.env_generator.generate_thing_pool(service_pool=service_pool, num_thing_generate=num_thing_generate)
             thing_pool = loaded_thing_pool + generated_thing_pool
+
+            # Export service_thing_pool
             self.export_service_thing_pool(service_thing_pool_path=service_thing_pool_path, service_pool=service_pool, thing_pool=thing_pool)
 
+            # Generate middleware tree
             root_middleware = self.env_generator.generate_middleware_tree(thing_pool=thing_pool)
+
+            # Map services and things to middleware
             self.env_generator.map_thing_to_middleware(root_middleware=root_middleware, thing_pool=thing_pool)
-            self.env_generator.generate_application(root_middleware=root_middleware)
 
-            # TODO: generate_scenario and mapping to middleware tree
-            # TODO: generate super thing, scenario, and mapping to middleware tree
+            # Generate application
+            self.env_generator.generate_scenario(root_middleware=root_middleware)
 
-            simulation_info = dict(simulation_file_path=simulation_file_path,
-                                   config_path=config_path,
-                                   policy_file_path=[],
-                                   label=[])
-            for policy_file_path in policy_file_path_list:
-                simulation_info['policy_file_path'].append(policy_file_path)
-                simulation_info['label'].append(f'{self.env_generator.simulation_config.name}_policy_{os.path.basename(policy_file_path).split(".")[0]}')
-            simulation_info_list.append(simulation_info)
+            # Generate super service, super thing and super scenario
+            self.env_generator.generate_super(root_middleware=root_middleware, tag_name_pool=tag_name_pool, super_service_name_pool=service_name_pool)
+
+            # TODO: Generate event timeline
+            event_timeline = []
+
+            simulation_env.root_middleware = root_middleware
+            simulation_env.service_pool = service_pool
+            simulation_env.thing_pool = thing_pool
+            simulation_env.event_timeline = event_timeline
+            simulation_env_list.append(simulation_env)
 
         save_json(path=config.service_thing_pool_path.abs_path(), data={'service_pool': [], 'thing_pool': []})
-        return simulation_info_list
+        return simulation_env_list
 
     def run_simulation(self, config: SoPSimulationConfig, simulation_data: SoPSimulationEnv, policy_file_path: str):
         """ Steps in a Simulation:
@@ -378,9 +392,10 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
     def get_remote_device_OS(self, ssh_client: SoPSSHClient) -> str:
         lsb_release_install_check = ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True)
         if not lsb_release_install_check:
-            install_result = ssh_client.send_command_with_check_success('sudo apt install lsb-release -y;', get_pty=True)
+            command = 'sudo apt install lsb-release -y;'
+            install_result = ssh_client.send_command_with_check_success(command, get_pty=True)
             if not install_result:
-                raise Exception(f'Install lsb-release failed to {ssh_client.device.name}')
+                raise SSHCommandFailError(command=command, reason=f'Install lsb-release failed to {ssh_client.device.name}')
 
         remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
         return remote_device_os

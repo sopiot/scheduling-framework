@@ -6,7 +6,7 @@ from queue import Queue
 from abc import ABCMeta
 
 
-def get_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddleware']:
+def get_whole_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddleware']:
     # middleware_list = [middleware]
 
     # for child_middleware in middleware.children:
@@ -14,12 +14,13 @@ def get_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddleware']:
 
     # middleware_list = sorted(middleware_list, key=lambda x: x.level, reverse=True)
     # return middleware_list
+    root_middleware = middleware.root
 
-    middleware_list = [middleware] + list(middleware.descendants)
+    middleware_list = [root_middleware] + list(root_middleware.descendants)
     return middleware_list
 
 
-def get_thing_list(middleware: 'SoPMiddleware' = None) -> List['SoPThing']:
+def get_whole_thing_list(middleware: 'SoPMiddleware' = None) -> List['SoPThing']:
     # return [middleware] + list(middleware.descendants)
     # thing_list = [thing for thing in middleware.thing_list]
 
@@ -28,13 +29,14 @@ def get_thing_list(middleware: 'SoPMiddleware' = None) -> List['SoPThing']:
 
     # thing_list = sorted(thing_list, key=lambda x: x.level, reverse=True)
     # return thing_list
+    root_middleware = middleware.root
 
-    middleware_list = get_middleware_list(middleware)
+    middleware_list = get_whole_middleware_list(root_middleware)
     thing_list = flatten_list([middleware.thing_list for middleware in middleware_list])
     return thing_list
 
 
-def get_scenario_list(middleware: 'SoPMiddleware' = None) -> List['SoPScenario']:
+def get_whole_scenario_list(middleware: 'SoPMiddleware' = None) -> List['SoPScenario']:
     # scenario_list = [scenario for scenario in middleware.scenario_list]
 
     # for child_middleware in middleware.children:
@@ -42,8 +44,9 @@ def get_scenario_list(middleware: 'SoPMiddleware' = None) -> List['SoPScenario']
 
     # scenario_list = sorted(scenario_list, key=lambda x: x.level, reverse=True)
     # return scenario_list
+    root_middleware = middleware.root
 
-    middleware_list = get_middleware_list(middleware)
+    middleware_list = get_whole_middleware_list(root_middleware)
     scenario_list = flatten_list([middleware.scenario_list for middleware in middleware_list])
     return scenario_list
 

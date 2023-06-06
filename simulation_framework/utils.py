@@ -1,4 +1,5 @@
 from simulation_framework.typing import *
+from simulation_framework.exceptions import *
 from termcolor import cprint, colored
 from dataclasses import *
 from anytree import *
@@ -57,7 +58,7 @@ class Direction(Enum):
             return cls.UNDEFINED
 
 
-def get_tree_node(root: object, get_children: Callable, get_target: Callable) -> Union[object, None]:
+def get_tree_node(root: T, get_children: Callable, get_target: Callable) -> T:
     if get_target(root):
         return root
     children_list = get_children(root)
@@ -72,7 +73,7 @@ def get_tree_node(root: object, get_children: Callable, get_target: Callable) ->
     return None
 
 
-def get_tree_node_list(root, get_children: Callable):
+def get_tree_node_list(root, get_children: Callable) -> List[T]:
     node_list = [root]
     children_list = get_children(root)
     if not children_list:
@@ -84,7 +85,7 @@ def get_tree_node_list(root, get_children: Callable):
     return node_list
 
 
-def count_tree_node_num(root: object, get_children: Callable, filter: Callable):
+def count_tree_node_num(root: T, get_children: Callable, filter: Callable) -> int:
     count = 0
     if filter(root):
         count += 1
@@ -98,7 +99,7 @@ def count_tree_node_num(root: object, get_children: Callable, filter: Callable):
     return count
 
 
-def calculate_tree_node_num(height, num_children):
+def calculate_tree_node_num(height, num_children) -> int:
     if height == 1:
         return 1
 
@@ -109,7 +110,7 @@ def calculate_tree_node_num(height, num_children):
     return node_count
 
 
-def get_tree_height(root: object, get_children: Callable):
+def get_tree_height(root: T, get_children: Callable) -> int:
     height = 1
     children_list = get_children(root)
     if not children_list:
@@ -121,7 +122,7 @@ def get_tree_height(root: object, get_children: Callable):
     return height + 1
 
 
-def flatten_list(nested_list: List[list]):
+def flatten_list(nested_list: List[List[T]]) -> List[T]:
     flat_list = []
     for sublist in nested_list:
         for item in sublist:
@@ -230,31 +231,23 @@ def append_indent(code: str, indent: int = 1, remove_tab: bool = True):
 
 
 def read_file(path: str, strip: bool = True, raw: bool = False) -> List[str]:
-    try:
-        with open(path, 'r') as f:
-            if raw:
-                return f.read()
-            if strip:
-                return [line.strip() for line in f.readlines()]
-            else:
-                return f.readlines()
-    except FileNotFoundError as e:
-        print(f'File not found: {path}')
-        raise e
+    with open(path, 'r') as f:
+        if raw:
+            return f.read()
+        if strip:
+            return [line.strip() for line in f.readlines()]
+        else:
+            return f.readlines()
 
 
 def write_file(path: str, data: Union[str, List[str]]) -> None:
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as f:
-            if isinstance(data, str):
-                f.write(data)
-            elif isinstance(data, list):
-                f.writelines(data)
-        return path
-    except FileNotFoundError as e:
-        print(f'Path not found: {path}')
-        raise e
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w') as f:
+        if isinstance(data, str):
+            f.write(data)
+        elif isinstance(data, list):
+            f.writelines(data)
+    return path
 
 
 def load_yaml(path: str) -> dict:
@@ -284,8 +277,7 @@ def save_json(path: str, data: Union[str, dict], indent: int = 4) -> None:
         if isinstance(data, (dict, str)):
             json.dump(data, f, indent=indent)
         else:
-            raise Exception(
-                f'common_util.json_file_write: data type error - {type(data)}')
+            raise TypeError(f'common_util.json_file_write: data type error - {type(data)}')
 
 
 def avg(src: List[Union[int, float]]) -> float:

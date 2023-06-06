@@ -1,4 +1,5 @@
 from simulation_framework.typing import *
+from simulation_framework.exceptions import *
 from termcolor import cprint, colored
 
 import logging
@@ -165,7 +166,7 @@ class SoPLogger:
         elif print_mode == self.PrintMode.CRITICAL:
             self.select_by_logger_name(logger.name, logger.critical,  msg, color)
         else:
-            cprint(f'[SOPLOG_DEBUG] not supported print mode...', 'red')
+            raise UnsupportedError(f'Not supported print mode: {print_mode}')
 
     def print(self, msg: List[str], color: str = None, mode: PrintMode = PrintMode.DEBUG):
         try:
@@ -179,9 +180,9 @@ class SoPLogger:
             elif self._logging_mode == self.LoggingMode.OFF:
                 pass
             else:
-                raise Exception(f'[SOPLOG_DEBUG] Not supported logging mode ')
+                raise UnsupportedError(f'Not supported logging mode: {mode}')
         except Exception as e:
-            print(f'[SOPLOG_DEBUG] Unknown exception error : {str(e)}')
+            print(f'Unknown exception error : {str(e)}')
 
 
 base_logger: SoPLogger = None
@@ -214,7 +215,7 @@ def SOPLOG_DEBUG(msg: List[str], color: str = None, mode: SoPLogger.PrintMode = 
 
 
 # FIXME: Remove Exception parameter(e)
-def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, color: str = None, e: Exception = None, progress: float = None):
+def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, color: str = None, progress: float = None):
     # error = 0  : PASS ✅
     # error = 1  : WARN ⚠ -> use b'\xe2\x9a\xa0\xef\xb8\x8f'.decode()
     # error = -1 : FAIL ❌
@@ -225,18 +226,17 @@ def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, c
         progress_status = f'[{progress*100:8.3f}%]'
 
     if error == SoPTestLogLevel.PASS:
-        log_msg = f'{progress_status} [PASS✅] {msg} --> {str(e)}'
+        log_msg = f'{progress_status} [PASS✅] {msg}'
         SOPLOG_DEBUG(log_msg, 'green' if not color else color)
     elif error == SoPTestLogLevel.WARN:
-        log_msg = f'{progress_status} [WARN{WARN_emoji} ] {msg} --> {str(e)}'
+        log_msg = f'{progress_status} [WARN{WARN_emoji} ] {msg}'
         SOPLOG_DEBUG(log_msg, 'yellow' if not color else color)
     elif error == SoPTestLogLevel.INFO:
-        log_msg = f'{progress_status} [INFOℹ️ ] {msg} --> {str(e)}'
+        log_msg = f'{progress_status} [INFOℹ️ ] {msg}'
         SOPLOG_DEBUG(log_msg, 'cyan' if not color else color)
     elif error == SoPTestLogLevel.FAIL:
-        log_msg = f'{progress_status} [FAIL❌] {msg} --> {str(e)}'
+        log_msg = f'{progress_status} [FAIL❌] {msg}'
         SOPLOG_DEBUG(log_msg, 'red' if not color else color)
-        return e
 
 
 def print_error(e: Exception):

@@ -51,7 +51,7 @@ class SoPSimulationConfig:
         self.config_path = config_path
         config = load_yaml(config_path)
         if not config:
-            raise ValueError(f'config_path is not valid. config_path: {config_path}')
+            raise ConfigPathError(config_path=config_path)
 
         self.name: str = config['simulation'].get('name', os.path.basename(config_path).split('.')[0])
         self.running_time: float = config['simulation'].get('running_time', 120.0)
@@ -121,7 +121,7 @@ class SoPMiddlewareConfig:
             self.manual_middleware_tree = importer.import_(manual_middleware_tree_dict)
         self.random = SoPMiddlewareConfig.RandomConfig(data['random']) if 'random' in data else None
         if not 'manual' in data and not 'random' in data:
-            raise SOPTEST_LOG_DEBUG(f'random: and manual: are not set...', SoPTestLogLevel.FAIL)
+            raise ConfigMissingError('Either "random" or "manual" must be specified in config. Please provide at least one of them.')
 
 
 class SoPServiceConfig:
@@ -180,9 +180,9 @@ class SoPThingConfig:
         def __init__(self, data: dict) -> None:
             self.service_per_thing: ConfigRandomIntRange = data['service_per_thing']
 
-            self.fail_error_rate: int = data['fail_error_rate']
-            self.broken_rate: int = data['broken_rate']
-            self.unregister_rate: int = data['unregister_rate']
+            self.fail_error_rate: float = data['fail_error_rate']
+            self.broken_rate: float = data['broken_rate']
+            self.unregister_rate: float = data['unregister_rate']
 
     def __init__(self, data: dict) -> None:
         self.remote_thing_folder_path: str = data.get('remote_thing_folder_path', '/mnt/ramdisk/thing')

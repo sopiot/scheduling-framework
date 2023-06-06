@@ -119,7 +119,7 @@ class SoPSimulator:
 
         whole_scenario_add_timeline = [
             event for event in self.simulation_event_timeline if event.event_type in [SoPEventType.SCENARIO_ADD, SoPEventType.SCENARIO_ADD_CHECK, SoPEventType.REFRESH, SoPEventType.DELAY]][1:]
-        middleware_list: List[SoPMiddleware] = get_middleware_list(self.simulation_env)
+        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env)
 
         middleware_scenario_add_timeline_list = []
         for middleware in middleware_list:
@@ -170,7 +170,7 @@ class SoPSimulator:
         Args:
             simulation_env (SoPMiddlewareComponent): _description_
         """
-        middleware_list: List[SoPMiddleware] = get_middleware_list(simulation_env)
+        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(simulation_env)
         for middleware in middleware_list:
             ssh_client = self.event_handler.find_ssh_client(middleware)
             remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
@@ -193,13 +193,13 @@ class SoPSimulator:
                        middleware.init_script)
 
     def generate_thing_codes(self, simulation_env: SoPMiddleware):
-        thing_list: List[SoPThing] = get_thing_list(simulation_env)
+        thing_list: List[SoPThing] = get_whole_thing_list(simulation_env)
 
         for thing in thing_list:
             write_file(thing.thing_file_path, thing.thing_code())
 
     def generate_scenario_codes(self, simulation_env: SoPMiddleware):
-        scenario_list: List[SoPScenario] = get_scenario_list(
+        scenario_list: List[SoPScenario] = get_whole_scenario_list(
             simulation_env)
         for scenario in scenario_list:
             write_file(scenario.scenario_file_path,
@@ -231,7 +231,7 @@ class SoPSimulator:
 
             return True
 
-        middleware_list: List[SoPMiddleware] = get_middleware_list(
+        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(
             simulation_env)
 
         pool_map(ssh_task, middleware_list)
@@ -266,7 +266,7 @@ class SoPSimulator:
 
             return True
 
-        thing_list: List[SoPThing] = get_thing_list(
+        thing_list: List[SoPThing] = get_whole_thing_list(
             simulation_env)
 
         pool_map(ssh_task, thing_list)

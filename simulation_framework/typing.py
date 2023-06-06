@@ -5,3 +5,4 @@ from enum import Enum, auto
 ReturnType = Union[int, float, bool, str]
 ConfigRandomFloatRange = Tuple[float, float]
 ConfigRandomIntRange = Tuple[int, int]
+T = TypeVar("T")

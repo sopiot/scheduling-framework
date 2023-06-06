@@ -293,10 +293,6 @@ def print_code_session_label(text: str = ''):
 
 
 if __name__ == '__main__':
-    # print_code_session_label('component generator')
-    # print_code_session_label('service generator')
-    # print_code_session_label('thing generator')
-    # print_code_session_label('scenario generator')
     args = arg_parse()
 
     simulation_framework = SoPSimulationFramework(service_parallel=args.service_parallel, result_filename=args.result_filename, download_logs=args.download_logs,
