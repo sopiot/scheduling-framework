@@ -335,7 +335,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
             simulation_env.dynamic_event_timeline = dynamic_event_timeline
             simulation_env_list.append(simulation_env)
 
-        self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_folder_path=self.env_generator._simulation_folder_path)
+        simulation_data_file_path = self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_folder_path=self.env_generator._simulation_folder_path)
         return simulation_env_list
 
     def run_simulation(self, config: SoPSimulationConfig, simulation_data: SoPSimulationEnv, policy_file_path: str):

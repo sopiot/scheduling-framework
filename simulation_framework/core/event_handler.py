@@ -20,12 +20,12 @@ class SoPSimulationEnv:
         self.thing_pool = thing_pool
 
     def dict(self):
-        return dict(config=self.config.dict(),
+        return dict(config_path=self.config.config_path,
                     root_middleware=self.root_middleware.dict(),
                     static_event_timeline=self.static_event_timeline,
                     dynamic_event_timeline=self.dynamic_event_timeline,
-                    service_pool=self.service_pool,
-                    thing_pool=self.thing_pool)
+                    service_pool=[service.dict() for service in self.service_pool],
+                    thing_pool=[thing.dict() for thing in self.thing_pool])
 
 
 class SoPEventType(Enum):

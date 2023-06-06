@@ -69,7 +69,9 @@ class SoPSimulationConfig:
         self.thing_config = SoPThingConfig(config['thing'])
         self.application_config = SoPApplicationConfig(config['application'])
 
+    # TODO: implement this
     def dict(self):
+        raise NotImplementedError
         return dict(config_path=self.config_path,
                     name=self.name,
                     running_time=self.running_time,
@@ -137,14 +139,6 @@ class SoPMiddlewareConfig:
         self.random = SoPMiddlewareConfig.RandomConfig(data['random']) if 'random' in data else None
         if not 'manual' in data and not 'random' in data:
             raise ConfigMissingError('Either "random" or "manual" must be specified in config. Please provide at least one of them.')
-
-    def dict(self):
-        return dict(device_pool=self.device_pool,
-                    remote_middleware_path=self.remote_middleware_path,
-                    remote_middleware_config_path=self.remote_middleware_config_path,
-                    manual=self.manual,
-                    manual_middleware_tree=self.manual_middleware_tree,
-                    random=self.random)
 
 
 class SoPServiceConfig:
