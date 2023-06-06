@@ -165,15 +165,16 @@ class SoPEnvGenerator:
 
         return selected_words
 
-    def generate_name_pool(self, ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
+    def generate_name_pool(self, num_tag_name: int, num_service_name: int, ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
         tag_type_num = self._config.service_config.tag_type_num
         service_type_num = self._config.service_config.normal.service_type_num
         super_service_type_num = self._config.service_config.super.service_type_num
 
         ban_name_list = ban_name_list + self._PREDEFINED_KEYWORD_LIST
 
-        tag_name_pool = self._generate_random_words(num_word=tag_type_num, ban_word_list=ban_name_list)
-        service_name_pool = self._generate_random_words(num_word=service_type_num * 5 + super_service_type_num * 5, ban_word_list=ban_name_list)
+        tag_name_pool = self._generate_random_words(num_word=num_tag_name, ban_word_list=ban_name_list)
+        # service_name_pool = self._generate_random_words(num_word=service_type_num * 5 + super_service_type_num * 5, ban_word_list=ban_name_list)
+        service_name_pool = self._generate_random_words(num_word=num_service_name, ban_word_list=ban_name_list)
         return tag_name_pool, service_name_pool
 
     def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], num_service_generate: int) -> List[SoPService]:
@@ -448,6 +449,7 @@ class SoPEnvGenerator:
     def generate_super(self, root_middleware: SoPMiddleware, tag_name_pool: List[str], super_service_name_pool: List[str]) -> List[SoPThing]:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
+        generated_super_service_num = 0
 
         sub_service_per_super_service_range = self._config.service_config.super.service_per_super_service
         super_service_per_thing_range = self._config.thing_config.super.service_per_thing
@@ -489,6 +491,7 @@ class SoPEnvGenerator:
             return super_service_list
 
         def generate_super_thing_common(middleware: SoPMiddleware, super_thing_per_middleware: int) -> List[SoPThing]:
+            nonlocal generated_super_service_num
             super_thing_list: List[SoPThing] = []
             for index in range(super_thing_per_middleware):
                 device = middleware.device
@@ -498,6 +501,9 @@ class SoPEnvGenerator:
                 fail_rate = self._config.thing_config.super.fail_error_rate
 
                 super_service_list = generate_super_service_common(middleware=middleware)
+                generated_super_service_num += len(super_service_list)
+                if generated_super_service_num > self._config.service_config.super.service_type_num:
+                    SOPTEST_LOG_DEBUG(f'generated_super_service_num is exceed super.service_type_num: {self._config.service_config.super.service_type_num}.', SoPTestLogLevel.WARN)
                 # broken_rate = self._config.thing_config.normal.broken_rate
                 # unregister_rate = self._config.thing_config.normal.unregister_rate
 
