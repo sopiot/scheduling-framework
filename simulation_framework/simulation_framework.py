@@ -326,15 +326,16 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
             self.env_generator.generate_super(root_middleware=root_middleware, tag_name_pool=tag_name_pool, super_service_name_pool=service_name_pool)
 
             # TODO: Generate event timeline
-            event_timeline = []
+            static_event_timeline, dynamic_event_timeline = self.env_generator._generate_event_timeline(root_middleware=root_middleware)
 
             simulation_env.root_middleware = root_middleware
             simulation_env.service_pool = service_pool
             simulation_env.thing_pool = thing_pool
-            simulation_env.event_timeline = event_timeline
+            simulation_env.static_event_timeline = static_event_timeline
+            simulation_env.dynamic_event_timeline = dynamic_event_timeline
             simulation_env_list.append(simulation_env)
 
-        save_json(path=config.service_thing_pool_path.abs_path(), data={'service_pool': [], 'thing_pool': []})
+        self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_folder_path=self.env_generator._simulation_folder_path)
         return simulation_env_list
 
     def run_simulation(self, config: SoPSimulationConfig, simulation_data: SoPSimulationEnv, policy_file_path: str):

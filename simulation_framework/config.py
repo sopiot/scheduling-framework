@@ -63,10 +63,25 @@ class SoPSimulationConfig:
                                                path=config['simulation'].get('service_thing_pool_path', 'service_thing_pool.json'))
         self.force_generate = config['simulation'].get('force_generate', False)
         self.local_mode = config['simulation'].get('local_mode', False)
+
         self.middleware_config = SoPMiddlewareConfig(config['middleware'], config_path)
         self.service_config = SoPServiceConfig(config['service'])
         self.thing_config = SoPThingConfig(config['thing'])
         self.application_config = SoPApplicationConfig(config['application'])
+
+    def dict(self):
+        return dict(config_path=self.config_path,
+                    name=self.name,
+                    running_time=self.running_time,
+                    event_timeout=self.event_timeout,
+                    device_pool_path=self.device_pool_path,
+                    service_thing_pool_path=self.service_thing_pool_path,
+                    force_generate=self.force_generate,
+                    local_mode=self.local_mode,
+                    middleware_config=self.middleware_config.dict(),
+                    service_config=self.service_config.dict(),
+                    thing_config=self.thing_config.dict(),
+                    application_config=self.application_config.dict())
 
 
 class SoPMiddlewareConfig:
@@ -122,6 +137,14 @@ class SoPMiddlewareConfig:
         self.random = SoPMiddlewareConfig.RandomConfig(data['random']) if 'random' in data else None
         if not 'manual' in data and not 'random' in data:
             raise ConfigMissingError('Either "random" or "manual" must be specified in config. Please provide at least one of them.')
+
+    def dict(self):
+        return dict(device_pool=self.device_pool,
+                    remote_middleware_path=self.remote_middleware_path,
+                    remote_middleware_config_path=self.remote_middleware_config_path,
+                    manual=self.manual,
+                    manual_middleware_tree=self.manual_middleware_tree,
+                    random=self.random)
 
 
 class SoPServiceConfig:

@@ -601,13 +601,12 @@ class SoPEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
-    def _generate_event_timeline(self, middleware_list: List[SoPMiddleware], thing_list: List[SoPThing], scenario_list: List[SoPScenario],
-                                 running_time: float, event_timeout: float):
-        event_timeline: List[SoPEvent] = []
+    def _generate_event_timeline(self, root_middleware: SoPMiddleware) -> Tuple[List[SoPEvent], List[SoPEvent]]:
 
-        def make_dynamic_thing_event(local_thing_list: List[SoPThing], super_thing_list: List[SoPThing],
-                                     normal_thing_select_rate: float, super_thing_select_rate: float,
-                                     start_time_weight: float, end_time_weight: float, event_type: SoPEventType, delay: float):
+        def generate_dynamic_thing_event_timeline(local_thing_list: List[SoPThing], super_thing_list: List[SoPThing],
+                                                  normal_thing_select_rate: float, super_thing_select_rate: float,
+                                                  start_time_weight: float, end_time_weight: float, event_type: SoPEventType,
+                                                  delay: float) -> List[SoPEvent]:
             if event_type == SoPEventType.THING_UNREGISTER:
                 event_type_1 = SoPEventType.THING_UNREGISTER
                 event_type_2 = SoPEventType.THING_RUN
@@ -619,13 +618,13 @@ class SoPEnvGenerator:
 
             selected_local_thing_list = random.sample(local_thing_list, int(len(local_thing_list) * normal_thing_select_rate))
             selected_super_thing_list = random.sample(super_thing_list, int(len(super_thing_list) * super_thing_select_rate))
-            local_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict()
+            local_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight).dict()
                                                for thing in selected_local_thing_list]
-            super_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict()
+            super_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight).dict()
                                                for thing in selected_super_thing_list]
-            local_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict()
+            local_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight).dict()
                                              for thing in selected_local_thing_list]
-            super_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict()
+            super_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight).dict()
                                              for thing in selected_super_thing_list]
 
             tmp_timeline = local_thing_unregister_timeline + super_thing_unregister_timeline + local_thing_register_timeline + super_thing_register_timeline
@@ -633,117 +632,69 @@ class SoPEnvGenerator:
                 tmp_timeline += [SoPEvent(delay=delay, event_type=SoPEventType.DELAY).dict()]
             return tmp_timeline
 
-        # def make_scenario_event(local_scenario_list: List[SoPScenarioComponent], super_scenario_list: List[SoPScenarioComponent],
-        #                         start_time_weight: float, end_time_weight: float, event_type: SoPEventType, delay: float):
-        #     if event_type == SoPEventType.SCENARIO_STOP:
-        #         event_type_1 = SoPEventType.SCENARIO_STOP
-        #         event_type_2 = SoPEventType.SCENARIO_RUN
-        #     elif event_type == SoPEventType.SCENARIO_DELETE:
-        #         event_type_1 = SoPEventType.SCENARIO_DELETE
-        #         event_type_2 = SoPEventType.SCENARIO_ADD
-        #         # event_type_3 = SoPEventType.SCENARIO_RUN
-        #     else:
-        #         raise Exception('invalid event type')
+        static_event_timeline: List[SoPEvent] = []
+        dynamic_event_timeline: List[SoPEvent] = []
+        middleware_list = get_whole_middleware_list(root_middleware)
+        thing_list = get_whole_thing_list(root_middleware)
+        scenario_list = get_whole_scenario_list(root_middleware)
 
-        #     selected_local_scenario_list = random.sample(
-        #         local_scenario_list, int(len(local_scenario_list) * self.simulation_config.application_config.normal.stop_rate))
-        #     selected_super_scenario_list = random.sample(
-        #         super_scenario_list, int(len(super_scenario_list) * self.simulation_config.application_config.super.stop_rate))
-        #     local_scenario_stop_timeline = [thing.event(
-        #         event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict() for thing in selected_local_scenario_list]
-        #     super_scenario_stop_timeline = [thing.event(
-        #         event_type=event_type_1, timestamp=self.simulation_config.running_time * start_time_weight).dict() for thing in selected_super_scenario_list]
-        #     local_scenario_run_timeline = [thing.event(
-        #         event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict() for thing in selected_local_scenario_list]
-        #     super_scenario_run_timeline = [thing.event(
-        #         event_type=event_type_2, timestamp=self.simulation_config.running_time * end_time_weight).dict() for thing in selected_super_scenario_list]
+        normal_thing_list = [thing for thing in thing_list if thing.is_super == False]
+        super_thing_list = [thing for thing in thing_list if thing.is_super == True]
 
-        #     tmp_timeline = local_scenario_stop_timeline + super_scenario_stop_timeline + \
-        #         local_scenario_run_timeline + super_scenario_run_timeline
-        #     if delay:
-        #         tmp_timeline += [SoPEvent(delay=delay,
-        #                                   event_type=SoPEventType.DELAY).dict()]
-        #     return tmp_timeline
-
-        local_thing_list = [
-            thing for thing in thing_list if thing.is_super == False]
-        super_thing_list = [
-            thing for thing in thing_list if thing.is_super == True]
-        # non_super_scenario_list = [scenario for scenario in scenario_list if all(
-        #     [not service.is_super for service in scenario.service_list])]
-        # super_scenario_list = [scenario for scenario in scenario_list if all(
-        #     [service.is_super for service in scenario.service_list])]
-
-        # build simulation env
+        # Build IoT system
         build_simulation_env_timeline = []
         build_simulation_env_timeline.extend([self._generate_event(component=middleware, event_type=SoPEventType.MIDDLEWARE_RUN).dict()
                                               for middleware in middleware_list])
         build_simulation_env_timeline.extend([self._generate_event(component=thing, event_type=SoPEventType.THING_RUN).dict()
                                               for thing in sorted(thing_list, key=lambda x: x.is_super, reverse=False)])
-        event_timeline.extend(build_simulation_env_timeline)
+        static_event_timeline.extend(build_simulation_env_timeline)
 
-        # wait until all thing register
-        event_timeline.append(
-            SoPEvent(event_type=SoPEventType.THING_REGISTER_WAIT).dict())
+        # Wait until all thing register
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.THING_REGISTER_WAIT).dict())
+        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
 
-        event_timeline.append(
-            SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
-
-        # scenario add start
-        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(self.simulation_env, scenario)[1]).dict()
+        # Scenario add start
+        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(root_middleware, scenario)[1]).dict()
                                  for scenario in scenario_list]
-        event_timeline.extend(
-            sorted(scenario_add_timeline, key=lambda x: x['timestamp']))
+        static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x['timestamp']))
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.SCENARIO_ADD_CHECK).dict())
+        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH).dict())
 
-        event_timeline.append(
-            SoPEvent(event_type=SoPEventType.SCENARIO_ADD_CHECK).dict())
+        # Simulation start
+        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.START).dict())
 
-        event_timeline.append(
-            SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
-
-        event_timeline.append(
-            SoPEvent(event_type=SoPEventType.REFRESH).dict())
-
-        # simulation start
-        event_timeline.append(
-            SoPEvent(event_type=SoPEventType.START).dict())
-
-        # scenario run start
+        # Scenario run start
         scenario_run_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_RUN).dict()
                                  for scenario in scenario_list]
-        event_timeline.extend(
-            sorted(scenario_run_timeline, key=lambda x: x['timestamp']))
+        dynamic_event_timeline.extend(sorted(scenario_run_timeline, key=lambda x: x['timestamp']))
 
-        # thing unregister stage
-        thing_unregister_timeline = make_dynamic_thing_event(local_thing_list=local_thing_list, super_thing_list=super_thing_list,
-                                                             normal_thing_select_rate=self.simulation_config.thing_config.normal.unregister_rate,
-                                                             super_thing_select_rate=self.simulation_config.thing_config.super.unregister_rate,
-                                                             start_time_weight=0.2, end_time_weight=0.7, event_type=SoPEventType.THING_UNREGISTER, delay=0)
-        event_timeline.extend(thing_unregister_timeline)
+        # Thing unregister event
+        # if unregister_rate is 0, then no event will be generated
+        thing_unregister_timeline = generate_dynamic_thing_event_timeline(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
+                                                                          normal_thing_select_rate=self._config.thing_config.normal.unregister_rate,
+                                                                          super_thing_select_rate=self._config.thing_config.super.unregister_rate,
+                                                                          start_time_weight=0.2, end_time_weight=0.7, event_type=SoPEventType.THING_UNREGISTER,
+                                                                          delay=0)
+        dynamic_event_timeline.extend(thing_unregister_timeline)
 
-        # thing kill stage
-        thing_kill_timeline = make_dynamic_thing_event(local_thing_list=local_thing_list, super_thing_list=super_thing_list,
-                                                       normal_thing_select_rate=self.simulation_config.thing_config.normal.broken_rate,
-                                                       super_thing_select_rate=self.simulation_config.thing_config.super.broken_rate,
-                                                       start_time_weight=0.5, end_time_weight=10, event_type=SoPEventType.THING_KILL, delay=0)
-        event_timeline.extend(thing_kill_timeline)
+        # Thing kill event
+        # if kill_rate is 0, then no event will be generated
+        thing_kill_timeline = generate_dynamic_thing_event_timeline(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
+                                                                    normal_thing_select_rate=self._config.thing_config.normal.broken_rate,
+                                                                    super_thing_select_rate=self._config.thing_config.super.broken_rate,
+                                                                    start_time_weight=0.5, end_time_weight=10, event_type=SoPEventType.THING_KILL,
+                                                                    delay=0)
+        dynamic_event_timeline.extend(thing_kill_timeline)
 
-        # scenario stop stage
-        # scenario_stop_timeline = make_scenario_event(local_scenario_list=non_super_scenario_list, super_scenario_list=super_scenario_list,
-        #                                              start_time_weight=0.3, end_time_weight=0.8, event_type=SoPEventType.SCENARIO_STOP, delay=0)
-        # event_timeline.extend(scenario_stop_timeline)
+        # Simulation end event
+        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.END, timestamp=self._config.running_time).dict())
 
-        # simulation end
-        event_timeline.append(
-            SoPEvent(event_type=SoPEventType.END, timestamp=running_time).dict())
-        event_timeline = sorted(event_timeline, key=lambda x: x['timestamp'])
-        end_index = 0
-        for i, event in enumerate(event_timeline):
-            if event['event_type'] == 'END':
-                end_index = i
-                break
+        # Sort event timeline
+        static_event_timeline = sorted(static_event_timeline, key=lambda x: x['timestamp'])
+        dynamic_event_timeline = sorted(dynamic_event_timeline, key=lambda x: x['timestamp'])
 
-        return event_timeline[:end_index+1]
+        return static_event_timeline, dynamic_event_timeline
 
     # =========================
     #         _    _  _
@@ -864,28 +815,32 @@ class SoPEnvGenerator:
         scenario_list: List[SoPScenario] = get_whole_scenario_list(simulation_env)
 
         longest_scenario = max(scenario_list, key=lambda x: x.period)
-        if longest_scenario.period * 1.2 > self.simulation_config.running_time:
+        if longest_scenario.period * 1.2 > self._config.running_time:
             running_time = longest_scenario.period * 1.2
             SOPTEST_LOG_DEBUG(
-                f'Longest scenario period is {longest_scenario.period} but simulation time is {self.simulation_config.running_time}. Set simulation time to {running_time}', SoPTestLogLevel.WARN)
+                f'Longest scenario period is {longest_scenario.period} but simulation time is {self._config.running_time}. Set simulation time to {running_time}', SoPTestLogLevel.WARN)
         else:
-            running_time = self.simulation_config.running_time
+            running_time = self._config.running_time
 
-        config = dict(name=self.simulation_config.name,
+        config = dict(name=self._config.name,
                       running_time=running_time,
-                      event_timeout=self.simulation_config.event_timeout)
+                      event_timeout=self._config.event_timeout)
         component = simulation_env.dict()
         event_timeline = self._generate_event_timeline(middleware_list=middleware_list,
                                                        thing_list=thing_list,
                                                        scenario_list=scenario_list,
                                                        running_time=running_time,
-                                                       event_timeout=self.simulation_config.event_timeout)
+                                                       event_timeout=self._config.event_timeout)
         simulation_dump = dict(config=config,
                                component=component,
                                event_timeline=event_timeline)
         return simulation_dump
 
-    def export_simulation_data_file(self, simulation_dump: dict, simulation_folder_path: str):
+    def _export_simulation_data_file(self, simulation_env_list: List[SoPSimulationEnv], simulation_folder_path: str) -> str:
         os.makedirs(simulation_folder_path, exist_ok=True)
-        write_file(f'{simulation_folder_path}/simulation_data.json', dict_to_json_string(simulation_dump))
+        simulation_env_dict_list = {'simulation_list': []}
+        for simulation_env in simulation_env_list:
+            simulation_env_dict = simulation_env.dict()
+            simulation_env_dict_list['simulation_list'].append(simulation_env_dict)
+        save_json(f'{simulation_folder_path}/simulation_data.json', simulation_env_dict_list)
         return f'{simulation_folder_path}/simulation_data.json'
