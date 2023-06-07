@@ -47,10 +47,10 @@ pip3 install .
 You can run a simple simulation on your local machine by using the following command:
 
 ```bash
-python3 run.py -e sim_env_samples/simple_home_local -p scheduling_algorithm/samples
+python3 run.py -c sim_env_samples/simple_home_local -po scheduling_algorithm/samples
 ```
 
-If you run the command for the first time, you will be prompted to enter the password information for the current user on `localhost`. Upon entering the password, the device information for `localhost` will be automatically saved in the `device_pool_path` specified in the **Simulation Environment file** (default: `${ROOT}/device_pool.yml`), as follows:
+If you run the command for the first time, you will be prompted to enter the password information for the current user on `localhost`. Upon entering the password, the device information for `localhost` will be automatically saved in the `device_pool_path` specified in the **Simulation Environment file** (_default `device_pool_path` is set to **`${ROOT}/device_pool.yml`**_), as follows:
 
 ```yaml
 localhost:
@@ -60,7 +60,7 @@ localhost:
   password: "PaSsWoRD"
 ```
 
-Using the `-e` option, the user can specify a directory or a list of directories containing **Simulation Environment file**, while the `-p` option is used to specify a directory or a list of directories containing **Scheduling Algorithm file**. Users can either use the predefined **Simulation Environment file** and **Scheduling Algorithm file** located in the repository's `sim_env_sample` and `scheduling_algorithm/samples` directories or define their own **Simulation Environment file** and **Scheduling Algorithm file**. **Simulation Environment file** must be `yaml` file starting with the `config` string. More detailed information about **Simulation Environment file** can be found [here](#simulation-environment-file).
+Using the `-c` option, the user can specify a directory or a list of directories containing **Simulation Environment file**, while the `-po` option is used to specify a directory or a list of directories containing **Scheduling Algorithm file**. Users can either use the predefined **Simulation Environment file** and **Scheduling Algorithm file** located in the repository's `sim_env_sample` and `scheduling_algorithm/samples` directories or define their own **Simulation Environment file** and **Scheduling Algorithm file**. **Simulation Environment file** must be `yaml` file starting with the `config` string. More detailed information about **Simulation Environment file** can be found [here](#simulation-environment-file).
 
 The simulator runs simulations with every combinations of Simulation Environment and **Scheduling Algorithm**. After each simulation is completed, the results for each simulation are displayed, and once all simulations have been completed, the ranking results for all simulations are output. The ranking results rank simulations based on QoS, energy, and stability and output a table format of the ranking table on the terminal. Each table entry displays the corresponding data for each ranking item and which **Simulation Environment file** was used for the simulation.
 
@@ -72,45 +72,45 @@ If the `Middleware` and `Thing` are distributed to remote devices instead of run
 <img src="imgs/sim_gen.png" width="400" alt="sim_gen" />
 </div>
 
-Users can perform simulations directly from **Simulation Data file** by using the `-s` option. In this case, the simulator loads the simulation environment that has already been generated, rather than creating a new simulation environment. Users can still specify which **scheduling algorithm** to use for the simulation by using the `-p` option.
+Users can perform simulations directly from **Simulation Data file** by using the `-i` option. In this case, the simulator loads the simulation environment that has already been generated, rather than creating a new simulation environment. Users can still specify which **scheduling algorithm** to use for the simulation by using the `-po` option.
 
 ```bash
-python3 run.py -s sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -p scheduling_algorithm/samples
+python3 run.py -i sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -po scheduling_algorithm/samples
 ```
 
 The `-o` option can be used to specify the name of the result file. If the `-o` option is not specified, the name of the simulation specified in the **Simulation Environment file** will be used as the default name. In addition, users can download logs from a remote device for debugging purposes using the `-dl` option.
 
 ```bash
-python3 run.py -s sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -p scheduling_algorithm/samples -o test_result -dl
+python3 run.py -i sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -po scheduling_algorithm/samples -o test_result -dl
 ```
 
-The `-e` and `-p` options allow users to specify a list of **Simulation Environment file** (`config*.yml`) and **Scheduling Algorithm file** (`*.cc`). These options can be used as shown in the following command:
+The `-c` and `-po` options allow users to specify a list of **Simulation Environment file** (`config*.yml`) and **Scheduling Algorithm file** (`*.cc`). These options can be used as shown in the following command:
 
 ```bash
-python3 run.py -e sim_env_samples/simple_home_local_multi_env/config_period5_10.yml \
+python3 run.py -c sim_env_samples/simple_home_local_multi_env/config_period5_10.yml \
                   sim_env_samples/simple_home_local_multi_env/config_period10_20.yml \
-               -p scheduling_algorithm/samples/default.cc \
+               -po scheduling_algorithm/samples/default.cc \
                   scheduling_algorithm/samples/energy_saving.cc \
                   scheduling_algorithm/samples/merge_execution.cc
 ```
 
 ### Time synchronization for profiling
 
-실험을 진행한 후 각 시뮬레이션 단계에서 발생한 오버헤드를 측정하기 위해서는 각 디바이스의 시간을 동기화해야 합니다. 시뮬레이션 진행시, 각 디바이스에 `Middleware`, `Thing`의 로그가 저장되고 해당 로그에 찍혀있는 timestamp간의 시간 비교를 통해 오버헤드를 측정합니다. 이 과정에서 각 로그의 시간기준점이 동일해야 각 단계에서의 오버헤드가 정확히 측정될 수 있습니다. 이를 위해 `ptp` 시간동기화 프로토콜을 사용하여 각 디바이스간 시간동기화를 진행할 수 있습니다. `ptpd`을 사용하면 `ptp` 프로토콜을 사용한 정밀한 시간동기화를 수행할 수 있습니다. `ptpd`는 다음과 같이 설치할 수 있습니다.
+To measure the overhead generated at each simulation step after conducting an experiment, it is necessary to synchronize the time across each device. During the simulation, the logs of the `Middleware` and `Thing` are stored on each device, and the overhead is measured by comparing the timestamps in these logs. In order to accurately measure the overhead at each step, the time reference point of each log needs to be the same. To achieve this, the "ptp" time synchronization protocol can be used to synchronize the time across devices. By using "ptpd," precise time synchronization using the PTP protocol can be performed. "ptpd" can be installed as follows:
 
 ```bash
 sudo apt install ptpd
 ```
 
-`ptp` 프로토콜은 네트워크 지연에 따른 오차를 줄이기 위해 기본적으로 이더넷을 통해 진행되는 것을 기본으로 합니다. 따라서 ptpd를 실행하기 전에 각 디바이스를 같은 스위치 또는 공유기에 이더넷 인터페이스로 연결하여야 합니다.
+The `ptp` protocol is based on Ethernet to reduce error due to network delay. Therefore, before running ptpd, each device must be connected to the same switch or router through an Ethernet interface.
 
-각 디바이스를 이더넷으로 연결한 후, 아래 명령어를 통해 `ptpd`을 실행할 수 있습니다. `-i` 뒤에는 각 디바이스의 이더넷 인터페이스를 명세합니다.
+After connecting each device via Ethernet, user can run `ptpd` with the command below. After `-i` option, specify the Ethernet interface of each device.
 
 ```bash
 sudo ptpd -C -m -i <ethernet_interface>
 ```
 
-동기화를 진행하고자 하는 디바이스 모두에서 `ptpd`를 실행을 하면 `ptpd`는 최적의 master time device를 결정하고 master 디바이스의 시간을 기준으로 slave 디바이스들의 시간을 동기화합니다.
+If `ptpd` run on all devices to be synchronized, `ptpd` determines the optimal master time device and synchronizes the time of the slave devices based on the time of the master device.
 
 ```
 ptpd2[20090].startup (info)      (___) Configuration OK
@@ -128,13 +128,13 @@ ptpd2[20090].eth0 (notice)    (slv) TimingService.PTP0: elected best TimingServi
 ptpd2[20090].eth0 (info)      (slv) TimingService.PTP0: acquired clock control
 ```
 
-"`acquired clock control`" 이라는 메시지가 출력되면 시간동기화가 완료된 것입니다. 이후 시뮬레이션을 진행할 때 `-pf` 옵션을 주어 프로파일링을 진행할 수 있습니다. 만약 어느 한 디바이스에서만 "`acquired clock control`" 이라는 메시지가 없다면 해당 디바이스가 master time device로 결정된 것입니다. 이 경우 "`Now in state: PTP_MASTER`" 가 있는 메시지의 맨 오른쪽에 "`(self)`" 라는 메시지가 있는지 확인하십시오. 만약 존재한다면 해당 디바이스가 master time device로 결정된 것입니다.
+When the message "`acquired clock control`" is displayed, time synchronization is complete. Profiling can be performed by giving the `-pf` option. If there is no message print "`acquired clock control`" in only one device, that device has been determined as the master time device. In this case, make sure that to the far right of the message with "`Now in state: PTP_MASTER`" is the message "`(self)`". If it exists, the corresponding device has been determined as the master time device.
 
 ```bash
-python3 run.py -e sim_env_samples/<env_samples_directory> -p scheduling_algorithm/samples -pf
+python3 run.py -c sim_env_samples/<env_samples_directory> -po scheduling_algorithm/samples -pf
 ```
 
-만약 `-dl` 옵션을 주어 시뮬레이션을 실행하여 다운로드받은 시뮬레이션 로그가 있는 경우 해당 로그를 로드하여 프로파일링을 진행할 수도 있습니다. 이 경우 `--only_profile` 옵션을 주어 프로파일링만 진행할 수 있습니다. `-log` 옵션으로 개별 시뮬레이션에 대한 로그만 프로파일링할수도 있고 `-logs` 옵션으로 remote_logs에 있는 모든 로그에 대해서 프로파일링을 진행할 수도 있습니다. `-logs` 옵션을 주는 경우 최종 결과는 모든 로그에 대한 프로파일링 결과의 평균값이 출력됩니다.
+If there is a simulation log downloaded by running the simulation with the `-dl` option, user can load the log and proceed with profiling. In this case, user can only proceed with profiling by giving the `--only_profile` option. User can profile logs for individual simulations only with the `-log` option, or all logs in remote_logs with the `-logs` option. If the `-logs` option is given, the final result is the average of the profiling results for all logs.
 
 ```bash
 python run.py -log remote_logs/<simulation_log_sample> --only_profile
@@ -488,8 +488,8 @@ Refer to [`scheduling_algorithm`](scheduling_algorithm/README.md) directory.
 
 ## TroubleShooting
 
-### ptpd 시간동기화가 아무리 기다려도 끝나지 않는 경우
+### ptpd takes too long to time synchronization
 
-`acquired clock control`" 이라는 메시지가 출력가 출력되지 않고 계속 시간동기화가 진행 중이라면 해당 디바이스가 master time device가 아닌지 확인해주시기 바랍니다. "`Now in state: PTP_MASTER`" 가 있는 메시지의 맨 오른쪽에 `"(self)"` 가 있는 경우 해당 디바이스가 master time device로 선택된 것이니 나머지 slave 디바이스들의 동기화 상태만 확인하면 됩니다.
+If the message `acquired clock control`" is not print and time synchronization is still in progress, please check that the device is not a master time device. At the far right of the message with "`Now in state: PTP_MASTER`" is `" If there is (self)"`, the device is selected as the master time device, so you only need to check the synchronization status of the rest of the slave devices.
 
-위 모두에 해당하지 않는 경우 아직 시간동기화가 완료되지 않은 것이니 조금만 기다려주시기 바랍니다. 만약 아무리 기다려도 시간동기화가 진행이 되지 않는다면 `ptpd`를 종료하고 다시 실행해보시기 바랍니다.
+If none of the above apply, time synchronization has not yet been completed, so please wait for a while. If time synchronization does not proceed no matter how long you wait, try closing `ptpd` and running it again.

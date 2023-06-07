@@ -362,8 +362,8 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
         self.thing_list = thing_list
         self.scenario_list = scenario_list
-        self.parent = parent
-        self.children = children
+        self.parent: SoPMiddleware = parent
+        self.children: List[SoPMiddleware] = children
 
         self.device = device
 
@@ -767,6 +767,7 @@ if __name__ == '__main__':
         self.remote_thing_file_path = remote_thing_file_path
         self.fail_rate = fail_rate
 
+        # for middleware mqtt client name (middleware.name + mac address)
         self.middleware_client_name: str = ''
         self.registered: bool = False
         self.pid: int = 0
@@ -852,19 +853,19 @@ class SoPScenario(SoPComponent):
 '''
 
     def __init__(self, name: str = '', level: int = -1,
-                 service_list: List[SoPService] = [], period: float = None,
+                 service_list: List[SoPService] = [], period: float = None, priority: int = None,
                  scenario_file_path: str = '', middleware: SoPMiddleware = None) -> None:
         super().__init__(name, level, component_type=SoPComponentType.SCENARIO)
 
         self.service_list = service_list
         self.period = period
+        self.priority = priority
         self.scenario_file_path = scenario_file_path
         self.middleware = middleware
 
         self.state: SoPScenarioState = None
         self.schedule_success = False
         self.schedule_timeout = False
-        self.service_check = False
 
         self.recv_queue: Queue = Queue()
 

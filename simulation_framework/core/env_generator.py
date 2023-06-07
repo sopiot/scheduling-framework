@@ -335,9 +335,11 @@ class SoPEnvGenerator:
                 middleware.thing_list = selected_thing_list
 
                 for index, thing in enumerate(middleware.thing_list):
-                    thing.middleware = middleware
-                    thing.level = middleware.level + 1
-                    thing.name = f'normal_thing_{index}__{middleware.name}'
+                    middleware.thing_list[index].middleware = middleware
+                    middleware.thing_list[index].level = middleware.level + 1
+                    middleware.thing_list[index].name = f'normal_thing_{index}__{middleware.name}'
+                    middleware.thing_list[index].remote_thing_file_path = f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{middleware.thing_list[index].name}.py'
+                    middleware.thing_list[index].thing_file_path = f'{self._simulation_folder_path}/thing/base_thing/{middleware.thing_list[index].name}.py'
 
                 if not middleware.children:
                     return
@@ -354,9 +356,11 @@ class SoPEnvGenerator:
                 middleware.thing_list = selected_thing_list
 
                 for index, thing in enumerate(middleware.thing_list):
-                    thing.middleware = middleware
-                    thing.level = middleware.level + 1
-                    thing.name = f'normal_thing_{index}__{middleware.name}'
+                    middleware.thing_list[index].middleware = middleware
+                    middleware.thing_list[index].level = middleware.level + 1
+                    middleware.thing_list[index].name = f'normal_thing_{index}__{middleware.name}'
+                    middleware.thing_list[index].remote_thing_file_path = f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{middleware.thing_list[index].name}.py'
+                    middleware.thing_list[index].thing_file_path = f'{self._simulation_folder_path}/thing/base_thing/{middleware.thing_list[index].name}.py'
 
                 if not middleware.children:
                     return
@@ -386,6 +390,7 @@ class SoPEnvGenerator:
                     level = middleware.level
                     period_range = self._config.application_config.normal.period
                     period = random.uniform(*period_range)
+                    priority = -1
                     service_per_scenario = random.randint(*service_per_scenario_range)
                     selected_service_list: List[SoPService] = random.sample(available_service_list, service_per_scenario)
 
@@ -393,6 +398,7 @@ class SoPEnvGenerator:
                                            level=level,
                                            service_list=selected_service_list,
                                            period=period,
+                                           priority=priority,
                                            scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
                                            middleware=middleware)
                     middleware.scenario_list.append(scenario)
@@ -416,6 +422,7 @@ class SoPEnvGenerator:
                     level = middleware.level
                     period_range = self._config.application_config.normal.period
                     period = random.uniform(*period_range)
+                    priority = -1
                     service_per_scenario = random.randint(*service_per_scenario_range)
 
                     if len(available_service_list) < service_per_scenario:
@@ -426,14 +433,15 @@ class SoPEnvGenerator:
                                            level=level,
                                            service_list=selected_service_list,
                                            period=period,
+                                           priority=priority,
                                            scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
                                            middleware=middleware)
                     middleware.scenario_list.append(scenario)
 
-                for index, thing in enumerate(middleware.thing_list):
-                    thing.middleware = middleware
-                    thing.level = middleware.level + 1
-                    thing.name = f'normal_thing_{index}__{middleware.name}'
+                # for index, thing in enumerate(middleware.thing_list):
+                #     thing.middleware = middleware
+                #     thing.level = middleware.level + 1
+                #     thing.name = f'normal_thing_{index}__{middleware.name}'
 
                 if not middleware.children:
                     return
@@ -474,9 +482,9 @@ class SoPEnvGenerator:
                 tag_per_service = random.randint(*tag_per_service_range)
                 tag_list = random.sample(tag_name_pool, tag_per_service)
                 # For super service, energy, execute time, return value is calculated by sub services
-                energy = None
-                execute_time = None
-                return_value = None
+                energy = 0
+                execute_time = 0
+                return_value = 0
 
                 super_service = SoPService(name=super_service_name,
                                            level=level,
@@ -535,6 +543,7 @@ class SoPEnvGenerator:
                 level = middleware.level
                 period_range = self._config.application_config.super.period
                 period = random.uniform(*period_range)
+                priority = -1
                 super_service_per_scenario = random.randint(*super_service_per_scenario_range)
 
                 if len(available_super_service_list) < super_service_per_scenario:
@@ -545,7 +554,8 @@ class SoPEnvGenerator:
                                              level=level,
                                              service_list=selected_super_service_list,
                                              period=period,
-                                             scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{super_scenario_name}.txt',
+                                             priority=priority,
+                                             scenario_file_path=f'{self._simulation_folder_path}/application/super_application/{super_scenario_name}.txt',
                                              middleware=middleware)
                 super_scenario_list.append(super_scenario)
 
@@ -618,18 +628,18 @@ class SoPEnvGenerator:
 
             selected_local_thing_list = random.sample(local_thing_list, int(len(local_thing_list) * normal_thing_select_rate))
             selected_super_thing_list = random.sample(super_thing_list, int(len(super_thing_list) * super_thing_select_rate))
-            local_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight).dict()
+            local_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight)
                                                for thing in selected_local_thing_list]
-            super_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight).dict()
+            super_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight)
                                                for thing in selected_super_thing_list]
-            local_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight).dict()
+            local_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight)
                                              for thing in selected_local_thing_list]
-            super_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight).dict()
+            super_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight)
                                              for thing in selected_super_thing_list]
 
             tmp_timeline = local_thing_unregister_timeline + super_thing_unregister_timeline + local_thing_register_timeline + super_thing_register_timeline
             if delay:
-                tmp_timeline += [SoPEvent(delay=delay, event_type=SoPEventType.DELAY).dict()]
+                tmp_timeline += [SoPEvent(delay=delay, event_type=SoPEventType.DELAY)]
             return tmp_timeline
 
         static_event_timeline: List[SoPEvent] = []
@@ -643,31 +653,31 @@ class SoPEnvGenerator:
 
         # Build IoT system
         build_simulation_env_timeline = []
-        build_simulation_env_timeline.extend([self._generate_event(component=middleware, event_type=SoPEventType.MIDDLEWARE_RUN).dict()
+        build_simulation_env_timeline.extend([self._generate_event(component=middleware, event_type=SoPEventType.MIDDLEWARE_RUN)
                                               for middleware in middleware_list])
-        build_simulation_env_timeline.extend([self._generate_event(component=thing, event_type=SoPEventType.THING_RUN).dict()
+        build_simulation_env_timeline.extend([self._generate_event(component=thing, event_type=SoPEventType.THING_RUN)
                                               for thing in sorted(thing_list, key=lambda x: x.is_super, reverse=False)])
         static_event_timeline.extend(build_simulation_env_timeline)
 
         # Wait until all thing register
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.THING_REGISTER_WAIT).dict())
-        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.THING_REGISTER_WAIT))
+        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY))
 
         # Scenario add start
-        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(root_middleware, scenario)[1]).dict()
+        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(root_middleware, scenario)[1])
                                  for scenario in scenario_list]
-        static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x['timestamp']))
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.SCENARIO_ADD_CHECK).dict())
-        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY).dict())
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH).dict())
+        static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x.timestamp))
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.SCENARIO_ADD_CHECK))
+        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY))
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH))
 
         # Simulation start
-        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.START).dict())
+        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.START))
 
         # Scenario run start
-        scenario_run_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_RUN).dict()
+        scenario_run_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_RUN)
                                  for scenario in scenario_list]
-        dynamic_event_timeline.extend(sorted(scenario_run_timeline, key=lambda x: x['timestamp']))
+        dynamic_event_timeline.extend(sorted(scenario_run_timeline, key=lambda x: x.timestamp))
 
         # Thing unregister event
         # if unregister_rate is 0, then no event will be generated
@@ -688,11 +698,11 @@ class SoPEnvGenerator:
         dynamic_event_timeline.extend(thing_kill_timeline)
 
         # Simulation end event
-        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.END, timestamp=self._config.running_time).dict())
+        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.END, timestamp=self._config.running_time))
 
         # Sort event timeline
-        static_event_timeline = sorted(static_event_timeline, key=lambda x: x['timestamp'])
-        dynamic_event_timeline = sorted(dynamic_event_timeline, key=lambda x: x['timestamp'])
+        static_event_timeline = sorted(static_event_timeline, key=lambda x: x.timestamp)
+        dynamic_event_timeline = sorted(dynamic_event_timeline, key=lambda x: x.timestamp)
 
         return static_event_timeline, dynamic_event_timeline
 
@@ -836,11 +846,10 @@ class SoPEnvGenerator:
                                event_timeline=event_timeline)
         return simulation_dump
 
-    def _export_simulation_data_file(self, simulation_env_list: List[SoPSimulationEnv], simulation_folder_path: str) -> str:
-        os.makedirs(simulation_folder_path, exist_ok=True)
+    def _export_simulation_data_file(self, simulation_env_list: List[SoPSimulationEnv], simulation_data_file_path: str) -> None:
+        os.makedirs(os.path.dirname(simulation_data_file_path), exist_ok=True)
         simulation_env_dict_list = {'simulation_list': []}
         for simulation_env in simulation_env_list:
             simulation_env_dict = simulation_env.dict()
             simulation_env_dict_list['simulation_list'].append(simulation_env_dict)
-        save_json(f'{simulation_folder_path}/simulation_data.json', simulation_env_dict_list)
-        return f'{simulation_folder_path}/simulation_data.json'
+        save_json(simulation_data_file_path, simulation_env_dict_list)

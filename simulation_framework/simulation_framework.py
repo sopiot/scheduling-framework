@@ -4,15 +4,12 @@ from simulation_framework.core.evaluator import *
 from simulation_framework.profiler import *
 
 
-PREDEFINED_POLICY_FILE_NAME = 'my_scheduling_policies.cc'
-SCHEDULING_ALGORITHM_PATH = f'{get_project_root()}/scheduling_algorithm'
-
-
 class SoPSimulationFramework:
 
     def __init__(self, service_parallel: bool = True, result_filename: str = '', download_logs: bool = False,
                  profile: bool = False, profile_type: ProfileType = ProfileType.EXECUTE,
                  mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
+        self._simulator: SoPSimulator = None
         self._service_parallel = service_parallel
         self._result_filename = result_filename
         self._download_logs = download_logs
@@ -83,117 +80,12 @@ class SoPSimulationFramework:
             self._simulation_env_list = self.generate_simulation_env(self._config_list)
 
         simulation_result_list: List[SoPSimulationResult] = []
-        for simulation_data in self._simulation_env_list:
+        for index, simulation_env in enumerate(self._simulation_env_list):
             for policy_path in self._policy_path_list:
-                simulation_result = self.run_simulation(simulation=simulation_data, policy_path=policy_path)
+                simulation_result = self.run_simulation(simulation_env=simulation_env, policy_path=policy_path, index=index)
                 simulation_result_list.append(simulation_result)
 
         self.print_ranking(simulation_result_list=simulation_result_list)
-
-    def update_middleware_thing(self, simulator: SoPSimulator, middleware_path: str = '~/middleware', policy_file_path: str = ''):
-
-        def install_remote_middleware(ssh_client: SoPSSHClient, user: str):
-            # result = ssh_client.send_command(
-            #     f'rm -rf {home_dir_append(middleware_path, user)}')
-            remote_device_os = self.get_remote_device_OS(ssh_client)
-            ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
-            ssh_client.send_dir(SCHEDULING_ALGORITHM_PATH, home_dir_append(middleware_path, user))
-            if 'Ubuntu 20.04' in remote_device_os:
-                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2004_x64',
-                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-            elif 'Ubuntu 22.04' in remote_device_os:
-                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_ubuntu2204_x64',
-                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-            elif 'Raspbian' in remote_device_os:
-                ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86',
-                                     f'{home_dir_append(middleware_path, user)}/sopiot_middleware')
-            ssh_client.send_file(policy_file_path, f'{home_dir_append(middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
-            command = (f'cd {home_dir_append(middleware_path, user)};'
-                       'chmod +x sopiot_middleware;'
-                       'cmake .;'
-                       'make -j')
-            middleware_update_result = ssh_client.send_command_with_check_success(command)
-            if not middleware_update_result:
-                raise SSHCommandFailError(command=command, reason=f'Install middleware to {ssh_client.device.name} failed')
-
-            SOPTEST_LOG_DEBUG(f'Install middleware to {ssh_client.device.name} success', SoPTestLogLevel.INFO)
-            return True
-
-        def install_remote_thing(ssh_client: SoPSSHClient, force_install: bool = True):
-            # if not any([thing.is_super for thing in middleware.thing_list]):
-            #     SOPTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} is not have Super Thing', SoPTestLogLevel.INFO)
-            #     return True
-            thing_install_command = f'pip install big-thing-py {"--force-reinstall --no-deps" if force_install else ""}'
-            SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} start', SoPTestLogLevel.INFO)
-            pip_install_result = ssh_client.send_command_with_check_success(thing_install_command)
-            if not pip_install_result:
-                raise SSHCommandFailError(command=thing_install_command, reason=f'Install big-thing-py failed to {ssh_client.device.name}')
-
-            SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} end', SoPTestLogLevel.INFO)
-            return True
-
-        def init_ramdisk(ssh_client: SoPSSHClient) -> None:
-            ramdisk_check_command = 'ls /mnt/ramdisk'
-            ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
-                                             f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
-                                             f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
-                                             f'sudo chmod 777 /mnt/ramdisk']
-            ramdisk_check_result = ssh_client.send_command_with_check_success(ramdisk_check_command)
-            if not ramdisk_check_result:
-                for ramdisk_generate_command in ramdisk_generate_command_list:
-                    result = ssh_client.send_command_with_check_success(ramdisk_generate_command)
-                    if not result:
-                        raise SSHCommandFailError(command=ramdisk_generate_command, reason=f'Generate ramdisk failed to {ssh_client.device.name}')
-
-            return True
-
-        def set_cpu_clock_remote(ssh_client: SoPSSHClient) -> None:
-            set_clock_command = '''\
-function check_cpu_clock_setting() {
-	sudo cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
-	sudo cat /sys/devices/system/cpu/cpu1/cpufreq/cpuinfo_cur_freq
-	sudo cat /sys/devices/system/cpu/cpu2/cpufreq/cpuinfo_cur_freq
-	sudo cat /sys/devices/system/cpu/cpu3/cpufreq/cpuinfo_cur_freq
-}
-
-function set_cpu_clock() {
-	echo "performance" | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
-	echo "performance" | sudo tee /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
-	echo "performance" | sudo tee /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
-	echo "performance" | sudo tee /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
-	# Ondemand
-	# Interactive
-	# Schedutil
-}
-
-check_cpu_clock_setting
-set_cpu_clock
-check_cpu_clock_setting'''
-            result = ssh_client.send_command_with_check_success(set_clock_command)
-            if not result:
-                SOPTEST_LOG_DEBUG(f'Set cpu clock {ssh_client.device.name} failed!', SoPTestLogLevel.FAIL)
-
-        def send_task(ssh_client: SoPSSHClient):
-            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            user = os.path.basename(remote_home_dir)
-            install_remote_middleware(ssh_client=ssh_client, user=user)
-
-        def task(ssh_client: SoPSSHClient):
-            install_remote_thing(ssh_client=ssh_client, force_install=True)
-            init_ramdisk(ssh_client=ssh_client)
-
-            if ssh_client.device.name != 'localhost':
-                set_cpu_clock_remote(ssh_client=ssh_client)
-
-        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(simulator.simulation_env)
-
-        middleware_ssh_client_list = list(set([simulator.event_handler.find_ssh_client(middleware) for middleware in middleware_list]))
-        thing_ssh_client_list = list(set([simulator.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
-
-        pool_map(task, list(set(middleware_ssh_client_list + thing_ssh_client_list)))
-        pool_map(send_task, middleware_ssh_client_list, proc=1)
-
-        return True
 
     def print_ranking(self, simulation_result_list: List[SoPSimulationResult]):
         if not simulation_result_list:
@@ -202,13 +94,13 @@ check_cpu_clock_setting'''
 
         simulation_result_list_sort_by_policy: Dict[str, List[SoPSimulationResult]] = {}
         for simulation_result in simulation_result_list:
-            if simulation_result.policy in simulation_result_list_sort_by_policy:
-                simulation_result_list_sort_by_policy[simulation_result.policy].append(simulation_result)
+            if simulation_result.policy_path in simulation_result_list_sort_by_policy:
+                simulation_result_list_sort_by_policy[simulation_result.policy_path].append(simulation_result)
             else:
-                simulation_result_list_sort_by_policy[simulation_result.policy] = [simulation_result]
+                simulation_result_list_sort_by_policy[simulation_result.policy_path] = [simulation_result]
         simulation_result_list: List[SoPSimulationResult] = []
         for policy, result_list in simulation_result_list_sort_by_policy.items():
-            simulation_result_avg = SoPSimulationResult(policy=policy,
+            simulation_result_avg = SoPSimulationResult(policy_path=policy,
                                                         avg_latency=avg([result.get_avg_latency()[0] for result in result_list]),
                                                         avg_energy=avg([result.get_avg_energy()[0] for result in result_list]),
                                                         avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
@@ -221,11 +113,11 @@ check_cpu_clock_setting'''
         rank_header = ['Rank', 'QoS', 'Energy Saving', 'Stability']
         print_table([[i+1,
                       f'''latency: {f'{simulation_result_list_sort_by_application_latency[i].avg_latency:.2f}'}
-policy: {simulation_result_list_sort_by_application_latency[i].policy}''',
+policy: {simulation_result_list_sort_by_application_latency[i].policy_path}''',
                       f'''energy: {f'{simulation_result_list_sort_by_application_energy[i].avg_energy:.2f}'}
-policy: {simulation_result_list_sort_by_application_energy[i].policy}''',
+policy: {simulation_result_list_sort_by_application_energy[i].policy_path}''',
                       f'''success_ratio: {f'{simulation_result_list_sort_by_success_ratio[i].avg_success_ratio * 100:.2f}'}
-policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in range(len(simulation_result_list))], rank_header)
+policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i in range(len(simulation_result_list))], rank_header)
 
         return True
 
@@ -310,8 +202,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
             thing_pool = loaded_thing_pool + generated_thing_pool
 
             # Export service_thing_pool
-            self.export_service_thing_pool(tag_name_pool=tag_name_pool, service_name_pool=raw_service_name_pool,
-                                           service_thing_pool_path=service_thing_pool_path, service_pool=service_pool, thing_pool=thing_pool)
+            self._export_service_thing_pool(tag_name_pool=tag_name_pool, service_name_pool=raw_service_name_pool,
+                                            service_thing_pool_path=service_thing_pool_path, service_pool=service_pool, thing_pool=thing_pool)
 
             # Generate middleware tree
             root_middleware = self.env_generator.generate_middleware_tree(thing_pool=thing_pool)
@@ -335,10 +227,15 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
             simulation_env.dynamic_event_timeline = dynamic_event_timeline
             simulation_env_list.append(simulation_env)
 
-        simulation_data_file_path = self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_folder_path=self.env_generator._simulation_folder_path)
+        simulation_data_file_path = f'{self.env_generator._simulation_folder_path}/simulation_data.json'
+        for simulation_env in simulation_env_list:
+            simulation_env.simulation_data_file_path = simulation_data_file_path
+
+        self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_data_file_path=simulation_data_file_path)
         return simulation_env_list
 
-    def run_simulation(self, config: SoPSimulationConfig, simulation_data: SoPSimulationEnv, policy_file_path: str):
+    @exception_wrapper
+    def run_simulation(self, simulation_env: SoPSimulationEnv, policy_path: str, index: int):
         """ Steps in a Simulation:
             1. setup
                 1-1. generate simulation data files
@@ -354,48 +251,35 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                 5-1. get simulation result
         """
         # SOPTEST_LOG_DEBUG(f'==== Start simulation {label} ====', SoPTestLogLevel.INFO)
-        simulator = SoPSimulator(simulation_env=simulation_data, mqtt_debug=self._mqtt_debug, middleware_debug=self._middleware_debug)
-        simulator.setup(config=config, simulation_file_path=self.simulation_file_path)
-        # simulator.cleanup()
-        # simulator.kill_every_process()
-        # simulator.remove_every_files()
-        # simulator.build_iot_system()
-        # simulator.start()
+        self._simulator = SoPSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug, middleware_debug=self._middleware_debug, download_logs=self._download_logs)
+        self._simulator.setup()
+        self._simulator.cleanup()
+        self._simulator.build_iot_system()
+        self._simulator.start()
 
-        self.update_middleware_thing(simulator=simulator, middleware_path='~/middleware', policy_file_path=policy_file_path)
-
-        try:
-            # simulation_env, event_log, simulation_duration, simulation_start_time = simulator.start()
-            simulator.start()
-        except Exception as e:
-            print_error(e)
-
-        evaluator = SoPEvaluator(simulation_env, event_log, simulation_duration, simulation_start_time)
-        # evaluator.eval(simulator.result)
-
+        evaluator = SoPEvaluator(simulation_env=simulation_env, event_log=self._simulator.get_event_log()).classify_event_log()
         simulation_result = evaluator.evaluate_simulation()
-        simulation_result.config = self.env_generator.simulation_config.name
-        simulation_result.policy = os.path.basename(policy_file_path).split(".")[0]
-        simulation_result_list.append(simulation_result)
+
+        simulation_result.config_path = simulation_env.config.config_path
+        simulation_result.policy_path = policy_path
 
         profiler = None
-        if args.download_logs:
-            simulator.event_handler.download_log_file()
-        if args.profile:
-            log_root_path = simulator.event_handler.download_log_file()
+        if self._download_logs:
+            self._simulator.event_handler._download_log_file()
+        if self._profile:
+            log_root_path = self._simulator.event_handler._download_log_file()
             profiler = Profiler()
             profiler.load(log_root_path=log_root_path)
-            simulation_overhead = profiler.profile(args.profile_type, export=True)
+            simulation_overhead = profiler.profile(self._profile_type, export=True)
 
-        evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
-        evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, label=label, args=args)
+        simulation_name = f'{simulation_env.config.name}_{index}'
+        evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, simulation_name=simulation_name, file_name=self._result_filename,
+                             config_path=simulation_env.config.config_path)
+        evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, simulation_name=simulation_name, file_name=self._result_filename,
+                             config_path=simulation_env.config.config_path)
 
-        # TODO: Make wrapup_simulation method
-        simulator.event_handler.wrapup()
-        # del simulator
-        # del evaluator
-
-        return simulation_result_list
+        self._simulator.event_handler.wrapup()
+        return simulation_result
 
     # =========================
     #         _    _  _
@@ -406,7 +290,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
     #  \__,_| \__||_||_||___/
     # =========================
 
-    def export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], service_pool: List[SoPService], thing_pool: List[SoPThing]):
+    def _export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], service_pool: List[SoPService], thing_pool: List[SoPThing]):
         service_pool_dict = [service.dict() for service in service_pool]
         thing_pool_dict = [thing.dict() for thing in thing_pool]
         service_thing_pool = {'tag_name_pool': tag_name_pool,
@@ -414,14 +298,3 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy}'''] for i in ra
                               'service_pool': service_pool_dict,
                               'thing_pool': thing_pool_dict}
         save_json(service_thing_pool_path, service_thing_pool)
-
-    def get_remote_device_OS(self, ssh_client: SoPSSHClient) -> str:
-        lsb_release_install_check = ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True)
-        if not lsb_release_install_check:
-            command = 'sudo apt install lsb-release -y;'
-            install_result = ssh_client.send_command_with_check_success(command, get_pty=True)
-            if not install_result:
-                raise SSHCommandFailError(command=command, reason=f'Install lsb-release failed to {ssh_client.device.name}')
-
-        remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
-        return remote_device_os

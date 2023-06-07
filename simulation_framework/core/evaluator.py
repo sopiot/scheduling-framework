@@ -157,10 +157,10 @@ class SoPMiddlewareResult:
         self.avg_overhead = avg_overhead
 
         self.total_scenario_cycle_num = sum([scenario.cycle_count for scenario in self.middleware_component.scenario_list])
-        self.total_execute_count = len([event for event in self.middleware_component.event_log if event.event_type in [
-                                       SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]])
-        self.total_execute_time = sum([event.duration for event in self.middleware_component.event_log if event.event_type in [
-                                      SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]])
+        self.total_execute_count = len([event for event in self.middleware_component.event_log
+                                        if event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]])
+        self.total_execute_time = sum([event.duration for event in self.middleware_component.event_log
+                                       if event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]])
 
 
 class SoPSimulationResult:
@@ -168,9 +168,9 @@ class SoPSimulationResult:
                  total_scenario_num: List[int] = [0, 0, 0], timeout_scenario_num: List[int] = [0, 0, 0], denied_scenario_num: List[int] = [0, 0, 0], failed_scenario_num: List[int] = [0, 0, 0],
                  avg_latency: List[int] = [0, 0, 0], avg_execute_time: List[int] = [0, 0, 0], avg_schedule_latency: List[int] = [0, 0, 0], avg_energy: List[int] = [0, 0, 0], avg_overhead: List[int] = [0, 0, 0],
                  avg_success_ratio: List[float] = [0, 0, 0],
-                 config: str = '', policy: str = '') -> None:
-        self.config = config
-        self.policy = policy
+                 config_path: str = '', policy_path: str = '') -> None:
+        self.config_path = config_path
+        self.policy_path = policy_path
 
         self.middleware_result_list = middleware_result_list
 
@@ -289,31 +289,30 @@ class SoPEvaluator:
                       SoPEventType.SCENARIO_UPDATE,
                       SoPEventType.SCENARIO_DELETE]
 
-    def __init__(self, simulation_env: SoPMiddleware, event_log: List[SoPEvent], simulation_duration: float, simulation_start_time: float) -> None:
+    def __init__(self, simulation_env: SoPSimulationEnv, event_log: List[SoPEvent]) -> None:
         self.simulation_env = simulation_env
-        self.simulation_duration = simulation_duration
-        self.simulation_start_time = simulation_start_time
         self.event_log = event_log
 
-        self.classify_event_log()
+    def classify_event_log(self) -> 'SoPEvaluator':
+        middleware_list = get_whole_middleware_list(self.simulation_env.root_middleware)
+        thing_list = get_whole_thing_list(self.simulation_env.root_middleware)
+        scenario_list = get_whole_scenario_list(self.simulation_env.root_middleware)
+        for i, _ in enumerate(zip(middleware_list, thing_list, scenario_list)):
+            middleware_list[i].event_log: List[SoPEvent] = []
+            thing_list[i].event_log: List[SoPEvent] = []
+            scenario_list[i].event_log: List[SoPEvent] = []
 
-    def classify_event_log(self):
         for event in self.event_log:
             if event.event_type in SoPEvaluator.MIDDLEWARE_EVENT:
-                middleware, _ = find_component(self.simulation_env, event.middleware_component)
-                if not hasattr(middleware, 'event_log'):
-                    middleware.event_log: List[SoPEvent] = []
+                middleware, _ = find_component(self.simulation_env.root_middleware, event.middleware_component)
                 middleware.event_log.append(event)
             if event.event_type in SoPEvaluator.THING_EVENT:
-                thing, _ = find_component(self.simulation_env, event.thing_component)
-                if not hasattr(thing, 'event_log'):
-                    thing.event_log: List[SoPEvent] = []
+                thing, _ = find_component(self.simulation_env.root_middleware, event.thing_component)
                 thing.event_log.append(event)
             if event.event_type in SoPEvaluator.SCENARIO_EVENT:
-                scenario, _ = find_component(self.simulation_env, event.scenario_component)
-                if not hasattr(scenario, 'event_log'):
-                    scenario.event_log: List[SoPEvent] = []
+                scenario, _ = find_component(self.simulation_env.root_middleware, event.scenario_component)
                 scenario.event_log.append(event)
+        return self
 
     def evaluate_service(self, target_middleware: SoPMiddleware, target_service: SoPService) -> Tuple[str, str, int, float, float]:
 
@@ -346,7 +345,7 @@ class SoPEvaluator:
                     service_name = service.name
                     call_count = count_service_call(service, target_middleware.event_log)
                     energy_consumption = service.energy * call_count
-                    utilization = cal_service_whole_duration(service, target_middleware.event_log) / self.simulation_duration
+                    utilization = cal_service_whole_duration(service, target_middleware.event_log) / self.simulation_env.config.running_time
 
         return thing_name, service_name, call_count, energy_consumption, utilization
 
@@ -367,7 +366,7 @@ class SoPEvaluator:
         if not cycle_pattern_check:
             # 시나리오 안의 서비스가 순차적으로 실행되지 않는 경우. -> 이런 경우 미들웨어의 문제임
             if not execute_cycle[-1].error:
-                if all([event.timestamp > self.simulation_duration for event in execute_cycle]):
+                if all([event.timestamp > self.simulation_env.config.running_time for event in execute_cycle]):
                     return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.OVERTIME)
                 else:
                     return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.RERUN_FAIL)
@@ -389,7 +388,7 @@ class SoPEvaluator:
             else:
                 # FIXME: 매핑이 잘 되는지만 보려고 추가한 코드임. 나중에 삭제해야함
                 avg_execute_time = 0
-                thing_list: List[SoPThing] = get_whole_thing_list(self.simulation_env)
+                thing_list: List[SoPThing] = get_whole_thing_list(self.simulation_env.root_middleware)
                 service_list: List[SoPService] = []
                 for thing in thing_list:
                     service_list += thing.service_list
@@ -433,8 +432,9 @@ class SoPEvaluator:
             SOPTEST_LOG_DEBUG(f'Scenario: {scenario.name}, Period: {scenario.period}ms, Cycle Latency: {execute_cycle_result.cycle_latency}, ', SoPTestLogLevel.WARN)
             SOPTEST_LOG_DEBUG(f'Scenario Code: \n{scenario.scenario_code()}', SoPTestLogLevel.WARN)
             for event in execute_cycle:
-                SOPTEST_LOG_DEBUG(
-                    f'timestamp: {unixtime_to_date(self.simulation_start_time + event.timestamp)}|{event.timestamp}, event_type: {event.event_type}, service: {event.service_component.name}, duration: {event.duration}', SoPTestLogLevel.WARN)
+                simulation_start_time = self.get_simulation_start_time()
+                SOPTEST_LOG_DEBUG(f'timestamp: {unixtime_to_date(self.simulation_start_time + event.timestamp)}|{event.timestamp}, '
+                                  f'event_type: {event.event_type}, service: {event.service_component.name}, duration: {event.duration}', SoPTestLogLevel.WARN)
 
             # return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.PERIOD_FAIL)
             # return execute_cycle_result
@@ -598,7 +598,7 @@ class SoPEvaluator:
             return scenario_result_list, local_scenario_result_list, super_scenario_result_list
 
         middleware_result_list: List[SoPMiddlewareResult] = []
-        middleware_list = get_whole_middleware_list(self.simulation_env)
+        middleware_list = get_whole_middleware_list(self.simulation_env.root_middleware)
         for middleware in middleware_list:
             middleware_result = self.evaluate_middleware(middleware)
             middleware_result_list.append(middleware_result)
@@ -647,77 +647,75 @@ class SoPEvaluator:
                                                 avg_overhead=avg_overhead)
         return simulation_result
 
-    def make_service_utilization_table(self, target_middleware: SoPMiddleware):
-        header = ['thing', 'service(call count)', 'energy consumption', 'utilization']
-        table = []
-        for thing in target_middleware.thing_list:
-            for service in thing.service_list:
-                if service.name in [row[1].split('(')[0] for row in table]:
-                    continue
-                thing_name, service_name, call_count, energy_consumption, utilization = self.evaluate_service(
-                    target_middleware, service)
-                if utilization > 0:
-                    table.append([f'{thing_name}', f"{service_name}({call_count})", energy_consumption, f'{utilization * 100:8.3f}%'])
-        return table, header
+    # def make_service_utilization_table(self, target_middleware: SoPMiddleware):
+    #     header = ['thing', 'service(call count)', 'energy consumption', 'utilization']
+    #     table = []
+    #     for thing in target_middleware.thing_list:
+    #         for service in thing.service_list:
+    #             if service.name in [row[1].split('(')[0] for row in table]:
+    #                 continue
+    #             thing_name, service_name, call_count, energy_consumption, utilization = self.evaluate_service(
+    #                 target_middleware, service)
+    #             if utilization > 0:
+    #                 table.append([f'{thing_name}', f"{service_name}({call_count})", energy_consumption, f'{utilization * 100:8.3f}%'])
+    #     return table, header
 
-    def make_scenario_score_table(self, target_middleware: SoPMiddleware):
-        header = ['application', 'avg latency',
-                  'period', 'avg_energy', 'result']
-        table = []
-        deadline_meet_cnt = 0
-        for scenario in target_middleware.scenario_list:
-            (avg_scenario_latency,
-             avg_scenario_energy,
-             avg_scenario_execute_time,
-             avg_scenario_schedule_latency,
-             scenario_evaluate_result) = self.evaluate_scenario(scenario)
-            table.append([scenario.name, f'{avg_scenario_latency:8.3f}s', f'{(scenario.period):8.3f}s', f'{avg_scenario_energy:8.3f}s', scenario_evaluate_result.value])
-            if scenario_evaluate_result == SoPScenarioErrorType.SUCCESS:
-                deadline_meet_cnt += 1
-        acceptance_ratio = [scenario.schedule_success for scenario in target_middleware.scenario_list].count(True) / len(target_middleware.scenario_list)
-        deadline_meet_ratio = deadline_meet_cnt / len(target_middleware.scenario_list)
-        table.append([f'Acceptance Ratio: {acceptance_ratio * 100:0.2f}%', '', '', '', ''])
-        table.append([f'Deadline Meet Ratio: {deadline_meet_ratio * 100:0.2f}%', '', '', '', ''])
-        return table, header
+    # def make_scenario_score_table(self, target_middleware: SoPMiddleware):
+    #     header = ['application', 'avg latency',
+    #               'period', 'avg_energy', 'result']
+    #     table = []
+    #     deadline_meet_cnt = 0
+    #     for scenario in target_middleware.scenario_list:
+    #         (avg_scenario_latency,
+    #          avg_scenario_energy,
+    #          avg_scenario_execute_time,
+    #          avg_scenario_schedule_latency,
+    #          scenario_evaluate_result) = self.evaluate_scenario(scenario)
+    #         table.append([scenario.name, f'{avg_scenario_latency:8.3f}s', f'{(scenario.period):8.3f}s', f'{avg_scenario_energy:8.3f}s', scenario_evaluate_result.value])
+    #         if scenario_evaluate_result == SoPScenarioErrorType.SUCCESS:
+    #             deadline_meet_cnt += 1
+    #     acceptance_ratio = [scenario.schedule_success for scenario in target_middleware.scenario_list].count(True) / len(target_middleware.scenario_list)
+    #     deadline_meet_ratio = deadline_meet_cnt / len(target_middleware.scenario_list)
+    #     table.append([f'Acceptance Ratio: {acceptance_ratio * 100:0.2f}%', '', '', '', ''])
+    #     table.append([f'Deadline Meet Ratio: {deadline_meet_ratio * 100:0.2f}%', '', '', '', ''])
+    #     return table, header
 
-    def make_whole_timeline_table(self, target_middleware: SoPMiddleware):
-        header = ['time', 'duration', 'event_type', 'level', 'requester_middleware', 'thing',
-                  'service(delay)', 'application(period)', 'result', 'return_value', 'return_type']
-        table = []
-        for event in target_middleware.event_log:
-            if event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUPER_FUNCTION_EXECUTE] and not event.duration:
-                continue
+    # def make_whole_timeline_table(self, target_middleware: SoPMiddleware):
+    #     header = ['time', 'duration', 'event_type', 'level', 'requester_middleware', 'thing',
+    #               'service(delay)', 'application(period)', 'result', 'return_value', 'return_type']
+    #     table = []
+    #     for event in target_middleware.event_log:
+    #         if event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUPER_FUNCTION_EXECUTE] and not event.duration:
+    #             continue
 
-            if event.middleware_component:
-                middleware, _ = find_component(self.simulation_env, event.middleware_component)
-            elif event.thing_component:
-                _, middleware = find_component(self.simulation_env, event.thing_component)
-            elif event.scenario_component:
-                _, middleware = find_component(self.simulation_env, event.scenario_component)
+    #         if event.middleware_component:
+    #             middleware, _ = find_component(self.simulation_env.root_middleware, event.middleware_component)
+    #         elif event.thing_component:
+    #             _, middleware = find_component(self.simulation_env.root_middleware, event.thing_component)
+    #         elif event.scenario_component:
+    #             _, middleware = find_component(self.simulation_env.root_middleware, event.scenario_component)
 
-            middleware: SoPMiddleware
-            requester_middleware = event.requester_middleware_name if event.service_component else None
+    #         middleware: SoPMiddleware
+    #         requester_middleware = event.requester_middleware_name if event.service_component else None
 
-            if not middleware:
-                raise Exception('middleware is not found')
+    #         if not middleware:
+    #             raise Exception('middleware is not found')
 
-            table.append([event.timestamp,
-                          event.duration,
-                          event.event_type.value,
-                          middleware.level,
-                          requester_middleware,
-                          event.thing_component.name if event.thing_component else '',
-                          event.service_component.name if event.service_component else '',
-                          event.scenario_component.name if event.scenario_component else '',
-                          str(event.error) if event.error else '',
-                          event.return_value,
-                          str(event.return_type) if event.return_type else ''])
-        return table, header
+    #         table.append([event.timestamp,
+    #                       event.duration,
+    #                       event.event_type.value,
+    #                       middleware.level,
+    #                       requester_middleware,
+    #                       event.thing_component.name if event.thing_component else '',
+    #                       event.service_component.name if event.service_component else '',
+    #                       event.scenario_component.name if event.scenario_component else '',
+    #                       str(event.error) if event.error else '',
+    #                       event.return_value,
+    #                       str(event.return_type) if event.return_type else ''])
+    #     return table, header
 
-    def export_txt(self, simulation_result: SoPSimulationResult, simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
-        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env)
-        # scenario_list: List[SoPScenarioComponent] = get_scenario_list_recursive(
-        #     self.simulation_env)
+    def export_txt(self, simulation_result: SoPSimulationResult, simulation_overhead: ProfileResult = None, simulation_name: str = '', file_name: str = '', config_path: str = ''):
+        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
 
         scenario_result_header = ['', 'avg accept ratio(%)', 'avg success ratio(%)', 'avg latency', 'avg energy', 'avg execute time', 'avg schedule time', 'avg overhead']
         count_result_header = ['', 'total', 'success', 'fail', 'accept', 'accept fail', 'timeout num']
@@ -793,9 +791,11 @@ class SoPEvaluator:
             profile_result_table.append(['total target_thing_middleware_comm', f'{simulation_overhead.avg_total_target_thing__middleware_comm_overhead().total_seconds():8.3f}'])
 
         # print simulation score
-        thing_list: List[SoPThing] = get_whole_thing_list(self.simulation_env)
+        thing_list: List[SoPThing] = get_whole_thing_list(self.simulation_env.root_middleware)
         thing_list = [thing for thing in thing_list if thing.is_super == False]
-        main_title = f'Simulation result of label "{label}" is_parallel={thing_list[0].is_parallel} {get_current_time(mode=TimeFormat.DATETIME1)}'
+        main_title = (f'==== Simulation [{simulation_name}] result ===='
+                      f'* is_parallel: {thing_list[0].is_parallel}'
+                      f'* datetime: {get_current_time(mode=TimeFormat.DATETIME1)}')
         scenario_result_title = f'==== Scenario Result ===='
         count_result_title = f'==== Count Result ===='
         policy_result_title = f'==== Policy Result ===='
@@ -816,13 +816,13 @@ class SoPEvaluator:
             print(profile_result_title)
             profile_result_table_str = print_table(profile_result_table, profile_result_header)
 
-        if not args.filename:
-            filename = f'result_{os.path.basename(os.path.dirname(args.config_path))}'
+        if not file_name:
+            file_name = f'result_{os.path.basename(os.path.dirname(config_path))}'
         else:
-            filename = args.filename
+            pass
 
         os.makedirs('sim_result', exist_ok=True)
-        with open(f'./sim_result/{filename}.txt', 'a+') as f:
+        with open(f'./sim_result/{file_name}.txt', 'a+') as f:
             f.write(main_title + '\n')
             f.write(scenario_result_title + '\n')
             f.write(scenario_result_table_str)
@@ -841,17 +841,17 @@ class SoPEvaluator:
                 f.write(profile_result_table_str)
                 f.write('\n')
 
-    def export_csv(self, simulation_result: SoPSimulationResult,  simulation_overhead: ProfileResult = None, label: str = '', args: dict = None):
-        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env)
-        acceptance_score = SoPAcceptanceScore(middleware_list)
+    def export_csv(self, simulation_result: SoPSimulationResult,  simulation_overhead: ProfileResult = None, simulation_name: str = '', file_name: str = '', config_path: str = ''):
+        # middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
+        # acceptance_score = SoPAcceptanceScore(middleware_list)
 
-        if not args.filename:
-            filename = f'result_{os.path.basename(os.path.dirname(args.config_path))}'
+        if not file_name:
+            file_name = f'result_{os.path.basename(os.path.dirname(config_path))}'
         else:
-            filename = args.filename
+            pass
 
         os.makedirs('sim_result', exist_ok=True)
-        with open(f'./sim_result/{filename}.csv', 'a+') as f:
+        with open(f'./sim_result/{file_name}.csv', 'a+') as f:
             wr = csv.writer(f)
             header = (['simulation name'] +
                       ['avg accept ratio(%) (all)', 'avg success ratio(%) (all)', 'avg latency (all)', 'avg energy (all)', 'avg execute time (all)', 'avg schedule time (all)',  'avg overhead (all)', 'total (all)', 'success (all)', 'fail (all)', 'accept (all)', 'accept fail (all)', 'timeout num (all)'] +
@@ -862,7 +862,7 @@ class SoPEvaluator:
                 header += ['avg overhead', 'inner overhead', 'comm overhead', 'middleware inner', 'super thing inner',
                            'middleware - middleware comm overhead', 'super thing - middleware comm overhead', 'target thing - middleware comm overhead']
             wr.writerow(header)
-            data = ([f'{label}'] +
+            data = ([f'{simulation_name}'] +
                     [f'{simulation_result.get_avg_acceptance_ratio()[0] * 100:8.3f}',
                      f'{simulation_result.get_avg_success_ratio()[0] * 100:8.3f}',
                      f'{simulation_result.get_avg_latency()[0]:8.3f}',
@@ -917,3 +917,17 @@ class SoPEvaluator:
                          f'{simulation_overhead.avg_total_super_thing__middleware_comm_overhead().total_seconds():8.3f}',
                          f'{simulation_overhead.avg_total_target_thing__middleware_comm_overhead().total_seconds():8.3f}']
             wr.writerow(data)
+
+    # =========================
+    #         _    _  _
+    #        | |  (_)| |
+    #  _   _ | |_  _ | | ___
+    # | | | || __|| || |/ __|
+    # | |_| || |_ | || |\__ \
+    #  \__,_| \__||_||_||___/
+    # =========================
+
+    def get_simulation_start_time(self) -> float:
+        for event in self.event_log:
+            if event.event_type == SoPEventType.START:
+                return event.timestamp
