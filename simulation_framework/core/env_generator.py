@@ -46,6 +46,9 @@ class SoPEnvGenerator:
         self._generate_start_time: str = datetime.now().strftime('%Y%m%d_%H%M%S')
         self._simulation_folder_path: str = ''
 
+        self._middleware_device_pool: List[SoPDevice] = []
+        self._thing_device_pool: List[SoPDevice] = []
+
         # self._middleware_generator: SoPMiddlewareGenerator = None
         # self._thing_generator: SoPThingGenerator = None
         # self._scenario_generator: SoPServiceGenerator = None
@@ -63,63 +66,46 @@ class SoPEnvGenerator:
         """
         self._config = config
         self._simulation_folder_path = f'{os.path.dirname(self._config.config_path)}/simulation_{self._config.name}_{self._generate_start_time}'
-
-        self._middleware_device_pool: List[SoPDevice] = []
-        self._thing_device_pool: List[SoPDevice] = []
+        manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
+        random_middleware_config = self._config.middleware_config.random
 
         device_pool_path = self._config.device_pool_path.abs_path()
-        if not os.path.exists(device_pool_path):
-            save_yaml(device_pool_path, {})
-
-        device_pool_dict = load_yaml(device_pool_path)
-        if not 'localhost' in device_pool_dict:
-            SOPTEST_LOG_DEBUG(f'localhost device config is not exist in device pool...', SoPTestLogLevel.WARN)
-            device_pool_dict = self._add_localhost_info(device_pool_dict)
-            save_yaml(device_pool_path, device_pool_dict)
-
-        device_pool = self._load_device_pool(device_pool_path)
+        self._check_device_pool(device_pool_path)
+        global_device_pool = self._load_device_pool(device_pool_path)
 
         # If local_mode is True, the program terminates if device_pool is defined or if localhost
         # does not exist in device_pool.
         if self._config.local_mode:
             SOPTEST_LOG_DEBUG(f'local_mode is True, below config will be ignored. \n'
-                              'device pool                    (simulation.device_pool) \n'
+                              'device pool                    (middleware.device_pool) \n'
                               'manual middleware config path  (middleware.manual)', SoPTestLogLevel.WARN)
-            self._middleware_device_pool = [device for device in device_pool if device.name == 'localhost']
-            self._thing_device_pool = [device for device in device_pool if device.name == 'localhost']
+            self._middleware_device_pool = [device for device in global_device_pool if device.name == 'localhost']
+            self._thing_device_pool = [device for device in global_device_pool if device.name == 'localhost']
         else:
-            if not self._config.middleware_config.device_pool:
-                self._middleware_device_pool = [device for device in device_pool if device.name != 'localhost']
+            if manual_middleware_tree:
+                SOPTEST_LOG_DEBUG('middleware.manual config is defined. middleware.random & middleware.device config will be ignored.', SoPTestLogLevel.WARN)
+                self._middleware_device_pool = global_device_pool
+                self._config.middleware_config.random = None
+                middleware_num = len(manual_middleware_tree.descendants) + 1
+            elif random_middleware_config:
+                if self._config.middleware_config.device_pool:
+                    self._middleware_device_pool = [self._find_device(device, global_device_pool) for device in self._config.middleware_config.device_pool]
+                else:
+                    self._middleware_device_pool = [device for device in global_device_pool if device.name != 'localhost']
+                middleware_num = calculate_tree_node_num(random_middleware_config.height[1], random_middleware_config.width[1])
             else:
-                self._middleware_device_pool = [device for device in device_pool if device.name in self._config.middleware_config.device_pool]
+                raise SimulationFailError('If manual_middleware_tree is not defined, random config must be defined.')
 
             # In the case of things, it defaults to running on a simulator device with relatively
             # high performance rather than running on an embedded device with low performance.
-            if not self._config.thing_config.device_pool:
-                self._thing_device_pool = [device for device in device_pool if device.name == 'localhost']
+            if self._config.thing_config.device_pool:
+                self._thing_device_pool = [self._find_device(device, global_device_pool) for device in self._config.thing_config.device_pool]
             else:
-                self._thing_device_pool = [device for device in device_pool if device.name in self._config.thing_config.device_pool]
+                self._thing_device_pool = [device for device in global_device_pool if device.name == 'localhost']
 
-        manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
-        random_middleware_config = self._config.middleware_config.random
-        if manual_middleware_tree:
-            if random_middleware_config:
-                SOPTEST_LOG_DEBUG('random is defined in middleware config, but manual_middleware_tree is defined. '
-                                  'random config will be ignored.', SoPTestLogLevel.WARN)
-                random_middleware_config = None
-            middleware_num = len(manual_middleware_tree.descendants) + 1
-        elif random_middleware_config:
-            self._middleware_device_pool = [device for device in device_pool if device.name != 'localhost']
-            self._thing_device_pool = [device for device in device_pool if device.name == 'localhost']
-            self._config.middleware_config.manual = None
-            middleware_num = calculate_tree_node_num(random_middleware_config.height[1], random_middleware_config.width[1])
-        else:
-            raise SimulationFailError('If manual_middleware_tree is not defined, random config must be defined.')
-
-        remote_device_list = [device for device in device_pool if device.name != 'localhost']
-        if not self._config.local_mode and len(remote_device_list) < middleware_num:
-            raise SimulationFailError(f'device pool is not enough for {os.path.basename(os.path.dirname(self._config.config_path))} simulation. '
-                                      f'(Requires at least {middleware_num} devices)')
+            if len(self._middleware_device_pool) < middleware_num:
+                raise SimulationFailError(f'Device pool is not enough for {os.path.basename(os.path.dirname(self._config.config_path))} simulation. '
+                                          f'(Requires at least {middleware_num} devices)')
 
         # self._service_generator = SoPServiceGenerator(self._config)
         # self._thing_generator = SoPThingGenerator(self._config, thing_device_pool)
@@ -165,28 +151,26 @@ class SoPEnvGenerator:
 
         return selected_words
 
-    def generate_name_pool(self, num_tag_name: int, num_service_name: int, ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
-        tag_type_num = self._config.service_config.tag_type_num
-        service_type_num = self._config.service_config.normal.service_type_num
-        super_service_type_num = self._config.service_config.super.service_type_num
-
+    def generate_name_pool(self, num_tag_name_generate: int, num_service_name_generate: int, num_super_service_name_generate: int,
+                           ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
         ban_name_list = ban_name_list + self._PREDEFINED_KEYWORD_LIST
 
-        tag_name_pool = self._generate_random_words(num_word=num_tag_name, ban_word_list=ban_name_list)
-        # service_name_pool = self._generate_random_words(num_word=service_type_num * 5 + super_service_type_num * 5, ban_word_list=ban_name_list)
-        service_name_pool = self._generate_random_words(num_word=num_service_name, ban_word_list=ban_name_list)
-        return tag_name_pool, service_name_pool
+        tag_name_pool = self._generate_random_words(num_word=num_tag_name_generate, ban_word_list=ban_name_list)
+        service_name_pool = self._generate_random_words(num_word=num_service_name_generate, ban_word_list=ban_name_list)
+        super_service_name_pool = self._generate_random_words(num_word=num_super_service_name_generate, ban_word_list=ban_name_list)
+        return tag_name_pool, service_name_pool, super_service_name_pool
 
     def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], num_service_generate: int) -> List[SoPService]:
-        service_pool = []
+        service_name_pool_copy = copy.deepcopy(service_name_pool)
+        service_pool: List[SoPService] = []
         for _ in range(num_service_generate):
             tag_per_service_range = self._config.service_config.tag_per_service
             energy_range = self._config.service_config.normal.energy
             execute_time_range = self._config.service_config.normal.execute_time
             return_value_range = (0, 1000)
 
-            selected_service_name = random.choice(service_name_pool)
-            service_name_pool.remove(selected_service_name)
+            selected_service_name = random.choice(service_name_pool_copy)
+            service_name_pool_copy.remove(selected_service_name)
             service_name = f'function_{selected_service_name}'
             level = -1
             tag_per_service = random.randint(*tag_per_service_range)
@@ -203,6 +187,7 @@ class SoPEnvGenerator:
                                  execute_time=execute_time,
                                  return_value=return_value)
             service_pool.append(service)
+
         SOPTEST_LOG_DEBUG(f'Generate service pool size of {len(service_pool)}', SoPTestLogLevel.INFO)
         return service_pool
 
@@ -247,7 +232,7 @@ class SoPEnvGenerator:
         SOPTEST_LOG_DEBUG(f'Generate thing pool size of {num_thing_generate}', SoPTestLogLevel.INFO)
         return thing_pool
 
-    def generate_middleware_tree(self, thing_pool: List[SoPThing]) -> SoPMiddleware:
+    def generate_middleware_tree(self) -> SoPMiddleware:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_middleware_config = self._config.middleware_config.random
         device_pool = copy.deepcopy(self._middleware_device_pool)
@@ -259,8 +244,16 @@ class SoPEnvGenerator:
                     middleware_name = f'middleware_level{height}_0'
                 else:
                     middleware_name = f'{middleware.name}__middleware_level{height}_{index}'
-                device = random.choice(device_pool)
-                # if local_mode is True, do not remove localhost device
+                if not middleware_config.device:
+                    device = random.choice(device_pool)
+                else:
+                    selected_device = random.choice(middleware_config.device)
+                    for d in device_pool:
+                        if d.name == selected_device:
+                            device = d
+                            break
+
+                # Do not remove localhost device
                 if device.name != 'localhost':
                     device_pool.remove(device)
 
@@ -289,8 +282,10 @@ class SoPEnvGenerator:
                     middleware_name = f'middleware_level{height}_0'
                 else:
                     middleware_name = f'{middleware.name}__middleware_level{height}_{index}'
+
                 device = random.choice(device_pool)
-                # if local_mode is True, do not remove localhost device
+
+                # Do not remove localhost device
                 if device.name != 'localhost':
                     device_pool.remove(device)
 
@@ -455,6 +450,7 @@ class SoPEnvGenerator:
         SOPTEST_LOG_DEBUG(f'Generate application to middleware tree', SoPTestLogLevel.INFO)
 
     def generate_super(self, root_middleware: SoPMiddleware, tag_name_pool: List[str], super_service_name_pool: List[str]) -> List[SoPThing]:
+        super_service_name_pool_copy = copy.deepcopy(super_service_name_pool)
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
         generated_super_service_num = 0
@@ -475,8 +471,8 @@ class SoPEnvGenerator:
                 # execute_time_range = None
                 # return_value_range = None
 
-                selected_super_service_name = random.choice(super_service_name_pool)
-                super_service_name_pool.remove(selected_super_service_name)
+                selected_super_service_name = random.choice(super_service_name_pool_copy)
+                super_service_name_pool_copy.remove(selected_super_service_name)
                 super_service_name = f'super_function_{selected_super_service_name}'
                 level = middleware.level
                 tag_per_service = random.randint(*tag_per_service_range)
@@ -611,6 +607,10 @@ class SoPEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
+    def validate_simulation_env(self, middleware: SoPMiddleware):
+        thing_list = middleware.thing_list
+        scenario_list = middleware.scenario_list
+
     def _generate_event_timeline(self, root_middleware: SoPMiddleware) -> Tuple[List[SoPEvent], List[SoPEvent]]:
 
         def generate_dynamic_thing_event_timeline(local_thing_list: List[SoPThing], super_thing_list: List[SoPThing],
@@ -714,6 +714,20 @@ class SoPEnvGenerator:
     # | |_| || |_ | || |\__ \
     #  \__,_| \__||_||_||___/
     # =========================
+
+    def _find_device(self, device_name: str, device_pool: List[SoPDevice]) -> SoPDevice:
+        for device in device_pool:
+            if device.name == device_name:
+                return device
+        raise ValueError(f'Cannot find device {device_name} in device pool')
+
+    def _check_device_pool(self, device_pool_path: str) -> None:
+        device_pool_path = self._config.device_pool_path.abs_path()
+        device_pool_dict = load_yaml(device_pool_path)
+        if not 'localhost' in device_pool_dict:
+            SOPTEST_LOG_DEBUG(f'Localhost device config is not exist in device pool...', SoPTestLogLevel.WARN)
+            device_pool_dict = self._add_localhost_info(device_pool_dict)
+            save_yaml(device_pool_path, device_pool_dict)
 
     def _load_device_pool(self, device_pool_path: str) -> List[SoPDevice]:
         device_list = load_yaml(device_pool_path)

@@ -41,19 +41,22 @@ class SoPSimulationFramework:
                 if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')) else []
         return config_list
 
-    def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[str], List[str], List[SoPService], List[SoPThing]]:
+    def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[str], List[str], List[str], List[SoPService], List[SoPThing]]:
         if not os.path.exists(service_thing_pool_path):
-            return [], [], [], []
+            return [], [], [], [], []
 
         service_thing_pool = load_json(service_thing_pool_path)
         tag_name_pool = service_thing_pool['tag_name_pool']
         service_name_pool = service_thing_pool['service_name_pool']
+        super_service_name_pool = service_thing_pool['super_service_name_pool']
         service_pool = [SoPService.load(service_info) for service_info in service_thing_pool['service_pool']]
         thing_pool = [SoPThing.load(thing_info) for thing_info in service_thing_pool['thing_pool']]
         for thing in thing_pool:
             for service in thing.service_list:
                 service.thing = thing
-        return tag_name_pool, service_name_pool, service_pool, thing_pool
+
+        SOPTEST_LOG_DEBUG(f'Load service_thing_pool from ./{os.path.relpath(service_thing_pool_path, get_project_root())}', SoPTestLogLevel.INFO)
+        return tag_name_pool, service_name_pool, super_service_name_pool, service_pool, thing_pool
 
     def load_simulation_data(self, simulation_data_path: str) -> Tuple[SoPSimulationConfig, List[SoPSimulationEnv]]:
         simulation_data_file = load_json(simulation_data_path)
@@ -121,92 +124,95 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
 
         return True
 
-    def calculate_num_thing_service_generate(self, config: SoPSimulationConfig, loaded_tag_name_num: int, loaded_service_name_num: int,
-                                             loaded_service_num: int, loaded_thing_num: int) -> Tuple[int, int, int, int]:
+    def calculate_num_service_thing_generate(self, config: SoPSimulationConfig) -> Tuple[int, int]:
         manual_middleware_tree = config.middleware_config.manual_middleware_tree
         random_middleware_config = config.middleware_config.random
 
         # Set service_num according to current config
-        tag_type_num = config.service_config.tag_type_num
-        service_name_num = 0
-        service_num = config.service_config.normal.service_type_num
-        thing_num = 0
+        num_service_generate = config.service_config.normal.service_type_num
+        num_thing_generate = 0
 
         # Calculate max_thing_num according to current config
         if manual_middleware_tree:
             middleware_config_list = [manual_middleware_tree] + list(manual_middleware_tree.descendants)
-            max_thing_num = sum([middleware_config.thing_num[1] for middleware_config in middleware_config_list])
-            max_super_thing_num = sum([middleware_config.super_thing_num[1] for middleware_config in middleware_config_list])
+            num_thing_generate = sum([middleware_config.thing_num[1] for middleware_config in middleware_config_list])
         elif random_middleware_config:
             max_middleware_num = calculate_tree_node_num(random_middleware_config.height[1], random_middleware_config.width[1])
-            max_thing_num = max_middleware_num * random_middleware_config.normal.thing_per_middleware[1]
-            max_super_thing_num = max_middleware_num * random_middleware_config.super.thing_per_middleware[1]
+            num_thing_generate = max_middleware_num * random_middleware_config.normal.thing_per_middleware[1]
         else:
             raise SimulationFailError('manual_middleware_tree and random_middleware_config are both None')
-
-        thing_num = max_thing_num
-        service_name_num = max_thing_num * config.thing_config.normal.service_per_thing[1] + max_super_thing_num * config.thing_config.super.service_per_thing[1]
 
         # If config.force_generate is True, generate service and thing pool according to current
         # Else, generate services and things as much as the difference between the number of
         # service thing pools to be created in the current setting and the number of service
         # thing pools already created.
-        if config.force_generate:
-            pass
-        else:
-            tag_type_num -= loaded_tag_name_num
-            service_name_num -= loaded_service_name_num
-            service_num -= loaded_service_num
-            thing_num -= loaded_thing_num
 
-            if tag_type_num <= 0:
-                tag_type_num = 0
-            if service_name_num <= 0:
-                service_name_num = 0
-            if service_num <= 0:
-                service_num = 0
-            if thing_num <= 0:
-                thing_num = 0
-
-        return tag_type_num, service_name_num, service_num, thing_num
+        return num_service_generate, num_thing_generate
 
     def generate_simulation_env(self, config_list: List[SoPSimulationConfig]) -> List[SoPSimulationEnv]:
         self.env_generator = SoPEnvGenerator(service_parallel=self._service_parallel)
 
         simulation_env_list: List[SoPSimulationEnv] = []
         for config in config_list:
-            loaded_tag_name_pool, loaded_service_name_pool, loaded_service_pool, loaded_thing_pool = [], [], [], []
+            loaded_tag_name_pool, loaded_service_name_pool, loaded_super_service_name_pool, loaded_service_pool, loaded_thing_pool = [], [], [], [], []
             simulation_env = SoPSimulationEnv(config=config)
             service_thing_pool_path = config.service_thing_pool_path.abs_path()
 
             self.env_generator.load(config=simulation_env.config)
 
             # If service_thing_pool path is given in config, load it
-            if not config.force_generate:
-                loaded_tag_name_pool, loaded_service_name_pool, loaded_service_pool, loaded_thing_pool = self.load_service_thing_pool(service_thing_pool_path=service_thing_pool_path)
+            num_tag_name_generate = config.service_config.tag_per_service[1]
+            num_service_name_generate = config.service_config.normal.service_type_num
+            num_super_service_name_generate = config.service_config.super.service_type_num
+            num_service_generate, num_thing_generate = self.calculate_num_service_thing_generate(config=config)
 
             # Calculate the number of services and things to be generated
-            num_tag_name_generate, num_service_name_generate, num_service_generate, num_thing_generate = \
-                self.calculate_num_thing_service_generate(config=config,
-                                                          loaded_tag_name_num=len(loaded_tag_name_pool), loaded_service_name_num=len(loaded_service_name_pool),
-                                                          loaded_service_num=len(loaded_service_pool), loaded_thing_num=len(loaded_thing_pool))
+            if not config.force_generate:
+                (loaded_tag_name_pool,
+                 loaded_service_name_pool,
+                 loaded_super_service_name_pool,
+                 loaded_service_pool,
+                 loaded_thing_pool) = self.load_service_thing_pool(service_thing_pool_path=service_thing_pool_path)
+
+                num_tag_name_generate -= len(loaded_tag_name_pool)
+                num_service_name_generate -= len(loaded_service_name_pool)
+                num_super_service_name_generate -= len(loaded_super_service_name_pool)
+                num_service_generate -= len(loaded_service_pool)
+                num_thing_generate -= len(loaded_thing_pool)
+
+                if num_tag_name_generate < 0:
+                    num_tag_name_generate = 0
+                if num_service_name_generate < 0:
+                    num_service_name_generate = 0
+                if num_super_service_name_generate < 0:
+                    num_super_service_name_generate = 0
+                if num_service_generate < 0:
+                    num_service_generate = 0
+                if num_thing_generate < 0:
+                    num_thing_generate = 0
 
             # Generate services and things
-            generated_tag_name_pool, generated_service_name_pool = self.env_generator.generate_name_pool(num_tag_name=num_tag_name_generate, num_service_name=num_service_name_generate)
+            generated_tag_name_pool, generated_service_name_pool, generated_super_service_name_pool = self.env_generator.generate_name_pool(
+                num_tag_name_generate=num_tag_name_generate,
+                num_service_name_generate=num_service_name_generate,
+                num_super_service_name_generate=num_super_service_name_generate
+            )
             tag_name_pool = loaded_tag_name_pool + generated_tag_name_pool
             service_name_pool = loaded_service_name_pool + generated_service_name_pool
-            raw_service_name_pool = copy.deepcopy(service_name_pool)
+            super_service_name_pool = loaded_super_service_name_pool + generated_super_service_name_pool
+
             generated_service_pool = self.env_generator.generate_service_pool(tag_name_pool=tag_name_pool, service_name_pool=service_name_pool, num_service_generate=num_service_generate)
             service_pool = loaded_service_pool + generated_service_pool
             generated_thing_pool = self.env_generator.generate_thing_pool(service_pool=service_pool, num_thing_generate=num_thing_generate)
             thing_pool = loaded_thing_pool + generated_thing_pool
 
             # Export service_thing_pool
-            self._export_service_thing_pool(tag_name_pool=tag_name_pool, service_name_pool=raw_service_name_pool,
-                                            service_thing_pool_path=service_thing_pool_path, service_pool=service_pool, thing_pool=thing_pool)
+            self._export_service_thing_pool(service_thing_pool_path=service_thing_pool_path,
+                                            tag_name_pool=tag_name_pool, service_name_pool=service_name_pool, super_service_name_pool=super_service_name_pool,
+                                            service_pool=service_pool, thing_pool=thing_pool)
 
             # Generate middleware tree
-            root_middleware = self.env_generator.generate_middleware_tree(thing_pool=thing_pool)
+            root_middleware = self.env_generator.generate_middleware_tree()
 
             # Map services and things to middleware
             self.env_generator.map_thing_to_middleware(root_middleware=root_middleware, thing_pool=thing_pool)
@@ -215,9 +221,9 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
             self.env_generator.generate_scenario(root_middleware=root_middleware)
 
             # Generate super service, super thing and super scenario
-            self.env_generator.generate_super(root_middleware=root_middleware, tag_name_pool=tag_name_pool, super_service_name_pool=service_name_pool)
+            self.env_generator.generate_super(root_middleware=root_middleware, tag_name_pool=tag_name_pool, super_service_name_pool=super_service_name_pool)
 
-            # TODO: Generate event timeline
+            # Generate event timeline
             static_event_timeline, dynamic_event_timeline = self.env_generator._generate_event_timeline(root_middleware=root_middleware)
 
             simulation_env.root_middleware = root_middleware
@@ -290,11 +296,12 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
     #  \__,_| \__||_||_||___/
     # =========================
 
-    def _export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], service_pool: List[SoPService], thing_pool: List[SoPThing]):
+    def _export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], super_service_name_pool: List[str], service_pool: List[SoPService], thing_pool: List[SoPThing]):
         service_pool_dict = [service.dict() for service in service_pool]
         thing_pool_dict = [thing.dict() for thing in thing_pool]
         service_thing_pool = {'tag_name_pool': tag_name_pool,
                               'service_name_pool': service_name_pool,
+                              'super_service_name_pool': super_service_name_pool,
                               'service_pool': service_pool_dict,
                               'thing_pool': thing_pool_dict}
         save_json(service_thing_pool_path, service_thing_pool)

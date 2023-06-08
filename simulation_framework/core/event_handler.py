@@ -736,7 +736,6 @@ class SoPEventHandler:
                     if scenario.name != scenario_info.name:
                         continue
                     if scenario.state in [SoPScenarioState.RUNNING, SoPScenarioState.EXECUTING]:
-                        scenario.schedule_success = True
                         break
                     else:
                         SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in RUN state...', SoPTestLogLevel.WARN)
@@ -778,6 +777,8 @@ class SoPEventHandler:
         target_topic = SoPProtocolType.WebClient.ME_RESULT_ADD_SCENARIO.value % mqtt_client.get_client_id()
 
         mqtt_client.subscribe(trigger_topic)
+        scenario.schedule_timeout = False
+        scenario.schedule_success = False
         _, payload, _ = self.publish_and_expect(
             scenario,
             trigger_message,
@@ -792,7 +793,6 @@ class SoPEventHandler:
             SOPTEST_LOG_DEBUG(f'==== Fault Scenario ====', SoPTestLogLevel.FAIL)
             SOPTEST_LOG_DEBUG(f'name: {scenario.name}', SoPTestLogLevel.FAIL)
             SOPTEST_LOG_DEBUG(f'code: \n{scenario.scenario_code()}', SoPTestLogLevel.FAIL)
-            scenario.schedule_success = False
             scenario.schedule_timeout = True
             return False
         elif check_result == False:
@@ -800,7 +800,6 @@ class SoPEventHandler:
             SOPTEST_LOG_DEBUG(f'==== Fault Scenario ====', SoPTestLogLevel.FAIL)
             SOPTEST_LOG_DEBUG(f'name: {scenario.name}', SoPTestLogLevel.FAIL)
             SOPTEST_LOG_DEBUG(f'code: \n{scenario.scenario_code()}', SoPTestLogLevel.FAIL)
-            scenario.schedule_success = False
             return False
 
         SOPTEST_LOG_DEBUG(f'middleware: {middleware.name} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_ADD.value} success...', SoPTestLogLevel.WARN)
@@ -1318,8 +1317,8 @@ class SoPEventHandler:
             scenario = self.find_scenario(scenario_name)
             middleware = self.find_component_parent_middleware(scenario)
 
-            if not scenario.is_super() and error_type == SoPErrorType.NO_ERROR:
-                scenario.schedule_success = True
+            # if not scenario.is_super() and error_type == SoPErrorType.NO_ERROR:
+            #     scenario.schedule_success = True
 
             scenario.schedule_timeout = False
             scenario.recv_queue.put(msg)
@@ -1459,8 +1458,8 @@ class SoPEventHandler:
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(super_function_name)
 
-            if scenario.is_super() and error_type == SoPErrorType.NO_ERROR:
-                scenario.schedule_success = True
+            # if scenario.is_super() and error_type == SoPErrorType.NO_ERROR:
+            #     scenario.schedule_success = True
 
             for event in list(reversed(self.event_log)):
                 if event.middleware_component == middleware and event.thing_component == super_thing and event.service_component == super_service \

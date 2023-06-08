@@ -863,7 +863,8 @@ class SoPScenario(SoPComponent):
         self.scenario_file_path = scenario_file_path
         self.middleware = middleware
 
-        self.state: SoPScenarioState = None
+        self.state: SoPScenarioState = SoPScenarioState.UNDEFINED
+        self.add_result_arrived = False
         self.schedule_success = False
         self.schedule_timeout = False
 

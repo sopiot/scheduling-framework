@@ -17,8 +17,6 @@ middleware:
       thing_per_middleware: [1, 1]
       application_per_middleware: [2, 2]
 
-  device: [localhost]
-
 service:
   normal:
     service_type_num: 20
@@ -40,8 +38,6 @@ thing:
     fail_error_rate: 0
     broken_rate: 0
     unregister_rate: 0
-
-  device: [localhost]
 
 application:
   normal:

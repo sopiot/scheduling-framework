@@ -256,7 +256,7 @@ def load_yaml(path: str) -> dict:
     if not config == None:
         return config
     else:
-        return None
+        return {}
 
 
 def save_yaml(path: str, data: dict):

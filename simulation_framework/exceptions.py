@@ -59,6 +59,17 @@ class ConfigPathError(ConfigError):
         return f'config_path is not valid. config_path: {self._path}' + '\n' + self._reason
 
 
+class MiddlewareTreePathError(ConfigError):
+    """Middleware tree path error"""
+
+    def __init__(self, path: str, reason: str = '') -> None:
+        super().__init__(reason)
+        self._path = path
+
+    def __str__(self) -> str:
+        return f'middleware_tree_path is not valid. middleware_tree_path: {self._path}' + '\n' + self._reason
+
+
 class ConfigMissingError(ConfigError):
     """Config missing error"""
 

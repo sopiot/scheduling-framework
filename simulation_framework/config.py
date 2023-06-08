@@ -135,6 +135,8 @@ class SoPMiddlewareConfig:
         if self.manual.abs_path():
             importer = DictImporter()
             manual_middleware_tree_dict = load_yaml(self.manual.abs_path())
+            if not manual_middleware_tree_dict:
+                raise MiddlewareTreePathError(path=self.manual.abs_path())
             self.manual_middleware_tree = importer.import_(manual_middleware_tree_dict)
         self.random = SoPMiddlewareConfig.RandomConfig(data['random']) if 'random' in data else None
         if not 'manual' in data and not 'random' in data:
