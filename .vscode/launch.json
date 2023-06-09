@@ -255,6 +255,22 @@
       ]
     },
     {
+      "name": "run sample simulation(simple_campus_remote_random)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-c",
+        "./sim_env_samples/simple_campus_remote_random",
+        "-po",
+        "./scheduling_algorithm/samples",
+        "-sp",
+      ]
+    },
+    {
       "name": "run profile",
       "type": "python",
       "request": "launch",

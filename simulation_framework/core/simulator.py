@@ -99,19 +99,15 @@ class SoPSimulator:
     def _update_middleware_thing(self):
 
         def get_remote_device_OS(ssh_client: SoPSSHClient) -> str:
-            lsb_release_install_check = ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True)
-            if not lsb_release_install_check:
+            if not ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True):
                 command = 'sudo apt install lsb-release -y;'
-                install_result = ssh_client.send_command_with_check_success(command, get_pty=True)
-                if not install_result:
+                if not ssh_client.send_command_with_check_success(command, get_pty=True):
                     raise SSHCommandFailError(command=command, reason=f'Install lsb-release failed to {ssh_client.device.name}')
 
             remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
             return remote_device_os
 
         def install_remote_middleware(ssh_client: SoPSSHClient, user: str):
-            # result = ssh_client.send_command(
-            #     f'rm -rf {home_dir_append(middleware_path, user)}')
             remote_device_os = get_remote_device_OS(ssh_client)
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
             remote_middleware_path = self.simulation_env.config.middleware_config.remote_middleware_path
@@ -126,42 +122,38 @@ class SoPSimulator:
                 ssh_client.send_file(f'{get_project_root()}/bin/sopiot_middleware_pi_x86',
                                      f'{home_dir_append(remote_middleware_path, user)}/sopiot_middleware')
             ssh_client.send_file(self.policy_path, f'{home_dir_append(remote_middleware_path, user)}/{PREDEFINED_POLICY_FILE_NAME}')
-            command = (f'cd {home_dir_append(remote_middleware_path, user)};'
-                       'chmod +x sopiot_middleware;'
-                       'cmake .;'
-                       'make -j')
-            middleware_update_result = ssh_client.send_command_with_check_success(command)
-            if not middleware_update_result:
-                raise SSHCommandFailError(command=command, reason=f'Install middleware to {ssh_client.device.name} failed')
+            middleware_update_command = (f'cd {home_dir_append(remote_middleware_path, user)};'
+                                         'chmod +x sopiot_middleware;'
+                                         'cmake .;'
+                                         'make -j')
+            if not ssh_client.send_command_with_check_success(middleware_update_command):
+                raise SSHCommandFailError(command=middleware_update_command, reason=f'Install middleware to {ssh_client.device.name} failed')
 
             SOPTEST_LOG_DEBUG(f'Install middleware to {ssh_client.device.name} success', SoPTestLogLevel.INFO)
             return True
 
         def install_remote_thing(ssh_client: SoPSSHClient, force_install: bool = True):
-            # if not any([thing.is_super for thing in middleware.thing_list]):
-            #     SOPTEST_LOG_DEBUG(f'device {middleware.device.name} middleware {middleware.name} is not have Super Thing', SoPTestLogLevel.INFO)
-            #     return True
-            # FIXME: remove --no-deps option. it has issue when install big-thing-py first at remote device
-            thing_install_command = f'pip install big-thing-py {"--force-reinstall --no-deps" if force_install else ""}'
-            SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} start', SoPTestLogLevel.INFO)
-            pip_install_result = ssh_client.send_command_with_check_success(thing_install_command)
-            if not pip_install_result:
-                raise SSHCommandFailError(command=thing_install_command, reason=f'Install big-thing-py failed to {ssh_client.device.name}')
+            if not ssh_client.send_command_with_check_success('pip list | grep big-thing-py'):
+                thing_install_command = f'pip install big-thing-py'
+                if force_install:
+                    thing_install_command += '--force-reinstall'
+                SOPTEST_LOG_DEBUG(f'{"[FORCE]" if force_install else ""} big-thing-py install to {ssh_client.device.name} start', SoPTestLogLevel.INFO)
+                if not ssh_client.send_command_with_check_success(thing_install_command):
+                    raise SSHCommandFailError(command=thing_install_command, reason=f'Install big-thing-py failed to {ssh_client.device.name}')
+                SOPTEST_LOG_DEBUG(f'{"[FORCE]" if force_install else ""} big-thing-py install to {ssh_client.device.name} end', SoPTestLogLevel.INFO)
+            else:
+                SOPTEST_LOG_DEBUG(f'big-thing-py already installed to {ssh_client.device.name}', SoPTestLogLevel.INFO)
 
-            SOPTEST_LOG_DEBUG(f'{"[FORCE] " if force_install else ""}big-thing-py install to {ssh_client.device.name} end', SoPTestLogLevel.INFO)
             return True
 
         def init_ramdisk(ssh_client: SoPSSHClient) -> None:
-            ramdisk_check_command = 'ls /mnt/ramdisk'
             ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
                                              f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
                                              f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
                                              f'sudo chmod 777 /mnt/ramdisk']
-            ramdisk_check_result = ssh_client.send_command_with_check_success(ramdisk_check_command)
-            if not ramdisk_check_result:
+            if not ssh_client.send_command_with_check_success('ls /mnt/ramdisk'):
                 for ramdisk_generate_command in ramdisk_generate_command_list:
-                    result = ssh_client.send_command_with_check_success(ramdisk_generate_command)
-                    if not result:
+                    if not ssh_client.send_command_with_check_success(ramdisk_generate_command):
                         raise SSHCommandFailError(command=ramdisk_generate_command, reason=f'Generate ramdisk failed to {ssh_client.device.name}')
 
             return True
@@ -188,8 +180,7 @@ function set_cpu_clock() {
 check_cpu_clock_setting
 set_cpu_clock
 check_cpu_clock_setting'''
-            result = ssh_client.send_command_with_check_success(set_clock_command)
-            if not result:
+            if not ssh_client.send_command_with_check_success(set_clock_command):
                 SOPTEST_LOG_DEBUG(f'Set cpu clock {ssh_client.device.name} failed!', SoPTestLogLevel.FAIL)
 
         def send_task(ssh_client: SoPSSHClient):
@@ -217,34 +208,6 @@ check_cpu_clock_setting'''
     def _trigger_static_events(self) -> None:
         for event in self.static_event_timeline:
             self.event_handler.event_trigger(event)
-
-        # self.trigger_scenario_addition_events()
-
-    # def trigger_scenario_addition_events(self) -> None:
-
-    #     def task(middleware_scenario_add_timeline: List[SoPEvent]):
-    #         for event in middleware_scenario_add_timeline:
-    #             self.event_handler.event_trigger(event)
-
-    #     whole_scenario_add_timeline = [
-    #         event for event in self.simulation_event_timeline if event.event_type in [SoPEventType.SCENARIO_ADD, SoPEventType.SCENARIO_ADD_CHECK, SoPEventType.REFRESH, SoPEventType.DELAY]][1:]
-    #     middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env)
-
-    #     middleware_scenario_add_timeline_list = []
-    #     for middleware in middleware_list:
-    #         scenario_add_timeline = [
-    #             event for event in [event for event in whole_scenario_add_timeline if event.event_type == SoPEventType.SCENARIO_ADD] if find_component(self.simulation_env, event.component)[1].name == middleware.name]
-    #         middleware_scenario_add_timeline_list.append(scenario_add_timeline)
-
-    #     scenario_check_timeline_list = [event for event in whole_scenario_add_timeline if event.event_type in [
-    #         SoPEventType.SCENARIO_ADD_CHECK, SoPEventType.REFRESH, SoPEventType.DELAY]]
-
-    #     pool_map(task, middleware_scenario_add_timeline_list)
-
-    #     for event in scenario_check_timeline_list:
-    #         self.event_handler.event_trigger(event)
-
-    #     return True
 
     def _trigger_dynamic_events(self) -> None:
         for event in self.dynamic_event_timeline:

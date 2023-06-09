@@ -241,6 +241,22 @@ class SoPComponent(metaclass=ABCMeta):
         self.level = level
         self.component_type = component_type
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        state['name'] = self.name
+        state['level'] = self.level
+        state['component_type'] = self.component_type
+
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+        self.name = state['name']
+        self.level = state['level']
+        self.component_type = state['component_type']
+
     @classmethod
     def load(cls, data: dict) -> 'SoPComponent':
         component = cls()
@@ -774,6 +790,44 @@ if __name__ == '__main__':
 
         self.recv_queue: Queue = Queue()
 
+    def __getstate__(self):
+        state = super().__getstate__()
+
+        state['service_list'] = self.service_list
+        state['is_super'] = self.is_super
+        state['is_parallel'] = self.is_parallel
+        state['alive_cycle'] = self.alive_cycle
+        state['device'] = self.device
+        state['thing_file_path'] = self.thing_file_path
+        state['remote_thing_file_path'] = self.remote_thing_file_path
+        state['fail_rate'] = self.fail_rate
+        state['middleware_client_name'] = self.middleware_client_name
+        state['registered'] = self.registered
+        state['pid'] = self.pid
+
+        del state['recv_queue']
+        del state['middleware']
+
+        return state
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+
+        self.service_list = state['service_list']
+        self.is_super = state['is_super']
+        self.is_parallel = state['is_parallel']
+        self.alive_cycle = state['alive_cycle']
+        self.device = state['device']
+        self.thing_file_path = state['thing_file_path']
+        self.remote_thing_file_path = state['remote_thing_file_path']
+        self.fail_rate = state['fail_rate']
+        self.middleware_client_name = state['middleware_client_name']
+        self.registered = state['registered']
+        self.pid = state['pid']
+
+        self.middleware = None
+        self.recv_queue: Queue = Queue()
+
     @classmethod
     def load(cls, data: dict):
         thing: SoPThing = super().load(data=data)
@@ -872,6 +926,38 @@ class SoPScenario(SoPComponent):
 
         # FIXME: 제대로 구현하기
         self.cycle_count = 0
+
+    def __getstate__(self):
+        state = super().__getstate__()
+
+        state['service_list'] = self.service_list
+        state['period'] = self.period
+        state['priority'] = self.priority
+        state['scenario_file_path'] = self.scenario_file_path
+        state['state'] = self.state
+        state['add_result_arrived'] = self.add_result_arrived
+        state['schedule_success'] = self.schedule_success
+        state['schedule_timeout'] = self.schedule_timeout
+
+        del state['recv_queue']
+        del state['middleware']
+
+        return state
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+
+        self.service_list = state['service_list']
+        self.period = state['period']
+        self.priority = state['priority']
+        self.scenario_file_path = state['scenario_file_path']
+        self.state = state['state']
+        self.add_result_arrived = state['add_result_arrived']
+        self.schedule_success = state['schedule_success']
+        self.schedule_timeout = state['schedule_timeout']
+
+        self.middleware = None
+        self.recv_queue: Queue = Queue()
 
     @classmethod
     def load(cls, data: dict) -> None:

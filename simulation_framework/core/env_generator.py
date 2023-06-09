@@ -327,15 +327,17 @@ class SoPEnvGenerator:
                 thing_per_middleware_range = middleware_config.thing_num
                 thing_per_middleware = random.randint(*thing_per_middleware_range)
                 selected_thing_list = random.sample(thing_pool, thing_per_middleware)
-                middleware.thing_list = selected_thing_list
 
-                for index, thing in enumerate(middleware.thing_list):
-                    middleware.thing_list[index].middleware = middleware
-                    middleware.thing_list[index].level = middleware.level + 1
-                    middleware.thing_list[index].name = f'normal_thing_{index}__{middleware.name}'
-                    middleware.thing_list[index].remote_thing_file_path = f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{middleware.thing_list[index].name}.py'
-                    middleware.thing_list[index].thing_file_path = f'{self._simulation_folder_path}/thing/base_thing/{middleware.thing_list[index].name}.py'
+                for index, thing in enumerate(selected_thing_list):
+                    thing.middleware = middleware
+                    thing.level = middleware.level + 1
+                    thing.name = f'normal_thing_{index}__{middleware.name}'
+                    thing.remote_thing_file_path = f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing.name}.py'
+                    thing.thing_file_path = f'{self._simulation_folder_path}/thing/base_thing/{thing.name}.py'
 
+                middleware.thing_list = copy.deepcopy(selected_thing_list)
+                for thing in middleware.thing_list:
+                    thing.middleware = middleware
                 if not middleware.children:
                     return
                 for child_middleware, child_middleware_config in zip(middleware.children, middleware_config.children):
@@ -348,15 +350,17 @@ class SoPEnvGenerator:
             def map_thing_to_middleware_random(middleware: SoPMiddleware) -> None:
                 thing_per_middleware = random.randint(*thing_per_middleware_range)
                 selected_thing_list = random.sample(thing_pool, thing_per_middleware)
-                middleware.thing_list = selected_thing_list
 
-                for index, thing in enumerate(middleware.thing_list):
-                    middleware.thing_list[index].middleware = middleware
-                    middleware.thing_list[index].level = middleware.level + 1
-                    middleware.thing_list[index].name = f'normal_thing_{index}__{middleware.name}'
-                    middleware.thing_list[index].remote_thing_file_path = f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{middleware.thing_list[index].name}.py'
-                    middleware.thing_list[index].thing_file_path = f'{self._simulation_folder_path}/thing/base_thing/{middleware.thing_list[index].name}.py'
+                for index, thing in enumerate(selected_thing_list):
+                    thing.middleware = middleware
+                    thing.level = middleware.level + 1
+                    thing.name = f'normal_thing_{index}__{middleware.name}'
+                    thing.remote_thing_file_path = f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing.name}.py'
+                    thing.thing_file_path = f'{self._simulation_folder_path}/thing/base_thing/{thing.name}.py'
 
+                middleware.thing_list = copy.deepcopy(selected_thing_list)
+                for thing in middleware.thing_list:
+                    thing.middleware = middleware
                 if not middleware.children:
                     return
                 for child_middleware in middleware.children:
@@ -648,15 +652,17 @@ class SoPEnvGenerator:
         thing_list = get_whole_thing_list(root_middleware)
         scenario_list = get_whole_scenario_list(root_middleware)
 
-        normal_thing_list = [thing for thing in thing_list if thing.is_super == False]
-        super_thing_list = [thing for thing in thing_list if thing.is_super == True]
+        normal_thing_list = sorted([thing for thing in thing_list if thing.is_super == False], key=lambda x: x.middleware.name)
+        super_thing_list = sorted([thing for thing in thing_list if thing.is_super == True], key=lambda x: x.middleware.name)
 
         # Build IoT system
         build_simulation_env_timeline = []
         build_simulation_env_timeline.extend([self._generate_event(component=middleware, event_type=SoPEventType.MIDDLEWARE_RUN)
-                                              for middleware in middleware_list])
+                                              for middleware in sorted(middleware_list, key=lambda x: x.level, reverse=True)])
         build_simulation_env_timeline.extend([self._generate_event(component=thing, event_type=SoPEventType.THING_RUN)
-                                              for thing in sorted(thing_list, key=lambda x: x.is_super, reverse=False)])
+                                              for thing in sorted(normal_thing_list, key=lambda x: x.middleware.name, reverse=False)])
+        build_simulation_env_timeline.extend([self._generate_event(component=thing, event_type=SoPEventType.THING_RUN)
+                                              for thing in sorted(super_thing_list, key=lambda x: x.middleware.name, reverse=False)])
         static_event_timeline.extend(build_simulation_env_timeline)
 
         # Wait until all thing register
@@ -831,34 +837,38 @@ class SoPEnvGenerator:
         event_kwargs = dict(component=component, event_type=event_type, timestamp=timestamp)
         event_kwargs.update(kwargs)
         event = SoPEvent(**event_kwargs)
+        if isinstance(component, (SoPThing, SoPScenario)):
+            event.middleware_component = component.middleware
+        elif isinstance(component, SoPService):
+            event.thing_component = component.thing
         return event
 
-    def generate_data(self, simulation_env: SoPMiddleware):
-        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(simulation_env)
-        thing_list: List[SoPThing] = get_whole_thing_list(simulation_env)
-        scenario_list: List[SoPScenario] = get_whole_scenario_list(simulation_env)
+    # def generate_data(self, simulation_env: SoPMiddleware):
+    #     middleware_list: List[SoPMiddleware] = get_whole_middleware_list(simulation_env)
+    #     thing_list: List[SoPThing] = get_whole_thing_list(simulation_env)
+    #     scenario_list: List[SoPScenario] = get_whole_scenario_list(simulation_env)
 
-        longest_scenario = max(scenario_list, key=lambda x: x.period)
-        if longest_scenario.period * 1.2 > self._config.running_time:
-            running_time = longest_scenario.period * 1.2
-            SOPTEST_LOG_DEBUG(
-                f'Longest scenario period is {longest_scenario.period} but simulation time is {self._config.running_time}. Set simulation time to {running_time}', SoPTestLogLevel.WARN)
-        else:
-            running_time = self._config.running_time
+    #     longest_scenario = max(scenario_list, key=lambda x: x.period)
+    #     if longest_scenario.period * 1.2 > self._config.running_time:
+    #         running_time = longest_scenario.period * 1.2
+    #         SOPTEST_LOG_DEBUG(
+    #             f'Longest scenario period is {longest_scenario.period} but simulation time is {self._config.running_time}. Set simulation time to {running_time}', SoPTestLogLevel.WARN)
+    #     else:
+    #         running_time = self._config.running_time
 
-        config = dict(name=self._config.name,
-                      running_time=running_time,
-                      event_timeout=self._config.event_timeout)
-        component = simulation_env.dict()
-        event_timeline = self._generate_event_timeline(middleware_list=middleware_list,
-                                                       thing_list=thing_list,
-                                                       scenario_list=scenario_list,
-                                                       running_time=running_time,
-                                                       event_timeout=self._config.event_timeout)
-        simulation_dump = dict(config=config,
-                               component=component,
-                               event_timeline=event_timeline)
-        return simulation_dump
+    #     config = dict(name=self._config.name,
+    #                   running_time=running_time,
+    #                   event_timeout=self._config.event_timeout)
+    #     component = simulation_env.dict()
+    #     event_timeline = self._generate_event_timeline(middleware_list=middleware_list,
+    #                                                    thing_list=thing_list,
+    #                                                    scenario_list=scenario_list,
+    #                                                    running_time=running_time,
+    #                                                    event_timeout=self._config.event_timeout)
+    #     simulation_dump = dict(config=config,
+    #                            component=component,
+    #                            event_timeline=event_timeline)
+    #     return simulation_dump
 
     def _export_simulation_data_file(self, simulation_env_list: List[SoPSimulationEnv], simulation_data_file_path: str) -> None:
         os.makedirs(os.path.dirname(simulation_data_file_path), exist_ok=True)

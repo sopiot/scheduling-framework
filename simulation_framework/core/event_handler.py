@@ -387,20 +387,11 @@ class SoPEventHandler:
             self.simulation_duration = get_current_time() - self.simulation_start_time
             SOPTEST_LOG_DEBUG(f'Simulation End. duration: {self.simulation_duration:8.3f} sec', SoPTestLogLevel.PASS, 'yellow')
 
-            # NOTE: 시뮬레이션이 끝날 때 시나리오를 stop하면 안된다. 끝나는 시점에서 그대로의 시나리오 state를 알아야 한다.
-            # for middleware in self.middleware_list:
-            #     for scenario in middleware.scenario_list:
-            #         SoPThread(name=f'{event.event_type.value}_end',
-            #                   target=self.stop_scenario, args=(scenario, self.timeout, )).start()
-
+            # for check scenario state
             self.refresh(timeout=self.timeout, scenario_check=True)
-
             self._stop_event_listener()
             self._kill_every_process()
-            # if self.download_logs:
-            #     self.download_log_file(
-            #         self.middleware_commit_id, self.mosquitto_conf_trim)
-            # self.wrapup()
+
             return True
         else:
             target_component = event.component
@@ -445,8 +436,7 @@ class SoPEventHandler:
                 SoPThread(name=f'{event.event_type.value}_{event.component.name}',
                           target=self.delete_scenario, args=(target_component, self.timeout, )).start()
             elif event.event_type == SoPEventType.REFRESH:
-                # self.refresh(timeout=self.timeout, scenario_check=True)
-                self.refresh(timeout=self.timeout, scenario_check=True)
+                self.refresh(timeout=self.timeout, scenario_check=True, service_check=True)
             elif event.event_type == SoPEventType.THING_REGISTER_WAIT:
                 self.thing_register_wait()
             elif event.event_type == SoPEventType.SCENARIO_ADD_CHECK:
@@ -455,13 +445,6 @@ class SoPEventHandler:
                 self.scenario_run_check(timeout=self.timeout)
             else:
                 raise SOPTEST_LOG_DEBUG(f'Event type is {event.event_type}, but not implemented yet', SoPTestLogLevel.FAIL)
-
-            # if event.event_type in [SoPEventType.MIDDLEWARE_RUN,
-            #                         SoPEventType.MIDDLEWARE_KILL,
-            #                         SoPEventType.THING_RUN,
-            #                         SoPEventType.THING_KILL,
-            #                         SoPEventType.THING_UNREGISTER]:
-            #     time.sleep(0.1)
 
     def event_listener(self, stop_event: Event):
         recv_msg = None
@@ -582,34 +565,6 @@ class SoPEventHandler:
     ####  thing   #############################################################################################################
 
     def check_thing_register(self, thing: SoPThing, timeout: float = 5):
-        # _, payload, _ = self.expect(
-        #     thing,
-        #     target_topic=SoPProtocolType.Base.TM_REGISTER.value % thing.name,
-        #     auto_subscribe=True,
-        #     auto_unsubscribe=False,
-        #     timeout=timeout)
-        # if payload is None:
-        #     SOPTEST_LOG_DEBUG(f'TM_REGISTER of thing: {thing.name}, device: {thing.device.name} is not detected (timeout)...', SoPTestLogLevel.FAIL)
-        #     return False
-
-        # _, payload, _ = self.expect(
-        #     thing,
-        #     target_topic=SoPProtocolType.Base.MT_RESULT_REGISTER.value % thing.name,
-        #     auto_subscribe=True,
-        #     auto_unsubscribe=False,
-        #     timeout=timeout)
-        # if payload is None:
-        #     SOPTEST_LOG_DEBUG(f'MT_RESULT_REGISTER of thing: {thing.name}, device: {thing.device.name} is not detected (timeout)...', SoPTestLogLevel.FAIL)
-        #     return False
-
-        # error = int(payload['error'])
-        # if error in [0, -4]:
-        #     thing.middleware_client_name = payload['middleware_name']
-        #     return True
-        # elif error == -1:
-        #     SOPTEST_LOG_DEBUG(f'Register fail of thing: {thing.name}, device: {thing.device.name} with register packet error... error code: {payload["error"]}', SoPTestLogLevel.FAIL)
-        #     return False
-
         cur_time = get_current_time()
         while get_current_time() - cur_time < timeout:
             if thing.registered:
@@ -678,20 +633,17 @@ class SoPEventHandler:
 
     ####  scenario   #############################################################################################################
 
-    def refresh(self, timeout: float, scenario_check: bool = False):
+    def refresh(self, timeout: float, scenario_check: bool = True, service_check: bool = False):
 
-        def task(middleware: SoPMiddleware):
-            SOPTEST_LOG_DEBUG(f'Refresh Start... middleware: {middleware.name}, device: {middleware.device.name}', SoPTestLogLevel.INFO)
+        def get_invalid_scenario(middleware: SoPMiddleware, scenario_info_list: List[SoPScenarioInfo]) -> List[SoPScenario]:
+            invalid_scenario_list = []
 
-            if scenario_check:
-                whole_scenario_info_list: List[SoPScenarioInfo] = self.get_whole_scenario_info(middleware, timeout=timeout)
-                if whole_scenario_info_list is False:
-                    return False
+            if not scenario_info_list:
+                return []
 
-            # scenario add check
+            # scenario init check
             for scenario in middleware.scenario_list:
-                for scenario_info in whole_scenario_info_list:
-                    scenario_info: SoPScenarioInfo
+                for scenario_info in scenario_info_list:
                     scenario.state = scenario_info.state
                     if scenario.name != scenario_info.name:
                         continue
@@ -699,8 +651,42 @@ class SoPEventHandler:
                         scenario.schedule_success = True
                         scenario.schedule_timeout = False
                         break
+                    else:
+                        SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is in {scenario.state.value} state...', SoPTestLogLevel.WARN)
+                        invalid_scenario_list.append(scenario)
                 else:
                     SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in scenario list of {middleware.name}...', SoPTestLogLevel.WARN)
+                    invalid_scenario_list.append(scenario)
+
+            return invalid_scenario_list
+
+        def check_service_list_valid(scenario: SoPScenario, service_info_list: List[SoPService]) -> bool:
+            if not service_info_list:
+                return False
+
+            # service check
+            # middleware_service_list = flatten_list([thing.service_list for thing in middleware.thing_list])
+            for service in scenario.service_list:
+                if not service.name in [service_info.name for service_info in service_info_list]:
+                    SOPTEST_LOG_DEBUG(f'service {service.name} is not in Scenario {scenario.name}', SoPTestLogLevel.WARN)
+                    return False
+            else:
+                return True
+
+        def task(middleware: SoPMiddleware):
+            SOPTEST_LOG_DEBUG(f'Refresh Start... middleware: {middleware.name}, device: {middleware.device.name}', SoPTestLogLevel.INFO)
+            whole_service_info_list: List[SoPService] = []
+            whole_scenario_info_list: List[SoPScenarioInfo] = []
+
+            if scenario_check:
+                whole_scenario_info_list = self.get_whole_scenario_info(middleware, timeout=timeout)
+                invalid_scenario_list = get_invalid_scenario(middleware, whole_scenario_info_list)
+                if len(invalid_scenario_list) > 0 and service_check:
+                    whole_service_info_list = self.get_whole_service_list_info(middleware, timeout=timeout)
+                    for scenario in invalid_scenario_list:
+                        if not check_service_list_valid(scenario=scenario, service_info_list=whole_service_info_list):
+                            SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} in {middleware.name} service check failed...', SoPTestLogLevel.WARN)
+                            raise SimulationFrameworkError(f'Scenario {scenario.name} in {middleware.name} service check failed...')
 
             SOPTEST_LOG_DEBUG(f'Refresh Success! middleware: {middleware.name}', SoPTestLogLevel.INFO)
 
@@ -716,7 +702,7 @@ class SoPEventHandler:
         return True
 
     def scenario_add_check(self, timeout: float):
-        while not all([scenario.schedule_success for scenario in self.scenario_list]):
+        while not all([scenario.add_result_arrived for scenario in self.scenario_list]):
             time.sleep(BUSY_WAIT_TIMEOUT)
         SOPTEST_LOG_DEBUG(f'All scenario Add is complete!...', SoPTestLogLevel.INFO)
 
@@ -807,9 +793,8 @@ class SoPEventHandler:
     def run_scenario(self, scenario: SoPScenario, timeout: float = 5):
         # NOTE: 이미 add_scenario를 통해 시나리오가 정상적으로 init되어있는 것이 확인되어있는 상태이므로 다시 시나리오상태를 확인할 필요는 없다.
 
-        if not scenario.state:
-            SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} state is None... Check it to TIMEOUT. Skip scenario run...', SoPTestLogLevel.WARN)
-            scenario.schedule_timeout = True
+        if scenario.schedule_timeout:
+            SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is timeout. Skip scenario run...', SoPTestLogLevel.WARN)
             return False
         if not scenario.schedule_success:
             SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is not initialized. Skip scenario run...', SoPTestLogLevel.WARN)
@@ -919,7 +904,7 @@ class SoPEventHandler:
             SOPTEST_LOG_DEBUG(f'{SoPComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_DELETE.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def get_whole_scenario_info(self, middleware: SoPMiddleware, timeout: float) -> Union[List[SoPScenarioInfo], bool]:
+    def get_whole_scenario_info(self, middleware: SoPMiddleware, timeout: float) -> List[SoPScenarioInfo]:
         mqtt_client = self.find_mqtt_client(middleware)
 
         _, payload, _ = self.publish_and_expect(
@@ -938,9 +923,9 @@ class SoPEventHandler:
                                     schedule_info=scenario_info['scheduleInfo']) for scenario_info in payload['scenarios']]
         else:
             SOPTEST_LOG_DEBUG(f'Get whole scenario info of {middleware.name} failed -> MQTT timeout...', SoPTestLogLevel.FAIL)
-            return False
+            return []
 
-    def get_whole_service_list_info(self, middleware: SoPMiddleware, timeout: float) -> List[dict]:
+    def get_whole_service_list_info(self, middleware: SoPMiddleware, timeout: float) -> List[SoPService]:
         mqtt_client = self.find_mqtt_client(middleware)
 
         _, payload, _ = self.publish_and_expect(
@@ -952,16 +937,19 @@ class SoPEventHandler:
             timeout=timeout)
 
         if payload is not None:
-            whole_service_info = []
+            whole_service_info: List[SoPService] = []
             for service in payload['services']:
                 if service['hierarchy'] == 'local' or service['hierarchy'] == 'parent':
                     for thing in service['things']:
                         for service in thing['functions']:
+                            service = SoPService(name=service['name'],
+                                                 is_super=thing['is_super'],
+                                                 tag_list=[tag['name'] for tag in service['tags']])
                             whole_service_info.append(service)
             return whole_service_info
         else:
             SOPTEST_LOG_DEBUG(f'Get whole service list info of {middleware.name} failed -> MQTT timeout...', SoPTestLogLevel.FAIL)
-            return False
+            return []
 
     #### kill ##########################################################################################################################
 
@@ -1317,17 +1305,16 @@ class SoPEventHandler:
             scenario = self.find_scenario(scenario_name)
             middleware = self.find_component_parent_middleware(scenario)
 
-            # if not scenario.is_super() and error_type == SoPErrorType.NO_ERROR:
-            #     scenario.schedule_success = True
-
+            scenario.add_result_arrived = True
             scenario.schedule_timeout = False
+
             scenario.recv_queue.put(msg)
             for event in list(reversed(self.event_log)):
                 if event.middleware_component == middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_ADD:
                     event.duration = timestamp - event.timestamp
                     event.error = error_type
 
-                    progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+                    progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
                     color = 'red' if event.error == SoPErrorType.FAIL else 'green'
                     SOPTEST_LOG_DEBUG(f'[SCENE_ADD] scenario: {scenario_name} duration: {event.duration:0.4f}', SoPTestLogLevel.INFO, progress=progress, color=color)
                     break
@@ -1425,7 +1412,7 @@ class SoPEventHandler:
 
             scenario = self.find_scenario(scenario_name)
 
-            progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
             color = 'light_magenta'
             SOPTEST_LOG_DEBUG(f'[SUB_SCHEDULE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
                               f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
@@ -1442,7 +1429,7 @@ class SoPEventHandler:
 
             scenario = self.find_scenario(scenario_name)
 
-            progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
             color = 'light_magenta'
             SOPTEST_LOG_DEBUG(f'[SUB_SCHEDULE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
                               f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
@@ -1458,9 +1445,6 @@ class SoPEventHandler:
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(super_function_name)
 
-            # if scenario.is_super() and error_type == SoPErrorType.NO_ERROR:
-            #     scenario.schedule_success = True
-
             for event in list(reversed(self.event_log)):
                 if event.middleware_component == middleware and event.thing_component == super_thing and event.service_component == super_service \
                         and event.scenario_component == scenario and event.event_type == SoPEventType.SUPER_SCHEDULE:
@@ -1469,7 +1453,7 @@ class SoPEventHandler:
                     event.return_type = return_type
                     event.return_value = return_value
 
-                    progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+                    progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
 
                     SOPTEST_LOG_DEBUG(f'[SUPER_SCHEDULE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
                                       f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
