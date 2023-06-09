@@ -297,20 +297,18 @@ class SoPEvaluator:
         middleware_list = get_whole_middleware_list(self.simulation_env.root_middleware)
         thing_list = get_whole_thing_list(self.simulation_env.root_middleware)
         scenario_list = get_whole_scenario_list(self.simulation_env.root_middleware)
-        for i, _ in enumerate(zip(middleware_list, thing_list, scenario_list)):
-            middleware_list[i].event_log: List[SoPEvent] = []
-            thing_list[i].event_log: List[SoPEvent] = []
-            scenario_list[i].event_log: List[SoPEvent] = []
+        for component in middleware_list + thing_list + scenario_list:
+            component.event_log: List[SoPEvent] = []
 
         for event in self.event_log:
             if event.event_type in SoPEvaluator.MIDDLEWARE_EVENT:
-                middleware, _ = find_component(self.simulation_env.root_middleware, event.middleware_component)
+                middleware = find_component_by_name(self.simulation_env.root_middleware, event.middleware_component.name)
                 middleware.event_log.append(event)
             if event.event_type in SoPEvaluator.THING_EVENT:
-                thing, _ = find_component(self.simulation_env.root_middleware, event.thing_component)
+                thing = find_component_by_name(self.simulation_env.root_middleware, event.thing_component.name)
                 thing.event_log.append(event)
             if event.event_type in SoPEvaluator.SCENARIO_EVENT:
-                scenario, _ = find_component(self.simulation_env.root_middleware, event.scenario_component)
+                scenario = find_component_by_name(self.simulation_env.root_middleware, event.scenario_component.name)
                 scenario.event_log.append(event)
         return self
 

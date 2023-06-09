@@ -277,6 +277,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
             profiler = Profiler()
             profiler.load(log_root_path=log_root_path)
             simulation_overhead = profiler.profile(self._profile_type, export=True)
+        else:
+            simulation_overhead = None
 
         simulation_name = f'{simulation_env.config.name}_{index}'
         evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, simulation_name=simulation_name, file_name=self._result_filename,

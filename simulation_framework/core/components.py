@@ -20,7 +20,7 @@ def get_whole_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddlewar
     return middleware_list
 
 
-def get_whole_thing_list(middleware: 'SoPMiddleware' = None) -> List['SoPThing']:
+def get_whole_thing_list(middleware: 'SoPMiddleware') -> List['SoPThing']:
     # return [middleware] + list(middleware.descendants)
     # thing_list = [thing for thing in middleware.thing_list]
 
@@ -36,7 +36,7 @@ def get_whole_thing_list(middleware: 'SoPMiddleware' = None) -> List['SoPThing']
     return thing_list
 
 
-def get_whole_scenario_list(middleware: 'SoPMiddleware' = None) -> List['SoPScenario']:
+def get_whole_scenario_list(middleware: 'SoPMiddleware') -> List['SoPScenario']:
     # scenario_list = [scenario for scenario in middleware.scenario_list]
 
     # for child_middleware in middleware.children:
@@ -51,66 +51,55 @@ def get_whole_scenario_list(middleware: 'SoPMiddleware' = None) -> List['SoPScen
     return scenario_list
 
 
-def find_component(middleware: 'SoPMiddleware', component: 'SoPComponent', key: Callable = lambda x: x) -> Tuple[object, object]:
+def get_whole_service_list(middleware: 'SoPMiddleware') -> List['SoPService']:
+    # scenario_list = [scenario for scenario in middleware.scenario_list]
 
-    def find_component_recursive(middleware: 'SoPMiddleware', component: 'SoPComponent'):
-        if key(middleware) == key(component):
-            return middleware, None
+    # for child_middleware in middleware.children:
+    #     scenario_list.extend(get_scenario_list(child_middleware))
 
-        for thing in middleware.thing_list:
+    # scenario_list = sorted(scenario_list, key=lambda x: x.level, reverse=True)
+    # return scenario_list
+    root_middleware = middleware.root
+
+    thing_list = get_whole_thing_list(root_middleware)
+    service_list = flatten_list([thing.service_list for thing in thing_list])
+    return service_list
+
+
+def find_component(root_middleware: 'SoPMiddleware', component: 'SoPComponent', key: Callable = lambda x: x) -> T:
+
+    if isinstance(component, SoPMiddleware):
+        middleware_list = get_whole_middleware_list(root_middleware)
+        for middleware in middleware_list:
+            if key(middleware) == key(component):
+                return middleware
+    elif isinstance(component, SoPThing):
+        thing_list = get_whole_thing_list(root_middleware)
+        for thing in thing_list:
             if key(thing) == key(component):
-                return thing, middleware
-        for scenario in middleware.scenario_list:
+                return thing
+    elif isinstance(component, SoPScenario):
+        scenario_list = get_whole_scenario_list(root_middleware)
+        for scenario in scenario_list:
             if key(scenario) == key(component):
-                return scenario, middleware
-        for child_middleware in middleware.children:
-            if key(child_middleware) == key(component):
-                return child_middleware, middleware
-
-        for child_middleware in middleware.children:
-            result = find_component_recursive(
-                child_middleware, component)
-            if result:
-                return result[0], result[1]
-            else:
-                find_component_recursive(
-                    child_middleware, component)
-
-    result = find_component_recursive(middleware, component)
-    if result:
-        return result[0], result[1]
-    else:
-        return None, None
+                return scenario
+    elif isinstance(component, SoPService):
+        service_list = get_whole_service_list(root_middleware)
+        for service in service_list:
+            if key(service) == key(component):
+                return service
 
 
-def find_component_by_name(middleware: 'SoPMiddleware', component_name: str):
+def find_component_by_name(root_middleware: 'SoPMiddleware', component_name: str) -> 'SoPComponent':
 
-    def find_component_by_name_recursive(middleware: 'SoPMiddleware', component_name: str):
-        if middleware.name == component_name:
-            return middleware, None
+    middleware_list = get_whole_middleware_list(root_middleware)
+    thing_list = get_whole_thing_list(root_middleware)
+    scenario_list = get_whole_scenario_list(root_middleware)
+    service_list = get_whole_service_list(root_middleware)
 
-        for thing in middleware.thing_list:
-            if thing.name == component_name:
-                return thing, middleware
-        for scenario in middleware.scenario_list:
-            if scenario.name == component_name:
-                return scenario, middleware
-        for child_middleware in middleware.children:
-            if child_middleware.name == component_name:
-                return child_middleware, middleware
-
-        for child_middleware in middleware.children:
-            result = find_component_by_name_recursive(child_middleware, component_name)
-            if result:
-                return result[0], result[1]
-            else:
-                find_component_by_name_recursive(child_middleware, component_name)
-
-    result = find_component_by_name_recursive(middleware, component_name)
-    if result:
-        return result[0], result[1]
-    else:
-        return None, None
+    for component in middleware_list + thing_list + scenario_list + service_list:
+        if component.name == component_name:
+            return component
 
 
 class SoPComponentType(Enum):
@@ -451,9 +440,9 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.websocket_ssl_port = websocket_ssl_port
         self.localserver_port = localserver_port
 
-    def middleware_cfg_file(self, simulation_env: 'SoPMiddleware', remote_home_dir: str):
-        _, parent_middleware = find_component(simulation_env, self)
-        parent_middleware: SoPMiddleware
+    def middleware_cfg_file(self, root_middleware: 'SoPMiddleware', remote_home_dir: str):
+        middleware: SoPMiddleware = find_component(root_middleware, self)
+        parent_middleware = middleware.parent
         if parent_middleware is None:
             parent_middleware_line = ''
         else:
@@ -465,11 +454,9 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
                                                             self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
                                                             self.name,
                                                             self.localserver_port,
-                                                            home_dir_append(
-                                                                path=self.remote_middleware_config_path, user=user),
+                                                            home_dir_append(path=self.remote_middleware_config_path, user=user),
                                                             self.name,
-                                                            home_dir_append(
-                                                                path=self.remote_middleware_config_path, user=user),
+                                                            home_dir_append(path=self.remote_middleware_config_path, user=user),
                                                             self.name,
                                                             remote_home_dir,
                                                             self.name)
@@ -483,14 +470,14 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
     def init_script_file(self, remote_home_dir: str):
         user = os.path.basename(remote_home_dir)
-        self.init_script = SoPMiddleware.INIT_SCRIPT_TEMPLATE % (home_dir_append(path=self.remote_middleware_config_path, user=user),
+        remote_middleware_config_abspath = home_dir_append(path=self.remote_middleware_config_path, user=user)
+        remote_middleware_abspath = home_dir_append(path=self.remote_middleware_path, user=user)
+        self.init_script = SoPMiddleware.INIT_SCRIPT_TEMPLATE % (remote_middleware_config_abspath,
                                                                  self.name,
-                                                                 home_dir_append(
-            path=self.remote_middleware_config_path, user=user),
-            self.name,
-            home_dir_append(
-            path=self.remote_middleware_path, user=user),
-            home_dir_append(path=self.remote_middleware_path, user=user))
+                                                                 remote_middleware_config_abspath,
+                                                                 self.name,
+                                                                 remote_middleware_abspath,
+                                                                 remote_middleware_abspath)
         return self.init_script
 
 

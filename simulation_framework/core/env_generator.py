@@ -670,7 +670,7 @@ class SoPEnvGenerator:
         static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY))
 
         # Scenario add start
-        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(root_middleware, scenario)[1])
+        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(root_middleware, scenario))
                                  for scenario in scenario_list]
         static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x.timestamp))
         static_event_timeline.append(SoPEvent(event_type=SoPEventType.SCENARIO_ADD_CHECK))
