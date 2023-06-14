@@ -431,7 +431,9 @@ class SoPEvaluator:
             SOPTEST_LOG_DEBUG(f'Scenario Code: \n{scenario.scenario_code()}', SoPTestLogLevel.WARN)
             for event in execute_cycle:
                 simulation_start_time = self.get_simulation_start_time()
-                SOPTEST_LOG_DEBUG(f'timestamp: {unixtime_to_date(self.simulation_start_time + event.timestamp)}|{event.timestamp}, '
+                if not simulation_start_time:
+                    simulation_start_time = 0
+                SOPTEST_LOG_DEBUG(f'timestamp: {unixtime_to_date(simulation_start_time + event.timestamp)}|{event.timestamp}, '
                                   f'event_type: {event.event_type}, service: {event.service_component.name}, duration: {event.duration}', SoPTestLogLevel.WARN)
 
             # return SoPExecuteCycleResult(error=SoPExecuteCycleErrorType.PERIOD_FAIL)

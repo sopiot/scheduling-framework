@@ -1,20 +1,8 @@
-profiler = Profiler()
-if args.log_path:
-    profiler.load(log_root_path=args.log_path)
-    profile_result = profiler.profile(args.profile_type, export=True)
-    profiler.print_result()
-    customized_print(profile_result=profile_result)
-elif args.root_log_path:
-    log_path_list = os.listdir(args.root_log_path)
-    profile_result_list = []
-    for log_path in log_path_list:
-        profiler.load(log_root_path=log_path)
-        profiler.profile(args.profile_type, export=True)
-        profile_result = profiler.print_result()
-        profile_result_list.append(profile_result)
-        customized_print(profile_result=profile_result)
-    profiler.profile_result = sum(profile_result_list, ProfileResult())
-    profiler.print_result()
+from simulation_framework.simulation_framework import *
+import argparse
+
+
+START_LOGGER()
 
 
 def customized_print(profile_result: ProfileResult):
@@ -242,3 +230,48 @@ total avg_MS_RESULT_EXECUTE_inner_overhead_3 overhead:      {avg_MS_RESULT_EXECU
 total avg_MS_RESULT_EXECUTE_inner_overhead_final overhead:  {avg_MS_RESULT_EXECUTE_inner_overhead_final.total_seconds()*1e3:8.3f} ms\n\
 total avg_SM_RESULT_EXECUTE_comm_overhead overhead:         {avg_SM_RESULT_EXECUTE_comm_overhead.total_seconds()*1e3:8.3f} ms\n\
 ')
+
+
+def arg_parse() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--profile-type', '-pt', type=lambda x: ProfileType(x.lower()), default=ProfileType.EXECUTE, dest='profile_type', choices=list(ProfileType),
+                        required=False, help=('Profile type\n'
+                                              'You can choose from the following:\n'
+                                              '  schedule: Profile the scheduling part of simulation\n'
+                                              '  execute: Profile the execution part of simulation\n'))
+    parser.add_argument('--log', '-lg', type=str, dest='log_path',
+                        required=False, help=('Path containing simulation logs\n'
+                                              'If there are multiple simulation logs in a folder, profile them all.'
+                                              'If the given log path is for a single log, profile for only one log'))
+    parser.add_argument('--root-log', '-rlg', type=str, dest='root_log_path',
+                        required=False, help=('Path containing simulation logs\n'
+                                              'If there are multiple simulation logs in a folder, profile them all.'
+                                              'If the given log path is for a single log, profile for only one log'))
+    args = parser.parse_args()
+
+    return args
+
+
+def main(args):
+    profiler = Profiler()
+    if args.log_path:
+        profiler.load(log_root_path=args.log_path)
+        simulation_overhead = profiler.profile(args.profile_type, export=True)
+        profiler.print_result()
+        customized_print(profile_result=simulation_overhead)
+    elif args.root_log_path:
+        log_path_list = os.listdir(args.root_log_path)
+        profile_result_list = []
+        for log_path in log_path_list:
+            profiler.load(log_root_path=log_path)
+            profiler.profile(args.profile_type, export=True)
+            profile_result = profiler.print_result()
+            profile_result_list.append(profile_result)
+            customized_print(profile_result=profile_result)
+        profiler.profile_result = sum(profile_result_list, ProfileResult())
+        profiler.print_result()
+
+
+if __name__ == '__main__':
+    args = arg_parse()
+    main(args)

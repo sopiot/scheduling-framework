@@ -189,15 +189,22 @@ class SoPSSHClient:
         if not self.sftp_opened:
             self.open_sftp()
 
-        SOPTEST_LOG_DEBUG(f'Send files: {local_path} -> {remote_path}', SoPTestLogLevel.PASS)
+        # SOPTEST_LOG_DEBUG(f'Send files: {local_path} -> {remote_path}', SoPTestLogLevel.PASS)
         try:
             SoPSSHClient.FILE_UPLOADING += 1
-            self._sftp_client.put(local_path, remote_path, callback=print_progress_status)
+            try:
+                remote_dir_path = os.path.dirname(remote_path)
+                self._sftp_client.chdir(remote_dir_path)
+            except IOError:
+                self.mkdir_p(remote_dir_path)
+                # self._sftp_client.mkdir(remote_path_dirname)
+            # self._sftp_client.put(local_path, remote_path, callback=print_progress_status)
+            self._sftp_client.put(local_path, remote_path)
             return True
         except KeyboardInterrupt:
             return False
         except Exception as e:
-            print_error(e)
+            print_error()
         finally:
             SoPSSHClient.FILE_UPLOADING -= 1
 
@@ -216,7 +223,8 @@ class SoPSSHClient:
                 local_dir_path = os.path.join(root, name)
                 remote_dir_path = os.path.join(remote_path, os.path.relpath(local_dir_path, local_path))
                 try:
-                    self._sftp_client.mkdir(remote_dir_path)
+                    self.mkdir_p(remote_dir_path)
+                    # self._sftp_client.mkdir(remote_dir_path)
                 except:
                     pass
 
@@ -229,15 +237,20 @@ class SoPSSHClient:
 
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         if remote_path.split('.')[-1] == ext_filter:
-            SOPTEST_LOG_DEBUG(f'Download file: {local_path} <- {remote_path}')
+            # SOPTEST_LOG_DEBUG(f'Download file: {local_path} <- {remote_path}')
             try:
                 SoPSSHClient.FILE_DOWNLOADING += 1
-                self._sftp_client.get(remote_path, local_path, callback=print_progress_status)
+
+                local_path_dirname = os.path.dirname(local_path)
+                if not os.path.exists(local_path_dirname):
+                    os.makedirs(local_path_dirname, exist_ok=True)
+                # self._sftp_client.get(remote_path, local_path, callback=print_progress_status)
+                self._sftp_client.get(remote_path, local_path)
                 return True
             except KeyboardInterrupt:
                 return False
             except Exception as e:
-                print_error(e)
+                print_error()
             finally:
                 SoPSSHClient.FILE_DOWNLOADING -= 1
         else:
@@ -331,13 +344,13 @@ class SoPSSHClient:
                 else:
                     raise SSHConfigError('Please set the user, host, port, password or locate .ssh/config before connect to ssh host')
 
-                SOPTEST_LOG_DEBUG(f'SSH Connect success to device {self.device.name}.', SoPTestLogLevel.PASS)
+                # SOPTEST_LOG_DEBUG(f'SSH Connect success to device {self.device.name}.', SoPTestLogLevel.PASS)
                 self.connected = True
 
                 return self._ssh_client
             except Exception as e:
                 retry -= 1
-                print_error(e)
+                print_error()
                 time.sleep(1)
 
     def disconnect(self):
@@ -366,3 +379,18 @@ class SoPSSHClient:
             self.sftp_opened = False
 
         return True
+
+    def mkdir_p(self, path):
+        if path == '/':
+            self._sftp_client.chdir('/')
+            return
+        if path == '':
+            return
+        try:
+            self._sftp_client.chdir(path)
+        except IOError:
+            dirname, basename = os.path.split(path.rstrip('/'))
+            self.mkdir_p(dirname)
+            self._sftp_client.mkdir(basename)
+            self._sftp_client.chdir(basename)
+            return True

@@ -92,7 +92,8 @@ class SoPMQTTClient:
             if ret.rc == 0:
                 pass
                 SOPLOG_DEBUG(
-                    f'{f"✅ Published by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, {payload} on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
+                    f'{f"✅ Published by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, {payload} '
+                    f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
             else:
                 pass
                 SOPLOG_DEBUG(f'Publish failed...', 'red')
@@ -103,14 +104,16 @@ class SoPMQTTClient:
             self._subscribe_list.add(topic)
             if self._debug:
                 SOPLOG_DEBUG(
-                    f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
+                    f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, '
+                    f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
             for item in topic:
                 self._mqtt_client.subscribe(item, qos)
                 self._subscribe_list.add(item)
                 if self._debug:
                     SOPLOG_DEBUG(
-                        f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {item:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
+                        f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {item:<80}, '
+                        f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
     def unsubscribe(self, topic, properties=None):
         if type(topic) is not list:
@@ -119,7 +122,8 @@ class SoPMQTTClient:
                 self._subscribe_list.remove(topic)
             if self._debug:
                 SOPLOG_DEBUG(
-                    f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {topic:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
+                    f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {topic:<80}, '
+                    f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
             for item in topic:
                 self._mqtt_client.unsubscribe(item, properties)
@@ -127,7 +131,8 @@ class SoPMQTTClient:
                     self._subscribe_list.remove(item)
                 if self._debug:
                     SOPLOG_DEBUG(
-                        f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {item:<80}, on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
+                        f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {item:<80}, '
+                        f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
     def run(self):
         if self.is_run:
@@ -175,4 +180,5 @@ class SoPMQTTClient:
 
         if self._debug:
             SOPLOG_DEBUG(
-                f'{f"✅ Received by {self.get_client_id()}":>16}(qos={message.qos}): {topic:<80}, {payload} on {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
+                f'{f"✅ Received by {self.get_client_id()}":>16}(qos={message.qos}): {topic:<80}, {payload} '
+                f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')

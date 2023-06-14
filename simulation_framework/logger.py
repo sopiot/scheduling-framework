@@ -1,6 +1,7 @@
 from simulation_framework.typing import *
 from simulation_framework.exceptions import *
 from termcolor import cprint, colored
+from rich.console import Console
 
 import logging
 import os
@@ -239,6 +240,7 @@ def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, c
         SOPLOG_DEBUG(log_msg, 'red' if not color else color)
 
 
-def print_error(e: Exception):
-    traceback_msg = traceback.format_exc()
-    SOPLOG_DEBUG(f'Traceback message : {traceback_msg}\nError: {e}', 'red')
+def print_error(show_locals: bool = True):
+    Console().print_exception(show_locals=show_locals)
+    # traceback_msg = traceback.format_exc()
+    # SOPLOG_DEBUG(f'Traceback message : {traceback_msg}\nError: {e}', 'red')

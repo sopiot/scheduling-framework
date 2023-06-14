@@ -37,8 +37,8 @@ class SoPSimulationFramework:
             config_list = [SoPSimulationConfig(config_path=os.path.join(config_path, config_file_path)) for config_file_path in os.listdir(config_path)
                            if config_file_path.startswith('config') and config_file_path.endswith('.yml')]
         else:
-            config_list = [SoPSimulationConfig(config_path=config_path)] \
-                if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')) else []
+            config_list = ([SoPSimulationConfig(config_path=config_path)]
+                           if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')) else [])
         return config_list
 
     def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[str], List[str], List[str], List[SoPService], List[SoPThing]]:
@@ -82,6 +82,8 @@ class SoPSimulationFramework:
         if self._config_list:
             self._simulation_env_list = self.generate_simulation_env(self._config_list)
 
+        # Run simulation with simulation_env_list and policy_path_list.
+        # Simulation will run with count of len(simulation_env_list) * len(policy_path_list).
         simulation_result_list: List[SoPSimulationResult] = []
         for index, simulation_env in enumerate(self._simulation_env_list):
             for policy_path in self._policy_path_list:
@@ -226,6 +228,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
             # Generate event timeline
             static_event_timeline, dynamic_event_timeline = self.env_generator._generate_event_timeline(root_middleware=root_middleware)
 
+            # Update simulation env
             simulation_env.root_middleware = root_middleware
             simulation_env.service_pool = service_pool
             simulation_env.thing_pool = thing_pool
@@ -242,21 +245,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
 
     @exception_wrapper
     def run_simulation(self, simulation_env: SoPSimulationEnv, policy_path: str, index: int):
-        """ Steps in a Simulation:
-            1. setup
-                1-1. generate simulation data files
-            2. cleanup
-                2-1. remove every remote simulation files
-                2-2. kill every process
-            3. build_iot_system
-                3-1. send the generated data
-            4. trigger_events
-                4-1. trigger static events
-                4-2. trigger dynamic events
-            5. evaluate
-                5-1. get simulation result
-        """
-        # SOPTEST_LOG_DEBUG(f'==== Start simulation {label} ====', SoPTestLogLevel.INFO)
+        SOPTEST_LOG_DEBUG(f'==== Start simulation {simulation_env.config.name}[{index}], policy: {os.path.basename(policy_path)} ====', SoPTestLogLevel.INFO)
         self._simulator = SoPSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug, middleware_debug=self._middleware_debug, download_logs=self._download_logs)
         self._simulator.setup()
         self._simulator.cleanup()
@@ -271,9 +260,9 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
 
         profiler = None
         if self._download_logs:
-            self._simulator.event_handler._download_log_file()
+            self._simulator.event_handler.download_log_file()
         if self._profile:
-            log_root_path = self._simulator.event_handler._download_log_file()
+            log_root_path = self._simulator.event_handler.download_log_file()
             profiler = Profiler()
             profiler.load(log_root_path=log_root_path)
             simulation_overhead = profiler.profile(self._profile_type, export=True)

@@ -35,6 +35,7 @@ setup(
         'pyyaml',
         'paramiko',
         'termcolor',
-        'tabulate'],
+        'tabulate',
+        'rich'],
     packages=find_packages(exclude=[]),
 )

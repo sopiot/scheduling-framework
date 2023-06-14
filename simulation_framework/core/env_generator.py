@@ -112,7 +112,7 @@ class SoPEnvGenerator:
         # self._middleware_generator = SoPMiddlewareGenerator(self._config, middleware_device_pool)
         # self._scenario_generator = SoPScenarioGenerator(self._config)
 
-    def _generate_random_words(self, num_word: int = None, user_word_dictionary_file: List[str] = [], ban_word_list: List[str] = []) -> List[str]:
+    def _generate_random_words(self, num_word: int = None, user_word_dictionary_file: List[str] = [], ban_word_list: List[str] = [], max_word_length: int = 7) -> List[str]:
         selected_words: List[str] = []
         words_pool: List[str] = []
 
@@ -141,6 +141,10 @@ class SoPEnvGenerator:
                 continue
             words_pool.remove(ban_word)
 
+        for word in words_pool:
+            if len(word) > max_word_length:
+                words_pool.remove(word)
+
         # Select words from word pool
         while num_word:
             picked_word = random.choice(words_pool)
@@ -163,7 +167,8 @@ class SoPEnvGenerator:
     def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], num_service_generate: int) -> List[SoPService]:
         service_name_pool_copy = copy.deepcopy(service_name_pool)
         service_pool: List[SoPService] = []
-        for _ in range(num_service_generate):
+
+        for _ in track(range(num_service_generate), description='Generating services...'):
             tag_per_service_range = self._config.service_config.tag_per_service
             energy_range = self._config.service_config.normal.energy
             execute_time_range = self._config.service_config.normal.execute_time
@@ -171,7 +176,7 @@ class SoPEnvGenerator:
 
             selected_service_name = random.choice(service_name_pool_copy)
             service_name_pool_copy.remove(selected_service_name)
-            service_name = f'function_{selected_service_name}'
+            service_name = f'F_{selected_service_name}'
             level = -1
             tag_per_service = random.randint(*tag_per_service_range)
             tag_list = random.sample(tag_name_pool, tag_per_service)
@@ -188,12 +193,12 @@ class SoPEnvGenerator:
                                  return_value=return_value)
             service_pool.append(service)
 
-        SOPTEST_LOG_DEBUG(f'Generate service pool size of {len(service_pool)}', SoPTestLogLevel.INFO)
+        SOPTEST_LOG_DEBUG(f'Complete generating service pool size of {len(service_pool)}', SoPTestLogLevel.INFO)
         return service_pool
 
     def generate_thing_pool(self, service_pool: List[SoPService], num_thing_generate: int) -> List[SoPThing]:
         thing_pool = []
-        for _ in range(num_thing_generate):
+        for _ in track(range(num_thing_generate), description='Generating things...'):
             device = random.choice(self._thing_device_pool)
             thing_name = ''
             level = -1
@@ -229,7 +234,7 @@ class SoPEnvGenerator:
 
             thing_pool.append(thing)
 
-        SOPTEST_LOG_DEBUG(f'Generate thing pool size of {num_thing_generate}', SoPTestLogLevel.INFO)
+        SOPTEST_LOG_DEBUG(f'Complete Generating thing pool size of {num_thing_generate}', SoPTestLogLevel.INFO)
         return thing_pool
 
     def generate_middleware_tree(self) -> SoPMiddleware:
@@ -238,24 +243,28 @@ class SoPEnvGenerator:
         device_pool = copy.deepcopy(self._middleware_device_pool)
 
         if manual_middleware_tree:
+            used_device_list: List[SoPDevice] = []
+
             def generate_middleware_tree_manual(middleware: SoPMiddleware, middleware_config: AnyNode, index: int) -> SoPMiddleware:
                 height = middleware_config.height + 1
                 if middleware_config.is_root:
-                    middleware_name = f'middleware_level{height}_0'
+                    middleware_name = f'MW_L{height}_0'
                 else:
-                    middleware_name = f'{middleware.name}__middleware_level{height}_{index}'
-                if not middleware_config.device:
+                    middleware_name = f'{middleware.name}__MW_L{height}_{index}'
+
+                if hasattr(middleware_config, 'device'):
+                    if middleware_config.device:
+                        device_name: str = random.choice([device for device in middleware_config.device if not device in [device.name for device in used_device_list]])
+                        device = self._find_device(device_name=device_name, device_pool=device_pool)
+                    else:
+                        device = random.choice(device_pool)
+                else:
                     device = random.choice(device_pool)
-                else:
-                    selected_device = random.choice(middleware_config.device)
-                    for d in device_pool:
-                        if d.name == selected_device:
-                            device = d
-                            break
 
                 # Do not remove localhost device
                 if device.name != 'localhost':
                     device_pool.remove(device)
+                    used_device_list.append(device)
 
                 middleware = SoPMiddleware(name=middleware_name,
                                            level=height,
@@ -279,9 +288,9 @@ class SoPEnvGenerator:
         elif random_middleware_config:
             def generate_middleware_tree_random(middleware: SoPMiddleware, height: int, width_range: ConfigRandomIntRange, index: int) -> SoPMiddleware:
                 if middleware == None:
-                    middleware_name = f'middleware_level{height}_0'
+                    middleware_name = f'MW_L{height}_0'
                 else:
-                    middleware_name = f'{middleware.name}__middleware_level{height}_{index}'
+                    middleware_name = f'{middleware.name}__MW_L{height}_{index}'
 
                 device = random.choice(device_pool)
 
@@ -315,6 +324,7 @@ class SoPEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
+        SOPTEST_LOG_DEBUG(f'Complete Generating middleware tree', SoPTestLogLevel.INFO)
         print_middleware_tree(root_middleware)
         return root_middleware
 
@@ -477,7 +487,7 @@ class SoPEnvGenerator:
 
                 selected_super_service_name = random.choice(super_service_name_pool_copy)
                 super_service_name_pool_copy.remove(selected_super_service_name)
-                super_service_name = f'super_function_{selected_super_service_name}'
+                super_service_name = f'SF_{selected_super_service_name}'
                 level = middleware.level
                 tag_per_service = random.randint(*tag_per_service_range)
                 tag_list = random.sample(tag_name_pool, tag_per_service)
@@ -666,16 +676,16 @@ class SoPEnvGenerator:
         static_event_timeline.extend(build_simulation_env_timeline)
 
         # Wait until all thing register
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.THING_REGISTER_WAIT))
-        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY))
+        static_event_timeline.append(SoPEvent(delay=3, event_type=SoPEventType.DELAY))
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH, **dict(scenario_check=False, service_check=False, thing_register_check=True)))
 
         # Scenario add start
         scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(root_middleware, scenario))
                                  for scenario in scenario_list]
         static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x.timestamp))
         static_event_timeline.append(SoPEvent(event_type=SoPEventType.SCENARIO_ADD_CHECK))
-        static_event_timeline.append(SoPEvent(delay=5, event_type=SoPEventType.DELAY))
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH))
+        static_event_timeline.append(SoPEvent(delay=20, event_type=SoPEventType.DELAY))
+        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH, **dict(scenario_check=True, service_check=True)))
 
         # Simulation start
         dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.START))

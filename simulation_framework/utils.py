@@ -3,6 +3,7 @@ from simulation_framework.exceptions import *
 from termcolor import cprint, colored
 from dataclasses import *
 from anytree import *
+import zipfile
 
 from tabulate import tabulate
 from pathlib import Path
@@ -11,7 +12,6 @@ import re
 import random
 import string
 import yaml
-import toml
 import time
 import json
 
@@ -314,3 +314,68 @@ def print_table(table, header, scenario_name: str = None):
             f"{f' scenario {scenario_name} ':{title_filler}^{len(table.split()[0])}}")
     print(table)
     return table
+
+
+def print_session_label(text: str = ''):
+    from art import text2art
+    result = text2art(text, font='big')
+    f = [a for a in result.split('\n') if len(a.strip()) > 0]
+    maxlen = max([len(a) for a in f])
+
+    padding = '=' * (maxlen + 2)
+    result = '\n'.join([padding] + f + [padding])
+    print(result)
+
+
+def hash_insert(hash_table: Dict[Any, list], data: tuple):
+    key = data[0]
+    value = data[1]
+    if key in hash_table:
+        hash_table[key].append(value)
+    else:
+        hash_table[key] = [value]
+
+
+def hash_pop(hash_table: Dict[Any, list], key: Any):
+    if key in hash_table:
+        return hash_table[key].pop(0)
+    else:
+        return None
+
+
+def zip_files(file_paths, output_path):
+    with zipfile.ZipFile(output_path, 'w') as zipf:
+        for file_path in file_paths:
+            if os.path.isfile(file_path):
+                zipf.write(file_path, os.path.basename(file_path))
+            elif os.path.isdir(file_path):
+                for root, dirs, files in os.walk(file_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        zipf.write(file_path, os.path.relpath(file_path, file_path))
+
+    return output_path
+
+
+def zip_directory(directory_path, output_path) -> str:
+    with zipfile.ZipFile(output_path, 'w') as zipf:
+        for root, dirs, files in os.walk(directory_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                zipf.write(file_path, os.path.relpath(file_path, directory_path))
+
+    return output_path
+
+
+def add_files_to_zip(zip_path, file_paths):
+    # 압축 파일을 업데이트하기 위해 기존 내용을 읽어옵니다.
+    with zipfile.ZipFile(zip_path, 'a') as zipf:
+        for file_path in file_paths:
+            if os.path.isfile(file_path):
+                # 파일을 압축 파일에 추가합니다.
+                zipf.write(file_path, os.path.basename(file_path))
+
+
+def unzip_file(zip_path, extract_path):
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_path)

@@ -4,16 +4,10 @@ from simulation_framework.logger import *
 from string import Template
 from queue import Queue
 from abc import ABCMeta
+import paho.mqtt.client as mqtt
 
 
 def get_whole_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddleware']:
-    # middleware_list = [middleware]
-
-    # for child_middleware in middleware.children:
-    #     middleware_list.extend(get_middleware_list(child_middleware))
-
-    # middleware_list = sorted(middleware_list, key=lambda x: x.level, reverse=True)
-    # return middleware_list
     root_middleware = middleware.root
 
     middleware_list = [root_middleware] + list(root_middleware.descendants)
@@ -21,14 +15,6 @@ def get_whole_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddlewar
 
 
 def get_whole_thing_list(middleware: 'SoPMiddleware') -> List['SoPThing']:
-    # return [middleware] + list(middleware.descendants)
-    # thing_list = [thing for thing in middleware.thing_list]
-
-    # for child_middleware in middleware.children:
-    #     thing_list.extend(get_thing_list(child_middleware))
-
-    # thing_list = sorted(thing_list, key=lambda x: x.level, reverse=True)
-    # return thing_list
     root_middleware = middleware.root
 
     middleware_list = get_whole_middleware_list(root_middleware)
@@ -37,13 +23,6 @@ def get_whole_thing_list(middleware: 'SoPMiddleware') -> List['SoPThing']:
 
 
 def get_whole_scenario_list(middleware: 'SoPMiddleware') -> List['SoPScenario']:
-    # scenario_list = [scenario for scenario in middleware.scenario_list]
-
-    # for child_middleware in middleware.children:
-    #     scenario_list.extend(get_scenario_list(child_middleware))
-
-    # scenario_list = sorted(scenario_list, key=lambda x: x.level, reverse=True)
-    # return scenario_list
     root_middleware = middleware.root
 
     middleware_list = get_whole_middleware_list(root_middleware)
@@ -52,13 +31,6 @@ def get_whole_scenario_list(middleware: 'SoPMiddleware') -> List['SoPScenario']:
 
 
 def get_whole_service_list(middleware: 'SoPMiddleware') -> List['SoPService']:
-    # scenario_list = [scenario for scenario in middleware.scenario_list]
-
-    # for child_middleware in middleware.children:
-    #     scenario_list.extend(get_scenario_list(child_middleware))
-
-    # scenario_list = sorted(scenario_list, key=lambda x: x.level, reverse=True)
-    # return scenario_list
     root_middleware = middleware.root
 
     thing_list = get_whole_thing_list(root_middleware)
@@ -67,7 +39,6 @@ def get_whole_service_list(middleware: 'SoPMiddleware') -> List['SoPService']:
 
 
 def find_component(root_middleware: 'SoPMiddleware', component: 'SoPComponent', key: Callable = lambda x: x) -> T:
-
     if isinstance(component, SoPMiddleware):
         middleware_list = get_whole_middleware_list(root_middleware)
         for middleware in middleware_list:
@@ -91,7 +62,6 @@ def find_component(root_middleware: 'SoPMiddleware', component: 'SoPComponent', 
 
 
 def find_component_by_name(root_middleware: 'SoPMiddleware', component_name: str) -> 'SoPComponent':
-
     middleware_list = get_whole_middleware_list(root_middleware)
     thing_list = get_whole_thing_list(root_middleware)
     scenario_list = get_whole_scenario_list(root_middleware)
@@ -223,7 +193,6 @@ class SoPComponentScopeType(Enum):
 
 
 class SoPComponent(metaclass=ABCMeta):
-
     def __init__(self, name: str, level: int, component_type: SoPComponentType) -> None:
         # basic info
         self.name = name
@@ -320,13 +289,12 @@ class SoPDevice(SoPComponent):
 
 
 class SoPMiddleware(SoPComponent, NodeMixin):
-
     CFG_TEMPLATE = '''%s
 broker_uri = "tcp://%s:%d"
 
 middleware_identifier = "%s"
 socket_listening_port = %d
-alive_checking_period = 60
+alive_checking_period = 300
 
 main_db_file_path = "%s/%s_Main.db"
 value_log_db_file_path = "%s/%s_ValueLog.db"
@@ -374,26 +342,58 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
         self.remote_middleware_path = remote_middleware_path
         self.remote_middleware_config_path = remote_middleware_config_path
-        self.remote_middleware_cfg_file_path = ''
-        self.remote_mosquitto_conf_file_path = ''
-        self.remote_init_script_file_path = ''
-
-        self.middleware_cfg_file_path = ''
-        self.mosquitto_conf_file_path = ''
-        self.init_script_file_path = ''
-
-        self.middleware_cfg = ''
-        self.mosquitto_conf = ''
-        self.init_script = ''
-
         self.mqtt_port = mqtt_port
         self.mqtt_ssl_port = mqtt_ssl_port
         self.websocket_port = websocket_port
         self.websocket_ssl_port = websocket_ssl_port
         self.localserver_port = localserver_port
 
+        self.middleware_cfg = ''
+
         self.online = False
 
+        self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
+
+    # TODO: complete this
+    def __getstate__(self):
+        state = super().__getstate__()
+
+        state['thing_list'] = self.thing_list
+        state['scenario_list'] = self.scenario_list
+        state['device'] = self.device
+        state['alive_cycle'] = self.alive_cycle
+        state['device'] = self.device
+        state['thing_file_path'] = self.thing_file_path
+        state['remote_thing_file_path'] = self.remote_thing_file_path
+        state['fail_rate'] = self.fail_rate
+        state['middleware_client_name'] = self.middleware_client_name
+        state['registered'] = self.registered
+        state['pid'] = self.pid
+
+        del state['parent']
+        del state['children']
+        del state['recv_queue']
+        del state['recv_msg_table']
+
+        return state
+
+    # TODO: complete this
+    def __setstate__(self, state):
+        super().__setstate__(state)
+
+        self.service_list = state['service_list']
+        self.is_super = state['is_super']
+        self.is_parallel = state['is_parallel']
+        self.alive_cycle = state['alive_cycle']
+        self.device = state['device']
+        self.thing_file_path = state['thing_file_path']
+        self.remote_thing_file_path = state['remote_thing_file_path']
+        self.fail_rate = state['fail_rate']
+        self.middleware_client_name = state['middleware_client_name']
+        self.registered = state['registered']
+        self.pid = state['pid']
+
+        self.middleware = None
         self.recv_queue: Queue = Queue()
 
     @classmethod
@@ -433,56 +433,45 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
                     websocket_ssl_port=self.websocket_ssl_port,
                     localserver_port=self.localserver_port)
 
-    def set_port(self, mqtt_port: int, mqtt_ssl_port: int, websocket_port: int, websocket_ssl_port: int, localserver_port: int):
-        self.mqtt_port = mqtt_port
-        self.mqtt_ssl_port = mqtt_ssl_port
-        self.websocket_port = websocket_port
-        self.websocket_ssl_port = websocket_ssl_port
-        self.localserver_port = localserver_port
-
-    def middleware_cfg_file(self, root_middleware: 'SoPMiddleware', remote_home_dir: str):
-        middleware: SoPMiddleware = find_component(root_middleware, self)
-        parent_middleware = middleware.parent
-        if parent_middleware is None:
+    def generate_middleware_cfg_file(self, user: str) -> str:
+        if self.parent is None:
             parent_middleware_line = ''
         else:
-            parent_middleware_line = f'parent_broker_uri = "tcp://{parent_middleware.device.host}:{parent_middleware.mqtt_port}"'
+            parent_middleware_line = f'parent_broker_uri = "tcp://{self.parent.device.host}:{self.parent.mqtt_port}"'
 
-        user = os.path.basename(remote_home_dir)
-        self.middleware_cfg = SoPMiddleware.CFG_TEMPLATE % (parent_middleware_line,
-                                                            '127.0.0.1',
-                                                            self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
-                                                            self.name,
-                                                            self.localserver_port,
-                                                            home_dir_append(path=self.remote_middleware_config_path, user=user),
-                                                            self.name,
-                                                            home_dir_append(path=self.remote_middleware_config_path, user=user),
-                                                            self.name,
-                                                            remote_home_dir,
-                                                            self.name)
-        return self.middleware_cfg
+        remote_home_dir = f'/home/{user}'
+        middleware_cfg = SoPMiddleware.CFG_TEMPLATE % (parent_middleware_line,
+                                                       '127.0.0.1',
+                                                       self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
+                                                       self.name,
+                                                       self.localserver_port,
+                                                       home_dir_append(path=self.remote_middleware_config_path, user=user),
+                                                       self.name,
+                                                       home_dir_append(path=self.remote_middleware_config_path, user=user),
+                                                       self.name,
+                                                       remote_home_dir,
+                                                       self.name)
+        return middleware_cfg
 
-    def mosquitto_conf_file(self):
+    def generate_mosquitto_conf_file(self) -> str:
         mosquitto_port = self.mqtt_port if self.mqtt_port else self.device.mqtt_port
-        self.mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
+        mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
 
-        return self.mosquitto_conf
+        return mosquitto_conf
 
-    def init_script_file(self, remote_home_dir: str):
-        user = os.path.basename(remote_home_dir)
+    def generate_init_script_file(self, user: str) -> str:
         remote_middleware_config_abspath = home_dir_append(path=self.remote_middleware_config_path, user=user)
         remote_middleware_abspath = home_dir_append(path=self.remote_middleware_path, user=user)
-        self.init_script = SoPMiddleware.INIT_SCRIPT_TEMPLATE % (remote_middleware_config_abspath,
-                                                                 self.name,
-                                                                 remote_middleware_config_abspath,
-                                                                 self.name,
-                                                                 remote_middleware_abspath,
-                                                                 remote_middleware_abspath)
-        return self.init_script
+        init_script = SoPMiddleware.INIT_SCRIPT_TEMPLATE % (remote_middleware_config_abspath,
+                                                            self.name,
+                                                            remote_middleware_config_abspath,
+                                                            self.name,
+                                                            remote_middleware_abspath,
+                                                            remote_middleware_abspath)
+        return init_script
 
 
 class SoPService(SoPComponent):
-
     ERROR_TEMPLATE = '''\
 global thing_start_time
 global service_fail_flag
@@ -638,7 +627,6 @@ elif thing_start_time == 1:
 
 
 class SoPThing(SoPComponent):
-
     THING_TEMPLATE = '''\
 from big_thing_py.big_thing import *
 
@@ -775,7 +763,7 @@ if __name__ == '__main__':
         self.registered: bool = False
         self.pid: int = 0
 
-        self.recv_queue: Queue = Queue()
+        self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -792,7 +780,7 @@ if __name__ == '__main__':
         state['registered'] = self.registered
         state['pid'] = self.pid
 
-        del state['recv_queue']
+        del state['recv_msg_table']
         del state['middleware']
 
         return state
@@ -813,7 +801,7 @@ if __name__ == '__main__':
         self.pid = state['pid']
 
         self.middleware = None
-        self.recv_queue: Queue = Queue()
+        self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
     @classmethod
     def load(cls, data: dict):
@@ -887,7 +875,6 @@ if __name__ == '__main__':
 
 
 class SoPScenario(SoPComponent):
-
     SCENARIO_TEMPLATE = '''loop(%s) {
 %s
 }
@@ -909,7 +896,7 @@ class SoPScenario(SoPComponent):
         self.schedule_success = False
         self.schedule_timeout = False
 
-        self.recv_queue: Queue = Queue()
+        self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
         # FIXME: 제대로 구현하기
         self.cycle_count = 0
@@ -926,7 +913,7 @@ class SoPScenario(SoPComponent):
         state['schedule_success'] = self.schedule_success
         state['schedule_timeout'] = self.schedule_timeout
 
-        del state['recv_queue']
+        del state['recv_msg_table']
         del state['middleware']
 
         return state
@@ -944,7 +931,7 @@ class SoPScenario(SoPComponent):
         self.schedule_timeout = state['schedule_timeout']
 
         self.middleware = None
-        self.recv_queue: Queue = Queue()
+        self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
     @classmethod
     def load(cls, data: dict) -> None:
