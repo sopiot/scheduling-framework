@@ -8,6 +8,12 @@ middleware:
   manual: manual_mw_tree.yml
 
 service:
+  accumulate:
+    normal:
+      service_per_super_service: 4
+    super:
+      service_per_super_service: 4
+
   normal:
     service_type_num: 20
     energy: [1000, 2000]

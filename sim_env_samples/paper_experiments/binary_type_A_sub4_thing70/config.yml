@@ -1,0 +1,41 @@
+simulation:
+  name: sim_binary_type_A_sub4_thing70
+  running_time: 90
+  device_pool_path: ${ROOT}/device_pool.yml
+  service_thing_pool_path: ./service_thing_pool.yml
+  force_generate: true
+  # local_mode: true
+
+middleware:
+  manual: manual_mw_tree.yml
+
+service:
+  normal:
+    service_type_num: 20
+    energy: [1000, 2000]
+    execute_time: [0.1, 1.0]
+  super:
+    service_type_num: 10
+    service_per_super_service: [4, 4]
+
+thing:
+  normal:
+    service_per_thing: [3, 3]
+    fail_error_rate: 0
+    broken_rate: 0
+    unregister_rate: 0
+
+  super:
+    service_per_thing: [3, 3]
+    fail_error_rate: 0
+    broken_rate: 0
+    unregister_rate: 0
+
+application:
+  normal:
+    service_per_application: [3, 3]
+    period: [5, 10]
+
+  super:
+    service_per_application: [1, 1]
+    period: [5, 10]

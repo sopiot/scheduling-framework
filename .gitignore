@@ -17,13 +17,12 @@ simulation_*_*
 thing
 middleware_config
 
-res
-result
+data
+sim_result
+profile_result_*
 remote_logs
-!requirements.txt
-!CmakeLists
-!imgs
-*.txt
+service_thing_pool.yml
+device_pool.yml
 .vscode/settings.json
 
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`

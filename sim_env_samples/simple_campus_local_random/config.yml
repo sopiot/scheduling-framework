@@ -1,8 +1,10 @@
 simulation:
   name: sim_simple_campus_local_random
   running_time: 60
-
-device_pool_path: ${ROOT}/device_pool.yml
+  device_pool_path: ${ROOT}/device_pool.yml
+  service_thing_pool_path: ./service_thing_pool.yml
+  # force_generate: true
+  local_mode: true
 
 middleware:
   random:
@@ -14,8 +16,6 @@ middleware:
     super:
       thing_per_middleware: [1, 1]
       application_per_middleware: [2, 2]
-
-  device: [localhost]
 
 service:
   normal:
@@ -38,8 +38,6 @@ thing:
     fail_error_rate: 0
     broken_rate: 0
     unregister_rate: 0
-
-  device: [localhost]
 
 application:
   normal:

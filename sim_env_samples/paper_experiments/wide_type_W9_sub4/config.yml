@@ -1,8 +1,7 @@
 simulation:
   name: sim_wide_type_W9_sub4
   running_time: 90
-
-device_pool_path: ${ROOT}/device_pool.yml
+  device_pool_path: ${ROOT}/device_pool.yml
 
 middleware:
   manual: manual_mw_tree.yml

@@ -1,29 +1,179 @@
 
-from simulation_framework.core.ssh_client import *
-from simulation_framework.core.mqtt_client import *
+from simulation_framework.core.components import *
+from simulation_framework.config import *
+from simulation_framework.ssh_client import *
+from simulation_framework.mqtt_client import *
+from tqdm import tqdm
+from rich.progress import track, Progress
+
+from big_thing_py.common.soptype import SoPProtocolType, SoPErrorType, SoPType
+from big_thing_py.common.thread import SoPThread, Event, Empty
+
+
+class SoPSimulationEnv:
+    def __init__(self, config: SoPSimulationConfig, root_middleware: SoPMiddleware = None,
+                 static_event_timeline: List['SoPEvent'] = [], dynamic_event_timeline: List['SoPEvent'] = [],
+                 service_pool: List[SoPService] = [], thing_pool: List[SoPThing] = [],
+                 simulation_data_file_path: str = '') -> None:
+        self.config = config
+        self.root_middleware = root_middleware
+        self.static_event_timeline = static_event_timeline
+        self.dynamic_event_timeline = dynamic_event_timeline
+        self.service_pool = service_pool
+        self.thing_pool = thing_pool
+        self.simulation_data_file_path = simulation_data_file_path
+
+    def dict(self):
+        return dict(config_path=self.config.config_path,
+                    root_middleware=self.root_middleware.dict(),
+                    static_event_timeline=[event.dict() for event in self.static_event_timeline],
+                    dynamic_event_timeline=[event.dict() for event in self.dynamic_event_timeline],
+                    service_pool=[service.dict() for service in self.service_pool],
+                    thing_pool=[thing.dict() for thing in self.thing_pool])
+
+
+class SoPEventType(Enum):
+    START = 'START'                                                     # Simulation 시작 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 시작된다.
+    END = 'END'                                                         # Simulation 종료 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 종료된다.
+    DELAY = 'DELAY'                                                     # Delay 이벤트. 명세된 시간만큼 딜레이를 발생시킨다.
+
+    MIDDLEWARE_RUN = 'MIDDLEWARE_RUN'                                   # Middleware 실행 이벤트. 원격 디바이스에 Middleware 프로그램을 실행시킨다.
+    MIDDLEWARE_KILL = 'MIDDLEWARE_KILL'                                 # Middleware 종료 이벤트. 원격 디바이스의 Middleware 프로그램을 종료시킨다.
+
+    THING_RUN = 'THING_RUN'                                             # Thing 실행 이벤트. 원격 디바이스에 Thing 프로그램을 실행시킨다.
+    THING_KILL = 'THING_KILL'                                           # Thing 종료 이벤트. 원격 디바이스의 Thing 프로그램에 SIGINT를 보내 강제 종료시킨다.
+    THING_REGISTER = 'THING_REGISTER'                                   # Thing Register 이벤트. Thing이 Register 패킷을 보내는 경우의 이벤트이다.
+    THING_UNREGISTER = 'THING_UNREGISTER'                               # Thing Unregister 이벤트. Thing이 Unregister 패킷을 보내는 경우의 이벤트이다.
+
+    THING_REGISTER_RESULT = 'THING_REGISTER_RESULT'                     # Thing Register 결과 이벤트. Middleware가 Register 결과 패킷을 보내는 경우의 이벤트이다.
+    THING_UNREGISTER_RESULT = 'THING_UNREGISTER_RESULT'                 # Thing Unregister 결과 이벤트. Middleware가 Unregister 결과 패킷을 보내는 경우의 이벤트이다.
+
+    FUNCTION_EXECUTE = 'FUNCTION_EXECUTE'                               # Function Service Execute 이벤트. Middleware가 Thing 프로그램에 Function Service Execute 패킷을 보내는 경우의 이벤트이다.
+    FUNCTION_EXECUTE_RESULT = 'FUNCTION_EXECUTE_RESULT'                 # Function Service Execute 결과 이벤트. Thing이 Function Service Execute를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+
+    VALUE_PUBLISH = 'VALUE_PUBLISH'                                     # Value Service Publish 이벤트. Thing이 Value Service 값 패킷을 보내는 경우의 이벤트이다.
+
+    SCENARIO_VERIFY = 'SCENARIO_VERIFY'                                 # Scenario 검증 이벤트. 시뮬레이터가 EM/VERIFY_SCENARIO 패킷을 전송한다.
+    SCENARIO_ADD = 'SCENARIO_ADD'                                       # Scenario 추가 이벤트. 시뮬레이터가 EM/ADD_SCENARIO 패킷을 전송한다.
+    SCENARIO_RUN = 'SCENARIO_RUN'                                       # Scenario 실행 이벤트. 시뮬레이터가 EM/RUN_SCENARIO 패킷을 전송한다.
+    SCENARIO_STOP = 'SCENARIO_STOP'                                     # Scenario 중지 이벤트. 시뮬레이터가 EM/STOP_SCENARIO 패킷을 전송한다.
+    SCENARIO_UPDATE = 'SCENARIO_UPDATE'                                 # Scenario 업데이트 이벤트. 시뮬레이터가 EM/UPDATE_SCENARIO 패킷을 전송한다.
+    SCENARIO_DELETE = 'SCENARIO_DELETE'                                 # Scenario 삭제 이벤트. 시뮬레이터가 EM/DELETE_SCENARIO 패킷을 전송한다.
+
+    SCENARIO_VERIFY_RESULT = 'SCENARIO_VERIFY_RESULT'                   # Scenario 검증 결과 이벤트. 시뮬레이터가 EM/VERIFY_SCENARIO 패킷을 전송한다.
+    SCENARIO_ADD_RESULT = 'SCENARIO_ADD_RESULT'                         # Scenario 추가 결과 이벤트. 시뮬레이터가 EM/ADD_SCENARIO 패킷을 전송한다.
+    SCENARIO_RUN_RESULT = 'SCENARIO_RUN_RESULT'                         # Scenario 실행 결과 이벤트. 시뮬레이터가 EM/RUN_SCENARIO 패킷을 전송한다.
+    SCENARIO_STOP_RESULT = 'SCENARIO_STOP_RESULT'                       # Scenario 중지 결과 이벤트. 시뮬레이터가 EM/STOP_SCENARIO 패킷을 전송한다.
+    SCENARIO_UPDATE_RESULT = 'SCENARIO_UPDATE_RESULT'                   # Scenario 업데이트 결과 이벤트. 시뮬레이터가 EM/UPDATE_SCENARIO 패킷을 전송한다.
+    SCENARIO_DELETE_RESULT = 'SCENARIO_DELETE_RESULT'                   # Scenario 삭제 결과 이벤트. 시뮬레이터가 EM/DELETE_SCENARIO 패킷을 전송한다.
+
+    SUPER_FUNCTION_EXECUTE = 'SUPER_FUNCTION_EXECUTE'                   # Super Function Service Execute 이벤트. Middleware가 Super Thing 프로그램에 Super Function Service Execute 패킷을 보내는 경우의 이벤트이다.
+    SUPER_FUNCTION_EXECUTE_RESULT = 'SUPER_FUNCTION_EXECUTE_RESULT'     # Super Function Service Execute 결과 이벤트. Super Thing이 Super Function Service Execute를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+    SUB_FUNCTION_EXECUTE = 'SUB_FUNCTION_EXECUTE'                       # Sub Function Service Execute 이벤트. Super Thing이 Middleware에게 Sub Function Service Execute 패킷을 보내는 경우의 이벤트이다.
+    SUB_FUNCTION_EXECUTE_RESULT = 'SUB_FUNCTION_EXECUTE_RESULT'         # Sub Function Service Execute 결과 이벤트. Middleware가 Super Thing에게 Sub Function Service Execute를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+    SUPER_SCHEDULE = 'SUPER_SCHEDULE'                                   # Super Schedule 이벤트. Middleware가 Super Thing 프로그램에 Super Schedule 패킷을 보내는 경우의 이벤트이다.
+    SUPER_SCHEDULE_RESULT = 'SUPER_SCHEDULE_RESULT'                     # Super Schedule 결과 이벤트. Super Thing이 Super Schedule를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+    SUB_SCHEDULE = 'SUB_SCHEDULE'                                       # Sub Schedule 이벤트. Super Thing이 Middleware에게 Sub Schedule 패킷을 보내는 경우의 이벤트이다.
+    SUB_SCHEDULE_RESULT = 'SUB_SCHEDULE_RESULT'                         # Sub Schedule 결과 이벤트. Middleware가 Super Thing에게 Sub Schedule를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
+
+    REFRESH = 'REFRESH'                                                 # Refresh 이벤트. 시뮬레이터가 EM/REFRESH 패킷을 전송한다.
+    SCENARIO_ADD_CHECK = 'SCENARIO_ADD_CHECK'                           # 모든 Scenario가 추가 완료될 때까지 기다리는 이벤트.
+    SCENARIO_RUN_CHECK = 'SCENARIO_RUN_CHECK'                           # 모든 Scenario가 실행 완료될 때까지 기다리는 이벤트.
+
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def get(cls, name: str):
+        try:
+            return cls[name.upper()]
+        except Exception:
+            return cls.UNDEFINED
+
+
+class SoPEvent:
+
+    def __init__(self, event_type: SoPEventType, component: 'SoPComponent' = None, middleware_component: 'SoPMiddleware' = None, thing_component: 'SoPThing' = None, service_component: 'SoPService' = None, scenario_component: 'SoPScenario' = None,
+                 timestamp: float = 0, duration: float = None, delay: float = None,
+                 error: SoPErrorType = None, return_type: SoPType = None, return_value: ReturnType = None,
+                 requester_middleware_name: str = None, super_thing_name: str = None, super_function_name: str = None,
+                 *args, **kwargs) -> None:
+        self.event_type = event_type
+
+        self.component = component
+        self.middleware_component = middleware_component
+        self.thing_component = thing_component
+        self.service_component = service_component
+        self.scenario_component = scenario_component
+
+        self.timestamp = timestamp
+        self.duration = duration
+
+        self.delay = delay
+
+        self.error = error
+        self.return_type = return_type
+        self.return_value = return_value
+        self.requester_middleware_name = requester_middleware_name
+        self.super_thing_name = super_thing_name
+        self.super_function_name = super_function_name
+
+        self.args = args
+        self.kwargs = kwargs
+
+    def load(self, data: dict):
+        self.event_type = SoPEventType.get(data['event_type']) if data['event_type'] is str else data['event_type']
+        self.component = SoPComponent.load(data['component'])
+        self.middleware_component = SoPComponent.load(data['middleware_component'])
+        self.thing_component = SoPComponent.load(data['thing_component'])
+        self.service_component = SoPComponent.load(data['service_component'])
+        self.scenario_component = SoPComponent.load(data['scenario_component'])
+        self.timestamp = data['timestamp']
+        self.duration = data['duration']
+        self.delay = data['delay']
+        self.error = SoPErrorType.get(data['error']) if data['error'] is str else data['error']
+        self.return_type = SoPType.get(data['return_type']) if data['return_type'] is str else data['return_type']
+        self.return_value = data['return_value']
+        self.requester_middleware_name = data['requester_middleware_name']
+
+    def dict(self) -> dict:
+        return dict(event_type=self.event_type.value,
+                    component=self.component.name if self.component else None,
+                    middleware_component=self.middleware_component.name if self.middleware_component else None,
+                    thing_component=self.thing_component.name if self.thing_component else None,
+                    service_component=self.service_component.name if self.service_component else None,
+                    scenario_component=self.scenario_component.name if self.scenario_component else None,
+                    timestamp=self.timestamp,
+                    duration=self.duration,
+                    delay=self.delay,
+                    error=self.error,
+                    return_type=self.return_type,
+                    return_value=self.return_value,
+                    requester_middleware_name=self.requester_middleware_name)
 
 
 class MXEventHandler:
 
-    def __init__(self, simulation_env: MXMiddlewareElement = None, event_log: List[MXEvent] = [], timeout: float = 5.0, mqtt_debug: bool = False, middleware_debug: bool = False, running_time: float = None,
-                 download_logs: bool = False) -> None:
-        self.simulation_env = simulation_env
-        self.middleware_list: List[MXMiddlewareElement] = get_middleware_list_recursive(self.simulation_env)
-        self.thing_list: List[MXThingElement] = get_thing_list_recursive(self.simulation_env)
-        self.scenario_list: List[MXScenarioElement] = get_scenario_list_recursive(self.simulation_env)
-        self.device_list: List[MXDeviceElement] = []
+    def __init__(self, root_middleware: SoPMiddleware = None, timeout: float = 5.0, running_time: float = None, download_logs: bool = False,
+                 mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
+        self.root_middleware = root_middleware
+        self.middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.root_middleware)
+        self.thing_list: List[SoPThing] = get_whole_thing_list(self.root_middleware)
+        self.scenario_list: List[SoPScenario] = get_whole_scenario_list(self.root_middleware)
 
         self.mqtt_client_list: List[MXMQTTClient] = []
         self.ssh_client_list: List[MXSSHClient] = []
 
         self.event_listener_event = Event()
         # self.event_listener_lock = Lock()
-        self.event_listener_thread: MXThread = MXThread(name='event_listener', target=self.event_listener, args=(self.event_listener_event, ))
+        self.event_listener_thread = SoPThread(name='event_listener', target=self._event_listener, args=(self.event_listener_event, ))
 
         # simulator와 같은 인스턴스를 공유한다.
         self.simulation_start_time = 0
-        self.simulation_duration = 0
-        self.event_log: List[MXEvent] = event_log
+        # self.simulation_duration = 0
+        self.event_log: List[SoPEvent] = []
         self.timeout = timeout
         self.running_time = running_time
 
@@ -34,46 +184,65 @@ class MXEventHandler:
 
         self.download_log_file_thread_queue = Queue()
 
-    def add_mqtt_client(self, mqtt_client: MXMQTTClient):
+    def _add_mqtt_client(self, mqtt_client: SoPMQTTClient):
         self.mqtt_client_list.append(mqtt_client)
 
-    def add_ssh_client(self, ssh_client: MXSSHClient):
+    def _add_ssh_client(self, ssh_client: SoPSSHClient):
         self.ssh_client_list.append(ssh_client)
 
-    def update_middleware_thing_device_list(self):
-        device_list: List[MXDeviceElement] = [middleware.device for middleware in self.middleware_list] + [thing.device for thing in self.thing_list]
+    def _event_listener(self, stop_event: Event):
+        recv_msg: mqtt.MQTTMessage = None
 
-        for device in device_list:
-            if device in self.device_list:
-                continue
-            self.device_list.append(device)
+        try:
+            while not stop_event.wait(BUSY_WAIT_TIMEOUT / 100):
+                for mqtt_client in self.mqtt_client_list:
+                    try:
+                        recv_msg = mqtt_client._recv_message_queue.get(timeout=BUSY_WAIT_TIMEOUT / 100)
+                        self._on_recv_message(recv_msg)
+                    except Empty:
+                        recv_msg = None
 
-        # 미들웨어가 같은 디바이스를 가지는 경우 같은 MXDeviceElement인스턴스를 공유한다.
+        except Exception as e:
+            stop_event.set()
+            print_error()
+            return False
+
+    def start_event_listener(self):
+        self.event_listener_thread.start()
+
+    def stop_event_listener(self):
+        self.event_listener_event.set()
+
+    def remove_duplicated_device_instance(self) -> None:
+        # When middleware has the same device, shares the SoPDeviceComponent instance.
+        device_list = self._get_device_list()
         for middleware in self.middleware_list:
-            for device in self.device_list:
+            for device in device_list:
                 if device == middleware.device:
                     middleware.device = device
 
-    def init_ssh_client_list(self):
+    def init_ssh_client_list(self) -> bool:
+        with Progress() as progress:
+            def task(device: SoPDevice):
+                ssh_client = SoPSSHClient(device)
+                ssh_client.connect(use_ssh_config=False)
 
-        def task(device: MXDeviceElement):
-            ssh_client = MXSSHClient(device)
-            MXTEST_LOG_DEBUG(f'Connecting to {device.name}', MXTestLogLevel.INFO)
-            ssh_client.connect(use_ssh_config=False)
-
-            # 따로 명세되어있지 않고 local network에 있는 경우 사용 가능한 port를 찾는다.
-            if device.mqtt_port:
-                device.available_port_list = [device.mqtt_port]
-            else:
-                if '192.168' in device.host or device.host == 'localhost':
-                    device.available_port_list = ssh_client.available_port()
-                    MXTEST_LOG_DEBUG(f'Found available port of {device.name}', MXTestLogLevel.INFO)
+                # 따로 명세되어있지 않고 local network에 있는 경우 사용 가능한 port를 찾는다.
+                if device.mqtt_port:
+                    device.available_port_list = []
                 else:
-                    raise Exception(f'mqtt_port of {device.name} is not specified.')
+                    if '192.168' in device.host or device.host == 'localhost':
+                        device.available_port_list = ssh_client.available_port()
+                        # SOPTEST_LOG_DEBUG(f'Found available port of {device.name}', SoPTestLogLevel.INFO)
+                    else:
+                        raise Exception(f'mqtt_port of {device.name} is not specified.')
 
-            self.add_ssh_client(ssh_client)
+                self._add_ssh_client(ssh_client)
+                progress.update(task1, advance=1)
 
-        pool_map(task, self.device_list)
+            device_list = self._get_device_list()
+            task1 = progress.add_task(description='Init SSH client', total=len(device_list))
+            pool_map(task, device_list)
 
         return True
 
@@ -81,116 +250,38 @@ class MXEventHandler:
     # TODO: 만약 로컬 네트워크이고 mqtt 포트가 명세되어있는 경우 사용 가능한 포트에 명세한 mqtt 포트가 있는지 확인만하고 해당 포트를 mqtt 포트로 사용한다.
     # 로컬 서버 포트는 어떻게 할 것인지 고민해야한다. -> 같은 로컬 서버 포트를 사용하면 반복해서 미들웨어를 구동할 때 bind 에러가 발생한다...
     def init_mqtt_client_list(self):
-        for middleware in self.middleware_list:
-            if not self.middleware_debug:
-                if '192.168' in middleware.device.host or middleware.device.host == 'localhost':
-                    picked_port_list = random.sample(middleware.device.available_port_list, 2)
-                    middleware.localserver_port = picked_port_list[0]
-                    if not middleware.mqtt_port:
-                        middleware.mqtt_port = picked_port_list[1]
-                else:
-                    picked_port_list = []
-                # middleware.set_port(*tuple(picked_port_list))
-                for picked_port in picked_port_list:
-                    middleware.device.available_port_list.remove(picked_port)
+        with Progress() as progress:
+            def task(middleware: SoPMiddleware):
+                if not self.middleware_debug:
+                    if '192.168' in middleware.device.host or middleware.device.host == 'localhost':
+                        picked_port_list = random.sample(middleware.device.available_port_list, 2)
+                        middleware.localserver_port = picked_port_list[0]
+                        if not middleware.mqtt_port:
+                            middleware.mqtt_port = picked_port_list[1]
+                    else:
+                        picked_port_list = []
 
-            mqtt_client = MXMQTTClient(middleware, debug=self.mqtt_debug)
-            self.add_mqtt_client(mqtt_client)
+                    for picked_port in picked_port_list:
+                        middleware.device.available_port_list.remove(picked_port)
 
-    def find_ssh_client(self, element: Union[MXMiddlewareElement, MXThingElement]) -> MXSSHClient:
-        for ssh_client in self.ssh_client_list:
-            if ssh_client.device == element.device:
-                return ssh_client
-        else:
-            return None
+                mqtt_client = SoPMQTTClient(middleware, debug=self.mqtt_debug)
+                self._add_mqtt_client(mqtt_client)
+                progress.update(task1, advance=1)
 
-    def find_mqtt_client(self, middleware: MXMiddlewareElement) -> MXMQTTClient:
-        for mqtt_client in self.mqtt_client_list:
-            if mqtt_client.middleware == middleware:
-                return mqtt_client
-        else:
-            return None
+            task1 = progress.add_task(description='Init MQTT client', total=len(self.middleware_list))
+            pool_map(task, self.middleware_list)
 
-    def find_mqtt_client_by_client_id(self, client_id: str) -> MXMQTTClient:
-        for mqtt_client in self.mqtt_client_list:
-            if mqtt_client.get_client_id() == client_id:
-                return mqtt_client
-        else:
-            return None
-
-    def find_middleware(self, target_middleware_name: str) -> MXMiddlewareElement:
-        for middleware in self.middleware_list:
-            if middleware.name == target_middleware_name:
-                return middleware
-        else:
-            return None
-
-    def find_scenario(self, target_scenario_name: str) -> MXScenarioElement:
-        for scenario in self.scenario_list:
-            if scenario.name == target_scenario_name:
-                return scenario
-        else:
-            return None
-
-    def find_thing(self, target_thing_name: str) -> MXThingElement:
-        for thing in self.thing_list:
-            if thing.name == target_thing_name:
-                return thing
-        else:
-            return None
-
-    def find_service(self, target_service_name: str) -> MXServiceElement:
-        for thing in self.thing_list:
-            for service in thing.service_list:
-                if service.name == target_service_name:
-                    return service
-        else:
-            return None
-
-    def find_element_middleware(self, element: Union[MXMiddlewareElement, MXScenarioElement, MXThingElement, MXServiceElement, str]) -> MXMiddlewareElement:
-        if not element:
-            raise ValueError('element is None')
-
-        if not isinstance(element, str):
-            element_name = element.name
-        else:
-            element_name = element
-
-        for middleware in self.middleware_list:
-            if isinstance(element, MXMiddlewareElement):
-                for child_middleware in middleware.child_middleware_list:
-                    if child_middleware.name == element_name:
-                        return middleware
-            elif isinstance(element, MXScenarioElement):
-                for scenario in middleware.scenario_list:
-                    if scenario.name == element_name:
-                        return middleware
-            elif isinstance(element, MXThingElement):
-                for thing in middleware.thing_list:
-                    if thing.name == element_name:
-                        return middleware
-            elif isinstance(element, MXServiceElement):
-                for thing in middleware.thing_list:
-                    for service in thing.service_list:
-                        if service.name == element_name:
-                            return middleware
-        else:
-            return None
-
-    def event_listener_start(self):
-        self.event_listener_thread.start()
-
-    def event_listener_stop(self):
-        self.event_listener_event.set()
+        return True
 
     def download_log_file(self) -> str:
 
-        def task(middleware: MXMiddlewareElement):
+        def task(middleware: SoPMiddleware):
+            user = middleware.device.user
             ssh_client = self.find_ssh_client(middleware)
             ssh_client.open_sftp()
 
-            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
-            target_middleware_log_path = os.path.join(target_simulation_log_path, f'middleware.level{middleware.level}.{middleware.name}')
+            remote_home_dir = f'/home/{user}'
+            target_middleware_log_path = os.path.join(target_simulation_log_path, f'middleware.{ssh_client.device.name}.level{middleware.level}.{middleware.name}')
 
             file_attr_list = ssh_client._sftp_client.listdir_attr(
                 middleware.remote_middleware_config_path)
@@ -199,6 +290,8 @@ class MXEventHandler:
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.cfg'), ext_filter='cfg')
                 ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
                                     local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.mosquitto.conf'), ext_filter='conf')
+                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
+                                    local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}_mosquitto.log'), ext_filter='log')
 
             remote_middleware_log_path = os.path.join(remote_home_dir, 'simulation_log')
             file_attr_list = ssh_client._sftp_client.listdir_attr(remote_middleware_log_path)
@@ -239,125 +332,115 @@ class MXEventHandler:
         if event.timestamp == None:
             raise Exception('timestamp is not defined')
         while get_current_time() - self.simulation_start_time < event.timestamp:
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
 
-        if event.event_type == MXEventType.DELAY:
-            MXTEST_LOG_DEBUG(f'Delay {event.delay} Sec start...', MXTestLogLevel.INFO, 'yellow')
+        if event.event_type == SoPEventType.DELAY:
+            SOPTEST_LOG_DEBUG(f'Delay {event.delay} Sec start...', SoPTestLogLevel.INFO, 'yellow')
             self.event_log.append(event)
             time.sleep(event.delay)
-        elif event.event_type == MXEventType.START:
-            self.simulation_start_time = get_current_time()
-            MXTEST_LOG_DEBUG(f'Simulation Start', MXTestLogLevel.PASS, 'yellow')
-        elif event.event_type == MXEventType.END:
-            self.simulation_duration = get_current_time() - self.simulation_start_time
-            MXTEST_LOG_DEBUG(f'Simulation End. duration: {self.simulation_duration:8.3f} sec', MXTestLogLevel.PASS, 'yellow')
+        elif event.event_type == SoPEventType.START:
+            cur_time = get_current_time()
+            event.timestamp = cur_time
+            self.simulation_start_time = cur_time
+            SOPTEST_LOG_DEBUG(f'Simulation Start', SoPTestLogLevel.PASS, 'yellow')
+        elif event.event_type == SoPEventType.END:
+            event.timestamp = get_current_time() - self.simulation_start_time
+            SOPTEST_LOG_DEBUG(f'Simulation End. duration: {event.timestamp:8.3f} sec', SoPTestLogLevel.PASS, 'yellow')
 
-            # NOTE: 시뮬레이션이 끝날 때 시나리오를 stop하면 안된다. 끝나는 시점에서 그대로의 시나리오 state를 알아야 한다.
-            # for middleware in self.middleware_list:
-            #     for scenario in middleware.scenario_list:
-            #         MXThread(name=f'{event.event_type.value} END', target=self.stop_scenario, args=(scenario, self.timeout, )).start()
+            # for check scenario state
+            self.refresh(timeout=self.timeout, scenario_check=True, check_interval=3.0)
+            self.stop_event_listener()
+            self.kill_every_process()
 
-            self.refresh(timeout=self.timeout, service_check=True, scenario_check=True)
-
-            self.event_listener_stop()
-            self.kill_all_simulation_instance()
-            # if self.download_logs:
-            #     self.download_log_file(self.middleware_commit_id, self.mosquitto_conf_trim)
-            # self.wrapup()
             return True
         else:
-            target_element = event.element
-            if event.event_type == MXEventType.MIDDLEWARE_RUN:
-                parent_middleware = self.find_element_middleware(target_element)
-                if parent_middleware:
-                    while not parent_middleware.online:
-                        time.sleep(THREAD_TIME_OUT)
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.run_middleware, args=(target_element, 10, )).start()
-                self.subscribe_scenario_finish_topic(middleware=target_element)
-            elif event.event_type == MXEventType.MIDDLEWARE_KILL:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.kill_middleware, args=(target_element, )).start()
-            elif event.event_type == MXEventType.THING_RUN:
-                while not self.check_middleware_online(target_element):
-                    time.sleep(THREAD_TIME_OUT)
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.run_thing, args=(target_element, 30, )).start()
-            elif event.event_type == MXEventType.THING_KILL:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.kill_thing, args=(target_element, )).start()
-            elif event.event_type == MXEventType.THING_UNREGISTER:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.unregister_thing, args=(target_element, )).start()
-            elif event.event_type == MXEventType.SCENARIO_VERIFY:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.verify_scenario, args=(target_element, self.timeout, )).start()
-            elif event.event_type == MXEventType.SCENARIO_ADD:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.add_scenario, args=(target_element, self.timeout, )).start()
-            elif event.event_type == MXEventType.SCENARIO_RUN:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.run_scenario, args=(target_element, self.timeout, )).start()
-            elif event.event_type == MXEventType.SCENARIO_STOP:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.stop_scenario, args=(target_element, self.timeout, )).start()
-            elif event.event_type == MXEventType.SCENARIO_UPDATE:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.update_scenario, args=(target_element, self.timeout, )).start()
-            elif event.event_type == MXEventType.SCENARIO_DELETE:
-                MXThread(name=f'{event.event_type.value}_{event.element.name}', target=self.delete_scenario, args=(target_element, self.timeout, )).start()
-            elif event.event_type == MXEventType.REFRESH:
-                self.refresh(timeout=self.timeout, service_check=True, scenario_check=True)
-            elif event.event_type == MXEventType.THING_REGISTER_WAIT:
-                self.thing_register_wait()
-            elif event.event_type == MXEventType.SCENARIO_ADD_CHECK:
+            target_component = event.component
+            if event.event_type == SoPEventType.MIDDLEWARE_RUN:
+                # parent_middleware = self.find_parent_middleware(target_component)
+                # if parent_middleware:
+                #     while not parent_middleware.online:
+                #         time.sleep(BUSY_WAIT_TIMEOUT)
+                while not self.check_middleware_online(target_component):
+                    time.sleep(BUSY_WAIT_TIMEOUT)
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.run_middleware, args=(target_component, 10, )).start()
+                self.subscribe_scenario_finish_topic(middleware=target_component)
+            elif event.event_type == SoPEventType.MIDDLEWARE_KILL:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.kill_middleware, args=(target_component, )).start()
+            elif event.event_type == SoPEventType.THING_RUN:
+                while not self.check_middleware_online(target_component):
+                    time.sleep(BUSY_WAIT_TIMEOUT)
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.run_thing, args=(target_component, 30, )).start()
+            elif event.event_type == SoPEventType.THING_KILL:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.kill_thing, args=(target_component, )).start()
+            elif event.event_type == SoPEventType.THING_UNREGISTER:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.unregister_thing, args=(target_component, )).start()
+            elif event.event_type == SoPEventType.SCENARIO_VERIFY:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.verify_scenario, args=(target_component, self.timeout, )).start()
+            elif event.event_type == SoPEventType.SCENARIO_ADD:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.add_scenario, args=(target_component, self.timeout, )).start()
+            elif event.event_type == SoPEventType.SCENARIO_RUN:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.run_scenario, args=(target_component, self.timeout, )).start()
+            elif event.event_type == SoPEventType.SCENARIO_STOP:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.stop_scenario, args=(target_component, self.timeout, )).start()
+            elif event.event_type == SoPEventType.SCENARIO_UPDATE:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.update_scenario, args=(target_component, self.timeout, )).start()
+            elif event.event_type == SoPEventType.SCENARIO_DELETE:
+                SoPThread(name=f'{event.event_type.value}_{event.component.name}',
+                          target=self.delete_scenario, args=(target_component, self.timeout, )).start()
+            elif event.event_type == SoPEventType.REFRESH:
+                self.refresh(timeout=self.timeout, check_interval=3.0, **event.kwargs)
+            elif event.event_type == SoPEventType.SCENARIO_ADD_CHECK:
                 self.scenario_add_check(timeout=self.timeout)
             elif event.event_type == MXEventType.SCENARIO_RUN_CHECK:
                 self.scenario_run_check(timeout=self.timeout)
             else:
-                raise MXTEST_LOG_DEBUG(f'Event type is {event.event_type}, but not implemented yet', MXTestLogLevel.FAIL)
-
-            # if event.event_type in [MXEventType.MIDDLEWARE_RUN,
-            #                         MXEventType.MIDDLEWARE_KILL,
-            #                         MXEventType.THING_RUN,
-            #                         MXEventType.THING_KILL,
-            #                         MXEventType.THING_UNREGISTER]:
-            #     time.sleep(0.1)
-
-    def event_listener(self, stop_event: Event):
-        recv_msg = None
-
-        try:
-            while not stop_event.wait(THREAD_TIME_OUT / 100):
-                for mqtt_client in self.mqtt_client_list:
-                    try:
-                        recv_msg = mqtt_client.recv_message_queue.get(timeout=THREAD_TIME_OUT / 100)
-                        self.on_recv_message(recv_msg)
-                    except Empty:
-                        recv_msg = None
-
-        except Exception as e:
-            stop_event.set()
-            print_error(e)
-            return False
+                raise SOPTEST_LOG_DEBUG(f'Event type is {event.event_type}, but not implemented yet', SoPTestLogLevel.FAIL)
 
     ####  middleware   #############################################################################################################
 
-    def run_mosquitto(self, middleware: MXMiddlewareElement, ssh_client: MXSSHClient, remote_home_dir: str):
-        ssh_client.send_command(f'/sbin/mosquitto -c {middleware.remote_mosquitto_conf_file_path.replace("~", remote_home_dir)} -v '
-                                f'2> {middleware.remote_middleware_config_path.replace("~", remote_home_dir)}/{middleware.name}_mosquitto.log &', ignore_result=True)
+    def run_mosquitto(self, middleware: SoPMiddleware, ssh_client: SoPSSHClient, remote_home_dir: str):
+        remote_mosquitto_conf_file_path = f'{middleware.remote_middleware_config_path}/{middleware.name}_mosquitto.conf'
+        ssh_client.send_command(f'/sbin/mosquitto -c {remote_mosquitto_conf_file_path.replace("~", remote_home_dir)} '
+                                f'-v 2> {middleware.remote_middleware_config_path.replace("~", remote_home_dir)}/{middleware.name}_mosquitto.log &', ignore_result=True)
         target_mosquitto_pid_list = ssh_client.send_command(f'netstat -lpn | grep :{middleware.mqtt_port}')
         if len(target_mosquitto_pid_list) > 0:
             return True
 
-    def init_middleware(self, middleware: MXMiddlewareElement, ssh_client: MXSSHClient, remote_home_dir: str):
-        ssh_client.send_command(f'chmod +x {middleware.remote_init_script_file_path.replace("~",remote_home_dir)}; '
-                                f'bash {middleware.remote_init_script_file_path.replace("~",remote_home_dir)}')
+    def init_middleware(self, middleware: SoPMiddleware, ssh_client: SoPSSHClient, remote_home_dir: str):
+        remote_init_script_file_path = f'{middleware.remote_middleware_config_path}/{middleware.name}_init.sh'
+        ssh_client.send_command(f'chmod +x {remote_init_script_file_path.replace("~",remote_home_dir)}; '
+                                f'bash {remote_init_script_file_path.replace("~",remote_home_dir)}')
 
-    def subscribe_scenario_finish_topic(self, middleware: MXMiddlewareElement):
+    def subscribe_scenario_finish_topic(self, middleware: SoPMiddleware):
         mqtt_client = self.find_mqtt_client(middleware)
         while not mqtt_client.is_run:
-            time.sleep(THREAD_TIME_OUT)
+            time.sleep(BUSY_WAIT_TIMEOUT)
         mqtt_client.subscribe('SIM/FINISH')
 
-    def run_middleware(self, middleware: MXMiddlewareElement, timeout: float = 5):
+    def run_middleware(self, middleware: SoPMiddleware, timeout: float = 5) -> bool:
 
-        def check_parent_middleware_online(parent_middleware: MXMiddlewareElement):
-            if parent_middleware:
+        def wait_parent_middleware_online(middleware: SoPMiddleware) -> bool:
+            SOPTEST_LOG_DEBUG(f'Wait for middleware: {middleware.name}, device: {middleware.device.name} online', SoPTestLogLevel.INFO, 'yellow')
+            parent_middleware = middleware.parent
+            if not parent_middleware:
+                return True
+            else:
                 while not parent_middleware.online:
-                    time.sleep(THREAD_TIME_OUT)
+                    time.sleep(BUSY_WAIT_TIMEOUT)
+                else:
+                    return True
 
-        def middleware_run_command(middleware: MXMiddlewareElement, remote_home_dir: str):
+        def middleware_run_command(middleware: SoPMiddleware, remote_home_dir: str) -> str:
             log_file_path = ''
             for line in middleware.middleware_cfg.split('\n'):
                 if 'log_file_path = ' in line:
@@ -368,118 +451,95 @@ class MXEventHandler:
             user = os.path.basename(remote_home_dir)
             home_dir_append(middleware.remote_middleware_path, user)
             cd_to_config_dir_command = f'cd {os.path.dirname(middleware.remote_middleware_config_path).replace("~", remote_home_dir)}'
+            remote_middleware_cfg_file_path = f'{middleware.remote_middleware_config_path}/{middleware.name}_middleware.cfg'
             run_command = (f'mkdir -p {log_file_path}; cd {home_dir_append(middleware.remote_middleware_path, user)}; '
-                           f'./sopiot_middleware -f {middleware.remote_middleware_cfg_file_path.replace("~", remote_home_dir)} > {log_file_path}/{middleware.name}.stdout 2>&1 &')
+                           f'./sopiot_middleware -f {remote_middleware_cfg_file_path.replace("~", remote_home_dir)} > {log_file_path}/{middleware.name}.stdout 2>&1 &')
             return f'{cd_to_config_dir_command}; {run_command}'
 
-        def check_online(mqtt_client: MXMQTTClient, timeout: float):
-            _, payload, _ = self.publish_and_expect(middleware,
-                                                    encode_MQTT_message(MXProtocolType.WebClient.EM_REFRESH.value % f'{mqtt_client.get_client_id()}_check_online@{middleware.name}', '{}'),
-                                                    MXProtocolType.WebClient.ME_RESULT_SERVICE_LIST.value % (f'{mqtt_client.get_client_id()}_check_online@{middleware.name}'),
-                                                    auto_subscribe=True,
-                                                    auto_unsubscribe=False,
-                                                    timeout=timeout)
-            if payload is not None:
-                MXTEST_LOG_DEBUG(f'Middleware {middleware.name} on {middleware.device.host}:{middleware.mqtt_port} - websocket: {middleware.websocket_port} was online!', MXTestLogLevel.PASS)
-                middleware.online = True
-                return True
-            else:
-                # MXTEST_LOG_DEBUG(f'Middleware {middleware.name} on {middleware.device.host}:{middleware.mqtt_port} was not online!', 1)
+        def check_online(mqtt_client: SoPMQTTClient, timeout: float) -> bool:
+            expect_msg = self.publish_and_expect(
+                middleware,
+                encode_MQTT_message(SoPProtocolType.WebClient.EM_REFRESH.value % f'{mqtt_client.get_client_id()}@{middleware.name}', '{}'),
+                SoPProtocolType.WebClient.ME_RESULT_SERVICE_LIST.value % (f'{mqtt_client.get_client_id()}@{middleware.name}'),
+                auto_subscribe=True,
+                auto_unsubscribe=False,
+                timeout=timeout)
+
+            if expect_msg == SoPErrorType.TIMEOUT:
                 return False
 
-        def check_online_with_timeout(mqtt_client: MXMQTTClient, timeout: int, check_interval: float):
-            while timeout > 0:
+            middleware.online = True
+            return True
+
+        def check_online_cyclic(mqtt_client: SoPMQTTClient, timeout: int, check_interval: float) -> Union[bool, SoPErrorType]:
+            cur_time = get_current_time()
+            while get_current_time() - cur_time < timeout:
                 if check_online(mqtt_client=mqtt_client, timeout=check_interval):
+                    SOPTEST_LOG_DEBUG(f'Middleware: {middleware.name}, device: {middleware.device.name} on {middleware.device.host}:{middleware.mqtt_port} '
+                                      f'- websocket: {middleware.websocket_port} is online!', SoPTestLogLevel.PASS)
                     return True
                 else:
-                    timeout -= check_interval
-                    time.sleep(check_interval)
+                    time.sleep(BUSY_WAIT_TIMEOUT)
             else:
-                MXTEST_LOG_DEBUG(f'[TIMEOUT] Running middleware {middleware.name} was failed...', MXTestLogLevel.FAIL)
-                return False
+                SOPTEST_LOG_DEBUG(f'[TIMEOUT] Running middleware: {middleware.name}, device: {middleware.device.name} is failed...', SoPTestLogLevel.FAIL)
+                return SoPErrorType.TIMEOUT
 
         ssh_client = self.find_ssh_client(middleware)
         mqtt_client = self.find_mqtt_client(middleware)
-        parent_middleware = self.find_element_middleware(middleware)
+        wait_parent_middleware_online(middleware)
 
-        MXTEST_LOG_DEBUG(f'Wait for middleware {middleware.name} online', MXTestLogLevel.INFO, 'yellow')
-        check_parent_middleware_online(parent_middleware)
-
-        remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
+        user = middleware.device.user
+        remote_home_dir = f'/home/{user}'
         self.run_mosquitto(middleware, ssh_client, remote_home_dir)
         self.init_middleware(middleware, ssh_client, remote_home_dir)
         mqtt_client.run()
-        ssh_client.send_command(middleware_run_command(middleware=middleware, remote_home_dir=remote_home_dir), ignore_result=True)
+        if not ssh_client.send_command_with_check_success(middleware_run_command(middleware=middleware, remote_home_dir=remote_home_dir)):
+            raise SimulationFrameworkError(f'Send middleware run command failed! - middleware: {middleware.name}, device: {middleware.device.name}')
 
-        if not check_online_with_timeout(mqtt_client, timeout=timeout, check_interval=0.5):
-            self.kill_middleware(middleware)
-            self.run_middleware(middleware, timeout=timeout)
+        if check_online_cyclic(mqtt_client, timeout=timeout, check_interval=0.5) == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'Retry to run middleware: {middleware.name}, device: {middleware.device.name}...', SoPTestLogLevel.WARN)
+            if not self.kill_middleware(middleware):
+                raise SimulationFrameworkError(f'Send middleware kill command failed! - middleware: {middleware.name}, device: {middleware.device.name} failed!')
+            return self.run_middleware(middleware, timeout=timeout)
 
-    def kill_middleware(self, middleware: MXMiddlewareElement):
+        return True
+
+    def kill_middleware(self, middleware: SoPMiddleware) -> bool:
         ssh_client = self.find_ssh_client(middleware)
-        pid_list = self.get_element_proc_pid(ssh_client, middleware)
+        pid_list = self.get_component_proc_pid(ssh_client, middleware)
 
         if pid_list['middleware_pid_list']:
             for middleware_pid in pid_list['middleware_pid_list']:
                 if middleware_pid:
-                    ssh_client.send_command(f'kill -9 {middleware_pid}')
+                    return ssh_client.send_command_with_check_success(f'kill -9 {middleware_pid}')
         if pid_list['mosquitto_pid_list']:
             for mosquitto_pid in pid_list['mosquitto_pid_list']:
                 if mosquitto_pid:
-                    ssh_client.send_command(f'kill -9 {mosquitto_pid}')
+                    return ssh_client.send_command_with_check_success(f'kill -9 {mosquitto_pid}')
 
     ####  thing   #############################################################################################################
 
-    def check_thing_register(self, thing: MXThingElement, timeout: float = 5):
-        _, payload, _ = self.expect(thing,
-                                    target_topic=MXProtocolType.Base.TM_REGISTER.value % thing.name,
-                                    auto_subscribe=True,
-                                    auto_unsubscribe=False,
-                                    timeout=timeout)
-        if payload is None:
-            MXTEST_LOG_DEBUG(f'TM_REGISTER of thing {thing.name} was not detected (timeout)...', MXTestLogLevel.FAIL)
-            return False
-
-        _, payload, _ = self.expect(thing,
-                                    target_topic=MXProtocolType.Base.MT_RESULT_REGISTER.value % thing.name,
-                                    auto_subscribe=True,
-                                    auto_unsubscribe=False,
-                                    timeout=timeout)
-        if payload is None:
-            MXTEST_LOG_DEBUG(f'MT_RESULT_REGISTER thing {thing.name} was not detected (timeout)...', MXTestLogLevel.FAIL)
-            return False
-
-        error = int(payload['error'])
-        if error in [0, -4]:
-            thing.middleware_client_name = payload['middleware_name']
-            return True
-        elif error == -1:
-            MXTEST_LOG_DEBUG(f'Register fail of thing {thing.name} with register packet error... error code: {payload["error"]}', MXTestLogLevel.FAIL)
-            return False
-
-    def subscribe_thing_topic(self, thing: MXThingElement, mqtt_client: MXMQTTClient):
+    def subscribe_thing_topic(self, thing: SoPThing, mqtt_client: SoPMQTTClient):
         for service in thing.service_list:
-            mqtt_client.subscribe([MXProtocolType.Base.MT_EXECUTE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
-                                   (MXProtocolType.Base.MT_EXECUTE.value % (service.name, thing.name, '', '')).rstrip('/'),
-                                   MXProtocolType.Base.TM_RESULT_EXECUTE.value % (service.name, thing.name, '+', '#'),
-                                   (MXProtocolType.Base.TM_RESULT_EXECUTE.value % (service.name, thing.name, '', '')).rstrip('/')])
+            mqtt_client.subscribe([SoPProtocolType.Base.MT_EXECUTE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
+                                   (SoPProtocolType.Base.MT_EXECUTE.value % (service.name, thing.name, '', '')).rstrip('/'),
+                                   SoPProtocolType.Base.TM_RESULT_EXECUTE.value % (service.name, thing.name, '+', '#'),
+                                   (SoPProtocolType.Base.TM_RESULT_EXECUTE.value % (service.name, thing.name, '', '')).rstrip('/')])
             if thing.is_super:
                 mqtt_client.subscribe([
-                    MXProtocolType.Super.MS_EXECUTE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
-                    MXProtocolType.Super.SM_EXECUTE.value % ('+', '+', '#'),
-                    MXProtocolType.Super.MS_RESULT_EXECUTE.value % ('+', '+', '#'),
-                    MXProtocolType.Super.SM_RESULT_EXECUTE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
-                    MXProtocolType.Super.MS_SCHEDULE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
-                    MXProtocolType.Super.SM_SCHEDULE.value % ('+', '+', '#'),
-                    MXProtocolType.Super.MS_RESULT_SCHEDULE.value % ('+', '+', '#'),
-                    MXProtocolType.Super.SM_RESULT_SCHEDULE.value % (service.name, thing.name, thing.middleware_client_name, '#')])
+                    SoPProtocolType.Super.MS_EXECUTE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
+                    SoPProtocolType.Super.SM_EXECUTE.value % ('+', '+', '+', '#'),
+                    SoPProtocolType.Super.MS_RESULT_EXECUTE.value % ('+', '+', '+', '#'),
+                    SoPProtocolType.Super.SM_RESULT_EXECUTE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
+                    SoPProtocolType.Super.MS_SCHEDULE.value % (service.name, thing.name, thing.middleware_client_name, '#'),
+                    SoPProtocolType.Super.SM_SCHEDULE.value % ('+', '+', '+', '#'),
+                    SoPProtocolType.Super.MS_RESULT_SCHEDULE.value % ('+', '+', '+', '#'),
+                    SoPProtocolType.Super.SM_RESULT_SCHEDULE.value % (service.name, thing.name, thing.middleware_client_name, '#')])
         # for value in self._value_list:
-        #     mqtt_client.subscribe([MXProtocolType.Default.TM_VALUE_PUBLISH.value % (thing.name, value['name']),
-        #                                         MXProtocolType.Default.TM_VALUE_PUBLISH_OLD.value % (thing.name, value['name'])])
+        #     mqtt_client.subscribe([SoPProtocolType.Default.TM_VALUE_PUBLISH.value % (thing.name, value['name']), SoPProtocolType.Default.TM_VALUE_PUBLISH_OLD.value % (thing.name, value['name'])])
 
-    def run_thing(self, thing: MXThingElement, timeout: float = 5):
-        # MXTEST_LOG_DEBUG(f'Thing {thing.name} run start...', MXTestLogLevel.PASS)
-        middleware = self.find_element_middleware(thing)
+    def run_thing(self, thing: SoPThing, timeout: float = 5):
+        middleware = self.find_parent_middleware(thing)
         ssh_client = self.find_ssh_client(thing)
         mqtt_client = self.find_mqtt_client(middleware)
 
@@ -489,208 +549,280 @@ class MXEventHandler:
                              MXProtocolType.Base.MT_RESULT_UNREGISTER.value % thing.name]
         mqtt_client.subscribe(target_topic_list)
 
-        result = ssh_client.send_command('cd ~ && pwd')
+        user = middleware.device.user
         thing_cd_command = f'cd {os.path.dirname(thing.remote_thing_file_path)}'
-        thing_run_command = f'{thing_cd_command}; python {thing.remote_thing_file_path.replace("~", result[0])} -n {thing.name} -ip {mqtt_client.host if not thing.is_super else "localhost"} -p {mqtt_client.port} -ac {thing.alive_cycle} > /dev/null 2>&1 & echo $!'
+        thing_run_command = (f'{thing_cd_command}; python {home_dir_append(thing.remote_thing_file_path, user)} -n {thing.name} -ip '
+                             f'{mqtt_client.host if not thing.is_super else "localhost"} -p {mqtt_client.port} -ac {thing.alive_cycle} --retry_register > /dev/null 2>&1 & echo $!')
+        # print(thing_run_command.split('>')[0].strip())
+        thing_run_result = ssh_client.send_command(thing_run_command)
+        thing.pid = thing_run_result[0]
 
-        result = ssh_client.send_command(thing_run_command)
-        thing.pid = result[0]
+        self.command_and_expect(
+            thing,
+            thing_run_command,
+            SoPProtocolType.Base.TM_REGISTER.value % (thing.name),
+        )
+        reg_start_time = get_current_time()
+        recv_msg = self.expect(
+            thing,
+            SoPProtocolType.Base.MT_RESULT_REGISTER.value % (thing.name),
+        )
+        reg_end_time = get_current_time()
 
-        if self.check_thing_register(thing, timeout=timeout):
-            # MXTEST_LOG_DEBUG(f' Thing Register is complete. Thing: {thing.name}, Middleware: {middelware.name}', MXTestLogLevel.PASS)
-            self.subscribe_thing_topic(thing, mqtt_client)
-            thing.registered = True
-            return True
-        else:
-            thing.registered = False
+        topic, payload, _ = decode_MQTT_message(recv_msg)
+        if recv_msg == SoPErrorType.TIMEOUT:
             self.kill_thing(thing)
             self.run_thing(thing, timeout=timeout)
+        elif self._check_result_payload(payload):
+            thing.registered = True
+            thing.middleware_client_name = payload['middleware_name']
+            self.subscribe_thing_topic(thing, mqtt_client)
 
-    def unregister_thing(self, thing: MXThingElement):
-        MXTEST_LOG_DEBUG(f'Unregister Thing {thing.name}...', MXTestLogLevel.INFO, color='yellow')
+            progress = [thing.registered for thing in self.thing_list].count(True) / len(self.thing_list)
+            SOPTEST_LOG_DEBUG(f'[REGISTER] thing: {thing.name} duration: {(reg_end_time - reg_start_time):0.4f}', SoPTestLogLevel.INFO, progress=progress, color='green')
+            return True
+
+    def unregister_thing(self, thing: SoPThing):
+        SOPTEST_LOG_DEBUG(f'Unregister Thing {thing.name}...', SoPTestLogLevel.INFO, color='yellow')
         ssh_client = self.find_ssh_client(thing)
         ssh_client.send_command(f'kill -2 {thing.pid}')
 
-    def kill_thing(self, thing: MXThingElement):
-        MXTEST_LOG_DEBUG(f'Kill Thing {thing.name}...', MXTestLogLevel.INFO, color='yellow')
+    def kill_thing(self, thing: SoPThing):
+        SOPTEST_LOG_DEBUG(f'Kill Thing {thing.name}...', SoPTestLogLevel.INFO, color='yellow')
         ssh_client = self.find_ssh_client(thing)
         ssh_client.send_command(f'kill -9 {thing.pid}')
 
     ####  scenario   #############################################################################################################
 
-    def refresh(self, timeout: float, service_check: bool = False, scenario_check: bool = False):
+    def refresh(self, timeout: float, check_interval: float = 3.0, scenario_check: bool = True, service_check: bool = False, thing_register_check: bool = False):
+        refresh_result: List[bool] = []
 
-        def task(middleware: MXMiddlewareElement):
-            MXTEST_LOG_DEBUG(f'Refresh Start... middleware: {middleware.name}', MXTestLogLevel.INFO)
+        def get_init_failed_scenario(middleware: SoPMiddleware, scenario_info_list: List[SoPScenarioInfo]) -> List[SoPScenario]:
+            if not scenario_info_list:
+                return []
 
-            if service_check:
-                whole_service_info = self.get_whole_service_list_info(middleware, timeout=timeout)
-                if whole_service_info is False:
-                    return False
-            if scenario_check:
-                whole_scenario_info_list: List[MXScenarioInfo] = self.get_whole_scenario_info(middleware, timeout=timeout)
-                if whole_scenario_info_list is False:
-                    return False
-
-            # scenario service validation check
-            whole_service_name_info = [service['name'] for service in whole_service_info]
+            init_failed_scenario_list = []
             for scenario in middleware.scenario_list:
-                target_scenario_service_name_list = [service.name for service in scenario.service_list]
-
-                if set(target_scenario_service_name_list).issubset(set(whole_service_name_info)):
-                    for thing in middleware.thing_list:
-                        thing: MXThingElement
-                        mqtt_client = self.find_mqtt_client(middleware)
-                        self.subscribe_thing_topic(thing, mqtt_client)
-                        thing.registered = True
-
-                    scenario.service_check = True
-                else:
-                    MXTEST_LOG_DEBUG(f'Service check Fail... level: {middleware.level}, middleware: {middleware.name}, scenario: {scenario.name}', MXTestLogLevel.WARN)
-                    # scenario.service_check = False
-
-            # scenario add check
-            for scenario in middleware.scenario_list:
-                for scenario_info in whole_scenario_info_list:
-                    scenario_info: MXScenarioInfo
-                    if scenario.name == scenario_info.name:
+                for scenario_info in scenario_info_list:
+                    scenario.state = scenario_info.state
+                    if scenario.name != scenario_info.name:
+                        continue
+                    if scenario.state == SoPScenarioState.INITIALIZED:
                         scenario.schedule_success = True
-                        scenario.schedule_timeout = False
-                        scenario.state = scenario_info.state
                         break
+                    else:
+                        SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is in {scenario.state.value} state...', SoPTestLogLevel.WARN)
+                        init_failed_scenario_list.append(scenario)
                 else:
-                    MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in scenario list of {middleware.name}...', MXTestLogLevel.WARN)
+                    SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in scenario list of {middleware.name}...', SoPTestLogLevel.WARN)
+                    init_failed_scenario_list.append(scenario)
 
-            MXTEST_LOG_DEBUG(f'Refresh Success! middleware: {middleware.name}', MXTestLogLevel.INFO)
+            return init_failed_scenario_list
 
-        pool_map(task, self.middleware_list)
+        def check_service_list_valid(scenario: SoPScenario, service_info_list: List[SoPService]) -> bool:
+            if not service_info_list:
+                return False
 
-        return True
+            for service in scenario.service_list:
+                if not service.name in [service_info.name for service_info in service_info_list]:
+                    SOPTEST_LOG_DEBUG(f'service {service.name} is not in Scenario {scenario.name}', SoPTestLogLevel.WARN)
+                    return False
+            else:
+                return True
 
-    def thing_register_wait(self):
-        while not all([thing.registered for thing in self.thing_list]):
-            time.sleep(THREAD_TIME_OUT)
-        MXTEST_LOG_DEBUG(f'All thing register is complete!...', MXTestLogLevel.INFO)
+        def get_register_failed_thing(middleware: SoPMiddleware):
+            thing_list = get_whole_thing_list(middleware)
+
+            register_failed_thing_list = []
+            for thing in thing_list:
+                if not thing.registered:
+                    SOPTEST_LOG_DEBUG(f'Thing {thing.name} is not registered...', SoPTestLogLevel.WARN)
+                    register_failed_thing_list.append(thing)
+
+            return register_failed_thing_list
+
+        def task(middleware: SoPMiddleware, timeout: float):
+            SOPTEST_LOG_DEBUG(f'Refresh Start... middleware: {middleware.name}, device: {middleware.device.name}', SoPTestLogLevel.INFO)
+            whole_service_info_list: List[SoPService] = []
+            whole_scenario_info_list: List[SoPScenarioInfo] = []
+
+            if scenario_check:
+                whole_scenario_info_list = self.get_whole_scenario_info(middleware, timeout=timeout)
+                init_failed_scenario_list = get_init_failed_scenario(middleware, whole_scenario_info_list)
+                if len(init_failed_scenario_list) > 0:
+                    for scenario in init_failed_scenario_list:
+                        refresh_result.append(False)
+                        SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} in {middleware.name} init failed...', SoPTestLogLevel.FAIL)
+            if service_check:
+                whole_service_info_list = self.get_whole_service_list_info(middleware, timeout=timeout)
+                scenario_list = get_whole_scenario_list(middleware)
+                for scenario in scenario_list:
+                    if not check_service_list_valid(scenario=scenario, service_info_list=whole_service_info_list):
+                        refresh_result.append(False)
+                        SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} in {middleware.name} service check failed...', SoPTestLogLevel.FAIL)
+            if thing_register_check:
+                register_failed_thing_list = get_register_failed_thing(middleware)
+                if len(register_failed_thing_list) > 0:
+                    refresh_result.append(False)
+                    SOPTEST_LOG_DEBUG(f'Thing register failed...', SoPTestLogLevel.FAIL)
+
+            refresh_result.append(True)
+            SOPTEST_LOG_DEBUG(f'Refresh Success! middleware: {middleware.name}', SoPTestLogLevel.INFO)
+
+        cur_time1 = get_current_time()
+        while get_current_time() - cur_time1 < timeout:
+            cur_time2 = get_current_time()
+            pool_map(task, [(middleware, check_interval) for middleware in self.middleware_list])
+
+            if all(refresh_result):
+                break
+            else:
+                refresh_result = []
+
+            while get_current_time() - cur_time2 < check_interval:
+                time.sleep(BUSY_WAIT_TIMEOUT * 10)
 
         return True
 
     def scenario_add_check(self, timeout: float):
-        while not all([scenario.schedule_success for scenario in self.scenario_list]):
-            time.sleep(THREAD_TIME_OUT)
-        MXTEST_LOG_DEBUG(f'All scenario Add is complete!...', MXTestLogLevel.INFO)
+        while not all([scenario.add_result_arrived for scenario in self.scenario_list]):
+            time.sleep(BUSY_WAIT_TIMEOUT)
+        SOPTEST_LOG_DEBUG(f'All scenario Add is complete!...', SoPTestLogLevel.INFO)
 
         return True
 
     def scenario_run_check(self, timeout: float):
         for middleware in self.middleware_list:
-            whole_scenario_info_list: List[MXScenarioInfo] = self.get_whole_scenario_info(middleware, timeout=timeout)
+            whole_scenario_info_list: List[SoPScenarioInfo] = self.get_whole_scenario_info(middleware, timeout=timeout)
             if whole_scenario_info_list is False:
                 return False
 
             # scenario run check
             for scenario in middleware.scenario_list:
                 for scenario_info in whole_scenario_info_list:
-                    scenario_info: MXScenarioInfo
-                    if scenario.name == scenario_info.name:
-                        if scenario.state in [MXScenarioState.RUNNING, MXScenarioState.EXECUTING]:
-                            scenario.schedule_success = True
-                            scenario.state = scenario_info.state
-                            break
-                        else:
-                            MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in RUN state...', MXTestLogLevel.WARN)
+                    scenario_info: SoPScenarioInfo
+                    scenario.state = scenario_info.state
+                    if scenario.name != scenario_info.name:
+                        continue
+                    if scenario.state in [SoPScenarioState.RUNNING, SoPScenarioState.EXECUTING]:
+                        break
+                    else:
+                        SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in RUN state...', SoPTestLogLevel.WARN)
                 else:
-                    MXTEST_LOG_DEBUG(f'[SCENARIO RUN CHECK] Scenario {scenario.name} is not in scenario list of {middleware.name}...', MXTestLogLevel.WARN)
+                    SOPTEST_LOG_DEBUG(f'[SCENARIO RUN CHECK] Scenario {scenario.name} is not in scenario list of {middleware.name}...', SoPTestLogLevel.WARN)
 
-            MXTEST_LOG_DEBUG(f'Scenario Run Check Success! middleware: {middleware.name}', MXTestLogLevel.PASS)
+            SOPTEST_LOG_DEBUG(f'Scenario Run Check Success! middleware: {middleware.name}', SoPTestLogLevel.PASS)
 
         return True
 
-    def verify_scenario(self, scenario: MXScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def verify_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_parent_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
-        trigger_topic = MXProtocolType.WebClient.EM_VERIFY_SCENARIO.value % mqtt_client.get_client_id()
+        trigger_topic = SoPProtocolType.WebClient.EM_VERIFY_SCENARIO.value % mqtt_client.get_client_id()
         trigger_payload = json_string_to_dict(dict(name=scenario.name, text=scenario.scenario_code()))
         trigger_message = encode_MQTT_message(trigger_topic, trigger_payload)
         target_topic = MXProtocolType.WebClient.ME_RESULT_VERIFY_SCENARIO.value % mqtt_client.get_client_id()
 
         mqtt_client.subscribe(trigger_topic)
-        _, payload, _ = self.publish_and_expect(scenario,
-                                                trigger_message,
-                                                target_topic,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        recv_msg = self.publish_and_expect(
+            scenario,
+            trigger_message,
+            target_topic,
+            auto_unsubscribe=False,
+            timeout=timeout)
 
-        if check_result_payload(payload) == None:
-            MXTEST_LOG_DEBUG(f'{MXElementType.SCENARIO.value} {scenario.name} {MXElementActionType.SCENARIO_VERIFY.value} failed...', MXTestLogLevel.FAIL)
+        topic, payload, _ = decode_MQTT_message(recv_msg)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'{SoPComponentType.SCENARIO.value} of scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_VERIFY.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def add_scenario(self, scenario: MXScenarioElement, timeout: float = 5, check_interval: float = 1.0):
-        middleware = self.find_element_middleware(scenario)
+    def add_scenario(self, scenario: SoPScenario, timeout: float = 5, check_interval: float = 1.0):
+        middleware = self.find_parent_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
-        trigger_topic = MXProtocolType.WebClient.EM_ADD_SCENARIO.value % mqtt_client.get_client_id()
-        trigger_payload = json_string_to_dict(dict(name=scenario.name, text=scenario.scenario_code()))
+        trigger_topic = SoPProtocolType.WebClient.EM_ADD_SCENARIO.value % mqtt_client.get_client_id()
+        trigger_payload = json_string_to_dict(dict(name=scenario.name, text=scenario.scenario_code(), priority=scenario.priority))
         trigger_message = encode_MQTT_message(trigger_topic, trigger_payload)
         target_topic = MXProtocolType.WebClient.ME_RESULT_ADD_SCENARIO.value % mqtt_client.get_client_id()
 
         mqtt_client.subscribe(trigger_topic)
-        _, payload, _ = self.publish_and_expect(scenario,
-                                                trigger_message,
-                                                target_topic,
-                                                auto_subscribe=True,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        scenario.add_result_arrived = False
+        scenario.schedule_timeout = False
+        scenario.schedule_success = False
 
-        if check_result_payload(payload) == None:
-            MXTEST_LOG_DEBUG(f'{MXElementType.SCENARIO.value} {scenario.name} {MXElementActionType.SCENARIO_ADD.value} failed...', MXTestLogLevel.FAIL)
-            MXTEST_LOG_DEBUG(f'==== Fault Scenario ====', MXTestLogLevel.FAIL)
-            MXTEST_LOG_DEBUG(f'name: {scenario.name}', MXTestLogLevel.FAIL)
-            MXTEST_LOG_DEBUG(f'code: \n{scenario.scenario_code()}', MXTestLogLevel.FAIL)
+        mqtt_client.subscribe(trigger_topic)
+        pub_time = get_current_time()
+        recv_msg = self.publish_and_expect(
+            scenario,
+            trigger_message,
+            target_topic,
+            auto_subscribe=True,
+            auto_unsubscribe=False,
+            timeout=timeout)
+        recv_time = get_current_time()
+
+        topic, payload, _ = decode_MQTT_message(recv_msg)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'{SoPComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_ADD.value} failed...', SoPTestLogLevel.FAIL)
+            SOPTEST_LOG_DEBUG(f'==== Fault Scenario ====', SoPTestLogLevel.FAIL)
+            SOPTEST_LOG_DEBUG(f'name: {scenario.name}', SoPTestLogLevel.FAIL)
+            SOPTEST_LOG_DEBUG(f'code: \n{scenario.scenario_code()}', SoPTestLogLevel.FAIL)
             scenario.schedule_timeout = True
+            return False
+        elif self._check_result_payload(payload):
+            scenario.add_result_arrived = True
+
+            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+            SOPTEST_LOG_DEBUG(f'[SCENE_ADD] scenario: {scenario.name} duration: {(recv_time - pub_time):0.4f}', SoPTestLogLevel.INFO, progress=progress, color='green')
             return True
 
-    def run_scenario(self, scenario: MXScenarioElement, timeout: float = 5):
+        SOPTEST_LOG_DEBUG(f'middleware: {middleware.name} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_ADD.value} success...', SoPTestLogLevel.WARN)
+
+    def run_scenario(self, scenario: SoPScenario, timeout: float = 5):
         # NOTE: 이미 add_scenario를 통해 시나리오가 정상적으로 init되어있는 것이 확인되어있는 상태이므로 다시 시나리오상태를 확인할 필요는 없다.
 
-        if not scenario.state:
-            MXTEST_LOG_DEBUG(f'Scenario {scenario.name} state is None... Check it to TIMEOUT. Skip scenario run...', MXTestLogLevel.WARN)
-            scenario.schedule_timeout = True
+        if scenario.schedule_timeout:
+            SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is timeout. Skip scenario run...', SoPTestLogLevel.WARN)
             return False
         if not scenario.schedule_success:
-            MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not initialized. Skip scenario run...', MXTestLogLevel.WARN)
-            return False
-        if not scenario.service_check:
-            MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not service validated. Skip scenario run...', MXTestLogLevel.FAIL)
-            scenario.schedule_timeout = True
+            SOPTEST_LOG_DEBUG(f'Scenario {scenario.name} is not initialized. Skip scenario run...', SoPTestLogLevel.WARN)
             return False
 
-        middleware = self.find_element_middleware(scenario)
+        middleware = self.find_parent_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
-        trigger_topic = MXProtocolType.WebClient.EM_RUN_SCENARIO.value % mqtt_client.get_client_id()
-        trigger_payload = json_string_to_dict(dict(name=scenario.name, text=scenario.scenario_code()))
+        trigger_topic = SoPProtocolType.WebClient.EM_RUN_SCENARIO.value % mqtt_client.get_client_id()
+        trigger_payload = json_string_to_dict(dict(name=scenario.name))
         trigger_message = encode_MQTT_message(trigger_topic, trigger_payload)
         target_topic = MXProtocolType.WebClient.ME_RESULT_RUN_SCENARIO.value % mqtt_client.get_client_id()
 
         mqtt_client.subscribe(trigger_topic)
-        _, payload, _ = self.publish_and_expect(scenario,
-                                                trigger_message,
-                                                target_topic,
-                                                auto_subscribe=True,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        pub_time = get_current_time()
+        recv_msg = self.publish_and_expect(
+            scenario,
+            trigger_message,
+            target_topic,
+            auto_subscribe=True,
+            auto_unsubscribe=False,
+            timeout=timeout)
+        recv_time = get_current_time()
 
-        if check_result_payload(payload) == None:
-            MXTEST_LOG_DEBUG(f'{MXElementType.SCENARIO.value} {scenario.name} {MXElementActionType.SCENARIO_RUN.value} failed...', MXTestLogLevel.FAIL)
-        return self
+        topic, payload, _ = decode_MQTT_message(recv_msg)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'{SoPComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_RUN.value} failed...', SoPTestLogLevel.FAIL)
+            return False
+        elif self._check_result_payload(payload):
+            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+            SOPTEST_LOG_DEBUG(f'[SCENE_RUN] scenario: {scenario.name} duration: {(recv_time - pub_time):0.4f}', SoPTestLogLevel.INFO, progress=progress, color='green')
+            return True
 
-    def stop_scenario(self, scenario: MXScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def stop_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_parent_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
-        trigger_topic = MXProtocolType.WebClient.EM_STOP_SCENARIO.value % mqtt_client.get_client_id()
-        trigger_payload = json_string_to_dict(dict(name=scenario.name, text=scenario.scenario_code()))
+        trigger_topic = SoPProtocolType.WebClient.EM_STOP_SCENARIO.value % mqtt_client.get_client_id()
+        trigger_payload = json_string_to_dict(dict(name=scenario.name))
         trigger_message = encode_MQTT_message(trigger_topic, trigger_payload)
         target_topic = MXProtocolType.WebClient.ME_RESULT_STOP_SCENARIO.value % mqtt_client.get_client_id()
 
@@ -700,23 +832,24 @@ class MXEventHandler:
         #     return False
 
         mqtt_client.subscribe(trigger_topic)
-        _, payload, _ = self.publish_and_expect(scenario,
-                                                trigger_message,
-                                                target_topic,
-                                                auto_subscribe=True,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        recv_msg = self.publish_and_expect(
+            scenario,
+            trigger_message,
+            target_topic,
+            auto_subscribe=True,
+            auto_unsubscribe=False,
+            timeout=timeout)
 
-        if check_result_payload(payload) == None:
-            MXTEST_LOG_DEBUG(f'{MXElementType.SCENARIO.value} {scenario.name} {MXElementActionType.SCENARIO_STOP.value} failed...', MXTestLogLevel.FAIL)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'{SoPComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_STOP.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def update_scenario(self, scenario: MXScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def update_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_parent_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
-        trigger_topic = MXProtocolType.WebClient.EM_UPDATE_SCENARIO.value % mqtt_client.get_client_id()
-        trigger_payload = json_string_to_dict(dict(name=scenario.name, text=scenario.scenario_code()))
+        trigger_topic = SoPProtocolType.WebClient.EM_UPDATE_SCENARIO.value % mqtt_client.get_client_id()
+        trigger_payload = json_string_to_dict(dict(name=scenario.name))
         trigger_message = encode_MQTT_message(trigger_topic, trigger_payload)
         target_topic = MXProtocolType.WebClient.ME_RESULT_UPDATE_SCENARIO.value % mqtt_client.get_client_id()
 
@@ -726,23 +859,24 @@ class MXEventHandler:
         #     return False
 
         mqtt_client.subscribe(trigger_topic)
-        _, payload, _ = self.publish_and_expect(scenario,
-                                                trigger_message,
-                                                target_topic,
-                                                auto_subscribe=True,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        recv_msg = self.publish_and_expect(
+            scenario,
+            trigger_message,
+            target_topic,
+            auto_subscribe=True,
+            auto_unsubscribe=False,
+            timeout=timeout)
 
-        if check_result_payload(payload) == None:
-            MXTEST_LOG_DEBUG(f'{MXElementType.SCENARIO.value} {scenario.name} {MXElementActionType.SCENARIO_UPDATE.value} failed...', MXTestLogLevel.FAIL)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'{SoPComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_UPDATE.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def delete_scenario(self, scenario: MXScenarioElement, timeout: float = 5):
-        middleware = self.find_element_middleware(scenario)
+    def delete_scenario(self, scenario: SoPScenario, timeout: float = 5):
+        middleware = self.find_parent_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
-        trigger_topic = MXProtocolType.WebClient.EM_DELETE_SCENARIO.value % mqtt_client.get_client_id()
-        trigger_payload = json_string_to_dict(dict(name=scenario.name, text=scenario.scenario_code()))
+        trigger_topic = SoPProtocolType.WebClient.EM_DELETE_SCENARIO.value % mqtt_client.get_client_id()
+        trigger_payload = json_string_to_dict(dict(name=scenario.name))
         trigger_message = encode_MQTT_message(trigger_topic, trigger_payload)
         target_topic = MXProtocolType.WebClient.ME_RESULT_DELETE_SCENARIO.value % mqtt_client.get_client_id()
 
@@ -752,64 +886,70 @@ class MXEventHandler:
         #         f'Fail to stop scenario {scenario.name} - state: {scenario.state.value}', MXTestLogLevel.FAIL)
         #     return False
         mqtt_client.subscribe(trigger_topic)
-        _, payload, _ = self.publish_and_expect(scenario,
-                                                trigger_message,
-                                                target_topic,
-                                                auto_subscribe=True,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        recv_msg = self.publish_and_expect(
+            scenario,
+            trigger_message,
+            target_topic,
+            auto_subscribe=True,
+            auto_unsubscribe=False,
+            timeout=timeout)
 
-        if check_result_payload(payload) == None:
-            MXTEST_LOG_DEBUG(
-                f'{MXElementType.SCENARIO.value} {scenario.name} {MXElementActionType.SCENARIO_DELETE.value} failed...', MXTestLogLevel.FAIL)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'{SoPComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {SoPComponentActionType.SCENARIO_DELETE.value} failed...', SoPTestLogLevel.FAIL)
         return self
 
-    def get_whole_scenario_info(self, middleware: MXMiddlewareElement, timeout: float) -> Union[List[MXScenarioInfo], bool]:
+    def get_whole_scenario_info(self, middleware: SoPMiddleware, timeout: float) -> List[SoPScenarioInfo]:
         mqtt_client = self.find_mqtt_client(middleware)
 
-        _, payload, _ = self.publish_and_expect(middleware,
-                                                encode_MQTT_message(MXProtocolType.WebClient.EM_REFRESH.value % f'{mqtt_client.get_client_id()}_get_whole_scenario_info@{middleware.name}', '{}'),
-                                                MXProtocolType.WebClient.ME_RESULT_SCENARIO_LIST.value % f'{mqtt_client.get_client_id()}_get_whole_scenario_info@{middleware.name}',
-                                                auto_subscribe=True,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        recv_msg = self.publish_and_expect(
+            middleware,
+            encode_MQTT_message(SoPProtocolType.WebClient.EM_REFRESH.value % f'{mqtt_client.get_client_id()}@{middleware.name}', '{}'),
+            SoPProtocolType.WebClient.ME_RESULT_SCENARIO_LIST.value % f'{mqtt_client.get_client_id()}@{middleware.name}',
+            auto_subscribe=True,
+            auto_unsubscribe=False,
+            timeout=timeout)
 
-        if payload is not None:
-            return [MXScenarioInfo(id=scenario_info['id'],
-                                   name=scenario_info['name'],
-                                   state=MXScenarioState.get(
-                scenario_info['state']),
-                code=scenario_info['contents'],
-                schedule_info=scenario_info['scheduleInfo']) for scenario_info in payload['scenarios']]
-        else:
-            MXTEST_LOG_DEBUG(f'Get whole scenario info of {middleware.name} failed -> MQTT timeout...', MXTestLogLevel.FAIL)
-            return False
+        topic, payload, _ = decode_MQTT_message(recv_msg)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'Get whole scenario info of {middleware.name} failed -> MQTT timeout...', SoPTestLogLevel.FAIL)
+            return []
 
-    def get_whole_service_list_info(self, middleware: MXMiddlewareElement, timeout: float) -> List[dict]:
+        scenario_info_list = [SoPScenarioInfo(id=scenario_info['id'],
+                                              name=scenario_info['name'],
+                                              state=SoPScenarioState.get(scenario_info['state']),
+                                              code=scenario_info['contents'],
+                                              schedule_info=scenario_info['scheduleInfo']) for scenario_info in payload['scenarios']]
+        return scenario_info_list
+
+    def get_whole_service_list_info(self, middleware: SoPMiddleware, timeout: float) -> List[SoPService]:
         mqtt_client = self.find_mqtt_client(middleware)
+        recv_msg = self.publish_and_expect(
+            middleware,
+            encode_MQTT_message(SoPProtocolType.WebClient.EM_REFRESH.value % f'{mqtt_client.get_client_id()}@{middleware.name}', '{}'),
+            SoPProtocolType.WebClient.ME_RESULT_SERVICE_LIST.value % f'{mqtt_client.get_client_id()}@{middleware.name}',
+            auto_subscribe=True,
+            auto_unsubscribe=False,
+            timeout=timeout)
 
-        _, payload, _ = self.publish_and_expect(middleware,
-                                                encode_MQTT_message(MXProtocolType.WebClient.EM_REFRESH.value % f'{mqtt_client.get_client_id()}_get_whole_service_list_info@{middleware.name}', '{}'),
-                                                MXProtocolType.WebClient.ME_RESULT_SERVICE_LIST.value % f'{mqtt_client.get_client_id()}_get_whole_service_list_info@{middleware.name}',
-                                                auto_subscribe=True,
-                                                auto_unsubscribe=False,
-                                                timeout=timeout)
+        topic, payload, _ = decode_MQTT_message(recv_msg)
+        if recv_msg == SoPErrorType.TIMEOUT:
+            SOPTEST_LOG_DEBUG(f'Get whole service list info of {middleware.name} failed -> MQTT timeout...', SoPTestLogLevel.FAIL)
+            return []
 
-        if payload is not None:
-            whole_service_info = []
-            for service in payload['services']:
-                if service['hierarchy'] == 'local' or service['hierarchy'] == 'parent':
-                    for thing in service['things']:
-                        for service in thing['functions']:
-                            whole_service_info.append(service)
-            return whole_service_info
-        else:
-            MXTEST_LOG_DEBUG(f'Get whole service list info of {middleware.name} failed -> MQTT timeout...', MXTestLogLevel.FAIL)
-            return False
+        whole_service_info: List[SoPService] = []
+        for service in payload['services']:
+            if service['hierarchy'] == 'local' or service['hierarchy'] == 'parent':
+                for thing in service['things']:
+                    for service in thing['functions']:
+                        service = SoPService(name=service['name'],
+                                             is_super=thing['is_super'],
+                                             tag_list=[tag['name'] for tag in service['tags']])
+                        whole_service_info.append(service)
+        return whole_service_info
 
     #### kill ##########################################################################################################################
 
-    def get_proc_pid(self, ssh_client: MXSSHClient, proc_name: str, port: int = None) -> Union[List[int], bool]:
+    def get_proc_pid(self, ssh_client: SoPSSHClient, proc_name: str, port: int = None) -> Union[List[int], bool]:
         result: List[str] = ssh_client.send_command(f"lsof -i :{port} | grep {proc_name[:9]}")
         pid_list = list(set([line.split()[1] for line in result]))
         if len(pid_list) == 0:
@@ -817,28 +957,27 @@ class MXEventHandler:
         elif len(pid_list) == 1:
             return pid_list
 
-    def get_element_proc_pid(self, ssh_client: MXSSHClient, element: MXElement) -> List[int]:
-        if isinstance(element, MXMiddlewareElement):
-            middleware_pid_list = self.get_proc_pid(ssh_client, 'sopiot_middleware', element.mqtt_port)
-            mosquitto_pid_list = self.get_proc_pid(ssh_client, 'mosquitto', element.mqtt_port)
+    def get_component_proc_pid(self, ssh_client: SoPSSHClient, component: SoPComponent) -> List[int]:
+        if isinstance(component, SoPMiddleware):
+            middleware_pid_list = self.get_proc_pid(ssh_client, 'sopiot_middleware', component.mqtt_port)
+            mosquitto_pid_list = self.get_proc_pid(ssh_client, 'mosquitto', component.mqtt_port)
             return dict(middleware_pid_list=middleware_pid_list, mosquitto_pid_list=mosquitto_pid_list)
-        elif isinstance(element, MXThingElement):
-            middleware = self.find_element_middleware(element)
+        elif isinstance(component, SoPThing):
+            middleware = self.find_parent_middleware(component)
             thing_pid_list = self.get_proc_pid(ssh_client, 'python', middleware.mqtt_port)
             return dict(thing_pid_list=thing_pid_list)
 
     def kill_all_middleware(self):
-        MXTEST_LOG_DEBUG(f'Kill all middleware...', MXTestLogLevel.INFO, 'red')
+        SOPTEST_LOG_DEBUG(f'Kill all middleware...', SoPTestLogLevel.INFO, 'red')
         for middleware in self.middleware_list:
             ssh_client = self.find_ssh_client(middleware)
-            ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
-            ssh_client.send_command('pidof mosquitto | xargs kill -9')
+            ssh_client.send_command('pidof sopiot_middleware | xargs kill -9', force=True)
+            ssh_client.send_command('pidof mosquitto | xargs kill -9', force=True)
 
     def kill_all_thing(self):
-        MXTEST_LOG_DEBUG(f'Kill all python instance...', MXTestLogLevel.INFO, 'red')
+        SOPTEST_LOG_DEBUG(f'Kill all python instance...', SoPTestLogLevel.INFO, 'red')
 
         self_pid = os.getpid()
-
         for ssh_client in self.ssh_client_list:
             result = ssh_client.send_command(f"ps -ef | grep python | grep _thing_ | grep -v grep | awk '{{print $2}}'")
 
@@ -847,37 +986,54 @@ class MXEventHandler:
                     continue
                 result = ssh_client.send_command(f'kill -9 {pid}')
 
-    def kill_all_ssh_client(self):
-        MXTEST_LOG_DEBUG(f'Kill all ssh client...', MXTestLogLevel.INFO, 'red')
+    def _kill_every_ssh_client(self):
+        SOPTEST_LOG_DEBUG(f'Kill all ssh client...', SoPTestLogLevel.INFO, 'red')
         for ssh_client in self.ssh_client_list:
             ssh_client.disconnect()
             del ssh_client
 
-    def kill_all_mqtt_client(self):
-        MXTEST_LOG_DEBUG(f'Kill all mqtt client...', MXTestLogLevel.INFO, 'red')
+    def _kill_every_mqtt_client(self):
+        SOPTEST_LOG_DEBUG(f'Kill all mqtt client...', SoPTestLogLevel.INFO, 'red')
         for mqtt_client in self.mqtt_client_list:
             mqtt_client.stop()
             del mqtt_client
 
-    def kill_all_simulation_instance(self):
-        MXTEST_LOG_DEBUG(f'Kill simulation instance...', MXTestLogLevel.INFO, 'red')
+    def kill_every_process(self) -> bool:
+        with Progress() as progress:
+            task1 = progress.add_task("Clean up simulation processes...", total=len(self.middleware_list) + len(self.ssh_client_list))
+            task2 = progress.add_task("Kill middleware processes...", total=len(self.middleware_list))
+            if not self.middleware_debug:
+                for middleware in self.middleware_list:
+                    ssh_client = self.find_ssh_client(middleware)
+                    ssh_client.send_command('pidof sopiot_middleware | xargs kill -9', force=True)
+                    ssh_client.send_command('pidof mosquitto | xargs kill -9', force=True)
+                    progress.update(task1, advance=1)
+                    progress.update(task2, advance=1)
 
-        if not self.middleware_debug:
-            self.kill_all_middleware()
-        self.kill_all_thing()
+            self_pid = os.getpid()
+            task3 = progress.add_task("Kill thing processes...", total=len(self.ssh_client_list))
+            for ssh_client in self.ssh_client_list:
+                result = ssh_client.send_command(f"ps -ef | grep python | grep _thing_ | grep -v grep | awk '{{print $2}}'")
+
+                for pid in result:
+                    if pid == self_pid:
+                        continue
+                    result = ssh_client.send_command(f'kill -9 {pid}', force=True)
+                progress.update(task1, advance=1)
+                progress.update(task3, advance=1)
+
+        return True
 
     def wrapup(self):
-        self.kill_all_ssh_client()
-        self.kill_all_mqtt_client()
-
-    def handler(self, signum, frame):
-        pass  # 아무 작업도 하지 않음
+        self.kill_every_process()
+        self._kill_every_ssh_client()
+        self._kill_every_mqtt_client()
 
     def remove_all_remote_simulation_file(self):
         finished_ssh_client_list = []
         for middleware in self.middleware_list:
             ssh_client = self.find_ssh_client(middleware)
-            remote_home_dir = ssh_client.send_command('cd ~ && pwd')[0]
+            remote_home_dir = f'/home/{middleware.device.user}'
             if ssh_client in finished_ssh_client_list:
                 continue
             ssh_client.send_command(f'rm -r {middleware.remote_middleware_config_path}')
@@ -896,195 +1052,153 @@ class MXEventHandler:
 
     #### expect ##########################################################################################################################
 
-    def expect(self, element: MXElement, target_topic: str = None, auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5) -> Union[Tuple[str, dict], str]:
+    def expect(self, component: Union[SoPMiddleware, SoPThing, SoPScenario], target_topic: str, timeout: int = 5) -> Union[mqtt.MQTTMessage, SoPErrorType]:
+        if not self.event_listener_thread.is_alive():
+            raise RuntimeError('Event listener thread is not alive')
+
         cur_time = get_current_time()
-        if isinstance(element, MXMiddlewareElement):
-            target_middleware = element
+        target_protocol = SoPProtocolType.get(target_topic)
+
+        while get_current_time() - cur_time < timeout:
+            if not target_protocol in component.recv_msg_table:
+                time.sleep(BUSY_WAIT_TIMEOUT)
+                continue
+
+            recv_msg = hash_pop(component.recv_msg_table, key=target_protocol)
+            topic, _, _ = decode_MQTT_message(recv_msg)
+            if mqtt.topic_matches_sub(target_topic, topic):
+                return recv_msg
+            else:
+                SOPTEST_LOG_DEBUG(f'Topic match failed... Expect {target_topic} but receive {topic}', SoPTestLogLevel.WARN)
+                return None
         else:
-            target_middleware = self.find_element_middleware(element)
+            return SoPErrorType.TIMEOUT
 
-        target_middleware: MXMiddlewareElement
-        mqtt_client = self.find_mqtt_client(target_middleware)
-
-        if not mqtt_client.is_run:
-            raise Exception(f'{target_middleware.name} mqtt_client is not running...')
-
-        try:
-            if auto_subscribe:
-                mqtt_client.subscribe(target_topic)
-
-            while True:
-                if get_current_time() - cur_time > timeout:
-                    raise Empty('Timeout')
-
-                topic, payload, timestamp = decode_MQTT_message(element.recv_queue.get(timeout=timeout))
-
-                if target_topic:
-                    topic_slice = topic.split('/')
-                    target_topic_slice = target_topic.split('/')
-                    for i in range(len(target_topic_slice)):
-                        if target_topic_slice[i] not in ['#', '+'] and target_topic_slice[i] != topic_slice[i]:
-                            break
-                    else:
-                        return topic, payload, timestamp
-                else:
-                    element.recv_queue.put(encode_MQTT_message(topic, payload, timestamp))
-        except Empty as e:
-            # MXLOG_DEBUG(f'MXMQTTClient Timeout for {target_topic}', 'red')
-            return None, None, None
-        except Exception as e:
-            raise e
-        finally:
-            if auto_unsubscribe:
-                if target_topic:
-                    mqtt_client.unsubscribe(target_topic)
-
-    def publish_and_expect(self, element: MXElement, trigger_msg: mqtt.MQTTMessage = None, target_topic: str = None,
-                           auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5):
-        if isinstance(element, MXMiddlewareElement):
-            target_middleware = element
+    def publish_and_expect(self, component: SoPComponent, trigger_msg: mqtt.MQTTMessage = None, target_topic: str = None,
+                           auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5) -> Union[mqtt.MQTTMessage, SoPErrorType]:
+        if isinstance(component, SoPMiddleware):
+            target_middleware = component
+        elif isinstance(component, (SoPThing, SoPScenario)):
+            target_middleware = self.find_parent_middleware(component)
         else:
-            target_middleware = self.find_element_middleware(element)
+            raise TypeError(f'Invalid component type: {type(component)}')
 
-        target_middleware: MXMiddlewareElement
         mqtt_client = self.find_mqtt_client(target_middleware)
-
         if not mqtt_client.is_run:
-            mqtt_client.run()
+            raise RuntimeError(f'MQTT Client is not running')
 
         if auto_subscribe:
             mqtt_client.subscribe(target_topic)
+
         trigger_topic, trigger_payload, _ = decode_MQTT_message(trigger_msg, mode=str)
         mqtt_client.publish(trigger_topic, trigger_payload, retain=False)
+        ret = self.expect(component, target_topic, timeout)
 
-        ret = self.expect(element, target_topic, auto_subscribe, auto_unsubscribe, timeout)
+        if auto_unsubscribe:
+            mqtt_client.unsubscribe(target_topic)
+
         return ret
 
-    def command_and_expect(self, element: MXElement, trigger_command: Union[List[str], str] = None, target_topic: str = None,
-                           auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5):
-        if isinstance(element, MXMiddlewareElement):
-            target_middleware = element
+    def command_and_expect(self, component: SoPComponent, trigger_command: Union[List[str], str] = None, target_topic: str = None,
+                           auto_subscribe: bool = True, auto_unsubscribe: bool = False, timeout: int = 5) -> Union[mqtt.MQTTMessage, SoPErrorType]:
+        if isinstance(component, SoPMiddleware):
+            target_middleware = component
+        elif isinstance(component, (SoPThing, SoPScenario)):
+            target_middleware = self.find_parent_middleware(component)
         else:
-            target_middleware = self.find_element_middleware(element)
+            raise TypeError(f'Invalid component type: {type(component)}')
 
-        target_middleware: MXMiddlewareElement
         mqtt_client = self.find_mqtt_client(target_middleware)
         ssh_client = self.find_ssh_client(target_middleware)
-
         if not mqtt_client.is_run:
-            mqtt_client.run()
+            raise RuntimeError(f'MQTT Client is not running')
+        if not ssh_client.connected:
+            raise RuntimeError(f'SSH Client is not connected')
 
         if auto_subscribe:
             mqtt_client.subscribe(target_topic)
+
         if isinstance(trigger_command, list):
             for command in trigger_command:
                 ssh_client.send_command(command)
         else:
             ssh_client.send_command(trigger_command)
-        ret = self.expect(element, target_topic, auto_subscribe, auto_unsubscribe, timeout)
+        ret = self.expect(component, target_topic, timeout)
+
+        if auto_unsubscribe:
+            mqtt_client.unsubscribe(target_topic)
+
         return ret
 
-    def check_middleware_online(self, thing: MXThingElement):
-        middleware = self.find_element_middleware(thing)
-        return middleware.online
+    def check_middleware_online(self, thing: SoPThing) -> bool:
+        middleware = self.find_parent_middleware(thing)
+        if middleware:
+            return middleware.online
+        else:
+            return True
 
     #### on_recv_message ##########################################################################################################################
 
-    def on_recv_message(self, msg: mqtt.MQTTMessage):
-        topic, payload, timestamp = decode_MQTT_message(msg)
+    def _on_recv_message(self, msg: mqtt.MQTTMessage):
+        topic, payload, _ = decode_MQTT_message(msg)
         timestamp = get_current_time() - self.simulation_start_time
 
-        return_type = MXType.get(payload.get('return_type', None))
+        protocol = SoPProtocolType.get(topic)
+        return_type = SoPType.get(payload.get('return_type', None))
         return_value = payload.get('return_value', None)
-        error_type = MXErrorCode.get(payload.get('error', None))
+        error = SoPErrorType.get(payload.get('error', None))
+        scenario_name = payload.get('name', None) if payload.get('name', None) != None else payload.get('scenario', None)
+        topic_slice = topic.split('/')
 
-        # FIXME: change it to 'scenario' after middleware updated
-        scenario_name = payload.get('name', None)
-        scenario_name = payload.get('scenario', None) if not scenario_name else scenario_name
-
-        topic_type = MXProtocolType.get(topic)
-        if topic_type == MXProtocolType.WebClient.ME_RESULT_SCENARIO_LIST:
-            client_id = topic.split('/')[3]
-
-            if 'get_whole_scenario_info' in client_id:
-                middleware_name = client_id.split('@')[1]
-
-                middleware = self.find_middleware(middleware_name)
-                middleware.recv_queue.put(msg)
-        elif topic_type == MXProtocolType.WebClient.ME_RESULT_SERVICE_LIST:
-            client_id = topic.split('/')[3]
-
-            if 'get_whole_service_list_info' in client_id:
-                middleware_name = client_id.split('@')[1]
-
-                middleware = self.find_middleware(middleware_name)
-                middleware.recv_queue.put(msg)
-            elif 'check_online' in client_id:
-                middleware_name = client_id.split('@')[1]
-
-                middleware = self.find_middleware(middleware_name)
-                middleware.recv_queue.put(msg)
-        elif topic_type == MXProtocolType.Base.TM_REGISTER:
-            thing_name = topic.split('/')[2]
-
+        if protocol in [SoPProtocolType.WebClient.ME_RESULT_SCENARIO_LIST, SoPProtocolType.WebClient.ME_RESULT_SERVICE_LIST]:
+            client_id = topic_slice[3]
+            middleware_name = client_id.split('@')[1]
+            middleware = self.find_middleware(middleware_name)
+            hash_insert(middleware.recv_msg_table, data=(protocol, msg))
+        elif protocol == SoPProtocolType.Base.TM_REGISTER:
+            thing_name = topic_slice[2]
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
-            thing.recv_queue.put(msg)
-            self.event_log.append(MXEvent(
-                event_type=MXEventType.THING_REGISTER, middleware_element=middleware, thing_element=thing, timestamp=timestamp, duration=0))
-        elif topic_type == topic_type == MXProtocolType.Base.MT_RESULT_REGISTER:
-            thing_name = topic.split('/')[3]
-
+            hash_insert(thing.recv_msg_table, data=(protocol, msg))
+            self.event_log.append(SoPEvent(event_type=SoPEventType.THING_REGISTER, middleware_component=thing.middleware, thing_component=thing, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.Base.MT_RESULT_REGISTER.get_prefix() in topic:
+            thing_name = topic_slice[3]
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
-            thing.registered = True
-            thing.recv_queue.put(msg)
+            hash_insert(thing.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == thing and event.event_type == MXEventType.THING_REGISTER:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-
-                    progress = [thing.registered for thing in self.thing_list].count(True) / len(self.thing_list)
-                    color = 'red' if event.error == MXErrorCode.FAIL else 'green'
-                    MXTEST_LOG_DEBUG(f'[REGISTER] thing: {thing_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO, progress=progress, color=color)
-                    break
-        elif topic_type == MXProtocolType.Base.TM_UNREGISTER:
-            thing_name = topic.split('/')[2]
-
+                if not (event.middleware_component == thing.middleware and event.thing_component == thing and event.event_type == SoPEventType.THING_REGISTER):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                break
+        elif SoPProtocolType.Base.TM_UNREGISTER.get_prefix() in topic:
+            thing_name = topic_slice[2]
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
-            thing.recv_queue.put(msg)
-            self.event_log.append(MXEvent(event_type=MXEventType.THING_UNREGISTER, middleware_element=middleware, thing_element=thing, timestamp=timestamp, duration=0))
-        elif topic_type == MXProtocolType.Base.MT_RESULT_UNREGISTER:
-            thing_name = topic.split('/')[3]
-
+            hash_insert(thing.recv_msg_table, data=(protocol, msg))
+            self.event_log.append(SoPEvent(event_type=SoPEventType.THING_UNREGISTER, middleware_component=thing.middleware, thing_component=thing, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.Base.MT_RESULT_UNREGISTER.get_prefix() in topic:
+            thing_name = topic_slice[3]
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
-            thing.recv_queue.put(msg)
+            hash_insert(thing.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == thing and event.event_type == MXEventType.THING_UNREGISTER:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    MXTEST_LOG_DEBUG(f'[UNREGISTER] thing: {thing_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
-                    break
-        elif topic_type == MXProtocolType.Base.MT_EXECUTE:
-            function_name = topic.split('/')[2]
-            thing_name = topic.split('/')[3]
-
+                if not (event.middleware_component == thing.middleware and event.thing_component == thing and event.event_type == SoPEventType.THING_UNREGISTER):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                SOPTEST_LOG_DEBUG(f'[UNREGISTER] thing: {thing_name} duration: {event.duration:0.4f}', SoPTestLogLevel.INFO)
+                break
+        elif SoPProtocolType.Base.MT_EXECUTE.get_prefix() in topic:
+            function_name = topic_slice[2]
+            thing_name = topic_slice[3]
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
             scenario = self.find_scenario(scenario_name)
             service = thing.find_service_by_name(function_name)
 
-            if len(topic.split('/')) > 4:
-                # middleware_name = topic.split('/')[4]
-                # Request_ID = RequesterMiddlewareName_SuperThing@SuperFunction@SubrequestOrder
-                request_ID = topic.split('/')[5]
-
+            if len(topic_slice) > 4:
+                request_ID = topic_slice[5]
                 requester_middleware_name = request_ID.split('@')[0]
                 super_thing_name = request_ID.split('@')[1]
                 super_function_name = request_ID.split('@')[2]
-                # subrequest_order = request_ID.split('@')[3]
+                # sub_service_request_order = request_ID.split('@')[3]
             else:
                 super_thing_name = None
                 super_function_name = None
@@ -1093,37 +1207,35 @@ class MXEventHandler:
             if requester_middleware_name is not None:
                 event_type = MXEventType.SUB_FUNCTION_EXECUTE
             else:
-                event_type = MXEventType.FUNCTION_EXECUTE
-            self.event_log.append(MXEvent(event_type=event_type, middleware_element=middleware, thing_element=thing, service_element=service, scenario_element=scenario,
-                                          timestamp=timestamp, duration=0, requester_middleware_name=requester_middleware_name, super_thing_name=super_thing_name,
-                                          super_function_name=super_function_name))
-        elif topic_type == MXProtocolType.Base.TM_RESULT_EXECUTE:
-            function_name = topic.split('/')[3]
-            thing_name = topic.split('/')[4]
+                event_type = SoPEventType.FUNCTION_EXECUTE
 
+            self.event_log.append(SoPEvent(event_type=event_type, middleware_component=thing.middleware, thing_component=thing, service_component=service,
+                                           scenario_component=scenario, timestamp=timestamp, duration=0, requester_middleware_name=requester_middleware_name,
+                                           super_thing_name=super_thing_name, super_function_name=super_function_name))
+        elif SoPProtocolType.Base.TM_RESULT_EXECUTE.get_prefix() in topic:
+            function_name = topic_slice[3]
+            thing_name = topic_slice[4]
             thing = self.find_thing(thing_name)
-            middleware = self.find_element_middleware(thing)
             scenario = self.find_scenario(scenario_name)
             service = thing.find_service_by_name(function_name)
 
-            if len(topic.split('/')) > 5:
-                # middleware_name = topic.split('/')[5]
-                request_ID = topic.split('/')[6]
+            if len(topic_slice) > 5:
+                # middleware_name = topic_slice[5]
+                request_ID = topic_slice[6]
 
                 requester_middleware_name = request_ID.split('@')[0]
                 super_thing_name = request_ID.split('@')[1]
                 super_function_name = request_ID.split('@')[2]
-                # subrequest_order = request_ID.split('@')[3]
+                # sub_service_request_order = request_ID.split('@')[3]
             else:
                 super_thing_name = None
                 super_function_name = None
                 requester_middleware_name = None
 
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == thing and event.service_element == service and event.scenario_element == scenario and \
-                        event.requester_middleware_name == requester_middleware_name and event.event_type in [MXEventType.FUNCTION_EXECUTE, MXEventType.SUB_FUNCTION_EXECUTE]:
+                if event.middleware_component == thing.middleware and event.thing_component == thing and event.service_component == service and event.scenario_component == scenario and event.requester_middleware_name == requester_middleware_name and event.event_type in [SoPEventType.FUNCTION_EXECUTE, SoPEventType.SUB_FUNCTION_EXECUTE]:
                     event.duration = timestamp - event.timestamp
-                    event.error = error_type
+                    event.error = error
                     event.return_type = return_type
                     event.return_value = return_value
                     event.requester_middleware_name = requester_middleware_name
@@ -1131,235 +1243,198 @@ class MXEventHandler:
                     passed_time = get_current_time() - self.simulation_start_time
                     progress = passed_time / self.running_time
 
-                    if event.event_type == MXEventType.SUB_FUNCTION_EXECUTE:
-                        color = 'light_magenta' if event.error == MXErrorCode.FAIL else 'light_cyan'
-                        MXTEST_LOG_DEBUG(f'[EXECUTE_SUB] thing: {thing_name} function: {function_name} scenario: {scenario_name} requester_middleware_name: {requester_middleware_name}'
-                                         f' duration: {event.duration:0.4f} return value: {return_value} - {return_type.value} error: {event.error.value}', MXTestLogLevel.PASS,
-                                         progress=progress, color=color)
-                    elif event.event_type == MXEventType.FUNCTION_EXECUTE:
-                        color = 'red' if event.error == MXErrorCode.FAIL else 'green'
-                        MXTEST_LOG_DEBUG(f'[EXECUTE] thing: {thing_name} function: {function_name} scenario: {scenario_name} requester_middleware_name: {requester_middleware_name}'
-                                         f' duration: {event.duration:0.4f} return value: {return_value} - {return_type.value} error: {event.error.value}', MXTestLogLevel.PASS,
-                                         progress=progress, color=color)
+                    if event.event_type == SoPEventType.SUB_FUNCTION_EXECUTE:
+                        color = 'light_magenta' if event.error == SoPErrorType.FAIL else 'light_cyan'
+                        SOPTEST_LOG_DEBUG(f'[EXECUTE_SUB] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
+                                          f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
+                                          f'return value: {return_value} - {return_type.value} error:{event.error.value}', SoPTestLogLevel.PASS, progress=progress, color=color)
+                    elif event.event_type == SoPEventType.FUNCTION_EXECUTE:
+                        color = 'red' if event.error == SoPErrorType.FAIL else 'green'
+                        SOPTEST_LOG_DEBUG(f'[EXECUTE] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
+                                          f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
+                                          f'return value: {return_value} - {return_type.value} error:{event.error.value}', SoPTestLogLevel.PASS, progress=progress, color=color)
                     break
         elif topic_type == MXProtocolType.WebClient.EM_VERIFY_SCENARIO:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            self.event_log.append(MXEvent(event_type=MXEventType.SCENARIO_VERIFY, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
-        elif topic_type == MXProtocolType.WebClient.ME_RESULT_VERIFY_SCENARIO:
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SCENARIO_VERIFY, middleware_component=scenario.middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.WebClient.ME_RESULT_VERIFY_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            scenario.recv_queue.put(msg)
+            hash_insert(scenario.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == MXEventType.SCENARIO_VERIFY:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    MXTEST_LOG_DEBUG(f'[SCENE_VERIFY] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
-                    break
-        elif topic_type == MXProtocolType.WebClient.EM_ADD_SCENARIO:
+                if not (event.middleware_component == scenario.middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_VERIFY):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                SOPTEST_LOG_DEBUG(f'[SCENE_VERIFY] scenario: {scenario_name} duration: {event.duration:0.4f}', SoPTestLogLevel.INFO)
+                break
+        elif SoPProtocolType.WebClient.EM_ADD_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            self.event_log.append(MXEvent(event_type=MXEventType.SCENARIO_ADD, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
-        elif topic_type == MXProtocolType.WebClient.ME_RESULT_ADD_SCENARIO:
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SCENARIO_ADD, middleware_component=scenario.middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.WebClient.ME_RESULT_ADD_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            if not scenario.is_super():
-                scenario.schedule_success = True
-                scenario.service_check = True
-
-            scenario.schedule_timeout = False
-            scenario.recv_queue.put(msg)
+            hash_insert(scenario.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == MXEventType.SCENARIO_ADD:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-
-                    progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
-                    color = 'red' if event.error == MXErrorCode.FAIL else 'green'
-                    MXTEST_LOG_DEBUG(f'[SCENE_ADD] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO, progress=progress, color=color)
-                    break
-        elif topic_type == MXProtocolType.WebClient.EM_RUN_SCENARIO:
+                if not (event.middleware_component == scenario.middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_ADD):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                break
+        elif SoPProtocolType.WebClient.EM_RUN_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            self.event_log.append(MXEvent(event_type=MXEventType.SCENARIO_RUN, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
-        elif topic_type == MXProtocolType.WebClient.ME_RESULT_RUN_SCENARIO:
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SCENARIO_RUN, middleware_component=scenario.middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.WebClient.ME_RESULT_RUN_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            scenario.recv_queue.put(msg)
+            hash_insert(scenario.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == MXEventType.SCENARIO_RUN:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    MXTEST_LOG_DEBUG(f'[SCENE_RUN] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
-                    break
-        elif topic_type == MXProtocolType.WebClient.EM_STOP_SCENARIO:
+                if not (event.middleware_component == scenario.middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_RUN):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                SOPTEST_LOG_DEBUG(f'[SCENE_RUN] scenario: {scenario_name} duration: {event.duration:0.4f}', SoPTestLogLevel.INFO)
+                break
+        elif SoPProtocolType.WebClient.EM_STOP_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            self.event_log.append(MXEvent(event_type=MXEventType.SCENARIO_STOP, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
-        elif topic_type == MXProtocolType.WebClient.ME_RESULT_STOP_SCENARIO:
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SCENARIO_STOP, middleware_component=scenario.middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.WebClient.ME_RESULT_STOP_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            scenario.recv_queue.put(msg)
+            hash_insert(scenario.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == MXEventType.SCENARIO_STOP:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    MXTEST_LOG_DEBUG(f'[SCENE_STOP] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
-                    break
-        elif topic_type == MXProtocolType.WebClient.EM_UPDATE_SCENARIO:
+                if not (event.middleware_component == scenario.middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_STOP):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                SOPTEST_LOG_DEBUG(f'[SCENE_STOP] scenario: {scenario_name} duration: {event.duration:0.4f}', SoPTestLogLevel.INFO)
+                break
+        elif SoPProtocolType.WebClient.EM_UPDATE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            self.event_log.append(MXEvent(event_type=MXEventType.SCENARIO_UPDATE, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
-        elif topic_type == MXProtocolType.WebClient.ME_RESULT_UPDATE_SCENARIO:
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SCENARIO_UPDATE, middleware_component=scenario.middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.WebClient.ME_RESULT_UPDATE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            scenario.recv_queue.put(msg)
+            hash_insert(scenario.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == MXEventType.SCENARIO_UPDATE:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    MXTEST_LOG_DEBUG(f'[SCENE_UPDATE] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
-                    break
-        elif topic_type == MXProtocolType.WebClient.EM_DELETE_SCENARIO:
+                if not (event.middleware_component == scenario.middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_UPDATE):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                SOPTEST_LOG_DEBUG(f'[SCENE_UPDATE] scenario: {scenario_name} duration: {event.duration:0.4f}', SoPTestLogLevel.INFO)
+                break
+        elif SoPProtocolType.WebClient.EM_DELETE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            self.event_log.append(MXEvent(event_type=MXEventType.SCENARIO_DELETE, middleware_element=middleware, scenario_element=scenario, timestamp=timestamp, duration=0))
-        elif topic_type == MXProtocolType.WebClient.ME_RESULT_DELETE_SCENARIO:
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SCENARIO_DELETE, middleware_component=scenario.middleware, scenario_component=scenario, timestamp=timestamp, duration=0))
+        elif SoPProtocolType.WebClient.ME_RESULT_DELETE_SCENARIO.get_prefix() in topic:
             scenario = self.find_scenario(scenario_name)
-            middleware = self.find_element_middleware(scenario)
-
-            scenario.recv_queue.put(msg)
+            hash_insert(scenario.recv_msg_table, data=(protocol, msg))
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.scenario_element == scenario and event.event_type == MXEventType.SCENARIO_DELETE:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    MXTEST_LOG_DEBUG(f'[SCENE_DELETE] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
-                    break
+                if not (event.middleware_component == scenario.middleware and event.scenario_component == scenario and event.event_type == SoPEventType.SCENARIO_DELETE):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                SOPTEST_LOG_DEBUG(f'[SCENE_DELETE] scenario: {scenario_name} duration: {event.duration:0.4f}', SoPTestLogLevel.INFO)
+                break
 
         ####################################################################################################################################################
 
-        elif topic_type == MXProtocolType.Super.MS_SCHEDULE:
-            requester_middleware_name = topic.split('/')[5]
-            super_middleware_name = topic.split('/')[4]
-            super_thing_name = topic.split('/')[3]
-            super_function_name = topic.split('/')[2]
+        elif SoPProtocolType.Super.MS_SCHEDULE.get_prefix() in topic:
+            requester_middleware_name = topic_slice[5]
+            super_middleware_name = topic_slice[4]
+            super_thing_name = topic_slice[3]
+            super_function_name = topic_slice[2]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(super_function_name)
 
-            self.event_log.append(MXEvent(event_type=MXEventType.SUPER_SCHEDULE, middleware_element=middleware, thing_element=super_thing,
-                                          service_element=super_service, scenario_element=scenario, timestamp=timestamp, duration=0))
-            MXTEST_LOG_DEBUG(f'[SUPER_SCHEDULE START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
-                             f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO)
-        elif topic_type == MXProtocolType.Super.SM_SCHEDULE:
-            target_middleware_name = topic.split('/')[4]
-            target_thing_name = topic.split('/')[3]
-            target_function_name = topic.split('/')[2]
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SUPER_SCHEDULE, middleware_component=super_thing.middleware, thing_component=super_thing,
+                                           service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
+            SOPTEST_LOG_DEBUG(f'[SUPER_SCHEDULE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
+                              f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name}', SoPTestLogLevel.INFO)
+        elif SoPProtocolType.Super.SM_SCHEDULE.get_prefix() in topic:
+            target_middleware_name = topic_slice[4]
+            target_thing_name = topic_slice[3]
+            target_function_name = topic_slice[2]
 
-            request_ID = topic.split('/')[5]
+            request_ID = topic_slice[5]
             requester_middleware_name = request_ID.split('@')[0]
             super_thing_name = request_ID.split('@')[1]
             super_function_name = request_ID.split('@')[2]
 
             scenario = self.find_scenario(scenario_name)
 
-            progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_SCHEDULE START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO,
-                             progress=progress, color=color)
-        elif topic_type == MXProtocolType.Super.MS_RESULT_SCHEDULE:
-            target_middleware_name = topic.split('/')[5]
-            target_thing_name = topic.split('/')[4]
-            target_function_name = topic.split('/')[3]
+            SOPTEST_LOG_DEBUG(f'[SUB_SCHEDULE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+                              f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+                              f'target_function: {target_function_name} scenario: {scenario_name}', SoPTestLogLevel.INFO, progress=progress, color=color)
+        elif SoPProtocolType.Super.MS_RESULT_SCHEDULE.get_prefix() in topic:
+            target_middleware_name = topic_slice[5]
+            target_thing_name = topic_slice[4]
+            target_function_name = topic_slice[3]
 
-            request_ID = topic.split('/')[6]
+            request_ID = topic_slice[6]
             requester_middleware_name = request_ID.split('@')[0]
             super_thing_name = request_ID.split('@')[1]
             super_function_name = request_ID.split('@')[2]
 
             scenario = self.find_scenario(scenario_name)
 
-            progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
-
+            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_SCHEDULE END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO,
-                             progress=progress, color=color)
-        elif topic_type == MXProtocolType.Super.SM_RESULT_SCHEDULE:
-            requester_middleware_name = topic.split('/')[6]
-            super_middleware_name = topic.split('/')[5]
-            super_thing_name = topic.split('/')[4]
-            super_function_name = topic.split('/')[3]
+            SOPTEST_LOG_DEBUG(f'[SUB_SCHEDULE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+                              f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+                              f'target_function: {target_function_name} scenario: {scenario_name}', SoPTestLogLevel.INFO, progress=progress, color=color)
+        elif SoPProtocolType.Super.SM_RESULT_SCHEDULE.get_prefix() in topic:
+            requester_middleware_name = topic_slice[6]
+            super_middleware_name = topic_slice[5]
+            super_thing_name = topic_slice[4]
+            super_function_name = topic_slice[3]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(super_function_name)
-
-            if scenario.is_super():
-                scenario.schedule_success = True
-                scenario.service_check = True
+            hash_insert(scenario.recv_msg_table, data=(protocol, msg))
 
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == super_thing and event.service_element == super_service and \
-                        event.scenario_element == scenario and event.event_type == MXEventType.SUPER_SCHEDULE:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    event.return_type = return_type
-                    event.return_value = return_value
+                if not (event.middleware_component == super_thing.middleware and event.thing_component == super_thing and event.service_component == super_service
+                        and event.scenario_component == scenario and event.event_type == SoPEventType.SUPER_SCHEDULE):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                event.return_type = return_type
+                event.return_value = return_value
 
-                    progress = [scenario.schedule_success for scenario in self.scenario_list].count(True) / len(self.scenario_list)
-
-                    MXTEST_LOG_DEBUG(f'[SUPER_SCHEDULE END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
-                                     f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
-                                     f'result: {event.error.value}', MXTestLogLevel.INFO,
-                                     progress=progress)
-                    break
-        elif topic_type == MXProtocolType.Super.MS_EXECUTE:
-            super_function_name = topic.split('/')[2]
-            super_thing_name = topic.split('/')[3]
-            super_middleware_name = topic.split('/')[4]
-            requester_middleware_name = topic.split('/')[5]
+                progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
+                SOPTEST_LOG_DEBUG(f'[SUPER_SCHEDULE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
+                                  f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
+                                  f'result: {event.error.value}', SoPTestLogLevel.INFO, progress=progress)
+                break
+        elif SoPProtocolType.Super.MS_EXECUTE.get_prefix() in topic:
+            super_function_name = topic_slice[2]
+            super_thing_name = topic_slice[3]
+            super_middleware_name = topic_slice[4]
+            requester_middleware_name = topic_slice[5]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(super_function_name)
 
             # NOTE: Super service가 감지되면 각 subfunction의 energy를 0으로 초기화한다.
             # 이렇게 하는 이유는 super service가 실행될 때 마다 다른 subfunction이 실행될 수 있고
-            # 이에 따라 다른 eneryg 소모량을 가질 수 있다.
+            # 이에 따라 다른 energy 소모량을 가질 수 있다.
             # for subfunction in super_service.subfunction_list:
             #     subfunction.energy = 0
 
-            self.event_log.append(MXEvent(event_type=MXEventType.SUPER_FUNCTION_EXECUTE, middleware_element=middleware, thing_element=super_thing, service_element=super_service,
-                                          scenario_element=scenario, timestamp=timestamp, duration=0))
+            self.event_log.append(SoPEvent(event_type=SoPEventType.SUPER_FUNCTION_EXECUTE, middleware_component=super_thing.middleware, thing_component=super_thing,
+                                           service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
             passed_time = get_current_time() - self.simulation_start_time
             progress = passed_time / self.running_time
-            MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress)
-        elif topic_type == MXProtocolType.Super.SM_EXECUTE:
-            target_middleware_name = topic.split('/')[4]
-            target_thing_name = topic.split('/')[3]
-            target_function_name = topic.split('/')[2]
+            SOPTEST_LOG_DEBUG(f'[SUPER_EXECUTE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+                              f'super_function: {super_function_name} scenario: {scenario_name}', SoPTestLogLevel.INFO, progress=progress)
+        elif SoPProtocolType.Super.SM_EXECUTE.get_prefix() in topic:
+            target_middleware_name = topic_slice[4]
+            target_thing_name = topic_slice[3]
+            target_function_name = topic_slice[2]
 
-            request_ID = topic.split('/')[5]
+            request_ID = topic_slice[5]
             requester_middleware_name = request_ID.split('@')[0]
             super_thing_name = request_ID.split('@')[1]
             super_function_name = request_ID.split('@')[2]
@@ -1369,15 +1444,15 @@ class MXEventHandler:
             passed_time = get_current_time() - self.simulation_start_time
             progress = passed_time / self.running_time
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_EXECUTE START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
-        elif topic_type == MXProtocolType.Super.MS_RESULT_EXECUTE:
-            target_middleware_name = topic.split('/')[5]
-            target_thing_name = topic.split('/')[4]
-            target_function_name = topic.split('/')[3]
+            SOPTEST_LOG_DEBUG(f'[SUB_EXECUTE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+                              f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+                              f'target_function: {target_function_name} scenario: {scenario_name}', SoPTestLogLevel.INFO, progress=progress, color=color)
+        elif SoPProtocolType.Super.MS_RESULT_EXECUTE.get_prefix() in topic:
+            target_middleware_name = topic_slice[5]
+            target_thing_name = topic_slice[4]
+            target_function_name = topic_slice[3]
 
-            request_ID = topic.split('/')[6]
+            request_ID = topic_slice[6]
             requester_middleware_name = request_ID.split('@')[0]
             super_thing_name = request_ID.split('@')[1]
             super_function_name = request_ID.split('@')[2]
@@ -1387,39 +1462,38 @@ class MXEventHandler:
             passed_time = get_current_time() - self.simulation_start_time
             progress = passed_time / self.running_time
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_EXECUTE END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
-        elif topic_type == MXProtocolType.Super.SM_RESULT_EXECUTE:
-            requester_middleware_name = topic.split('/')[6]
-            super_middleware_name = topic.split('/')[5]
-            super_thing_name = topic.split('/')[4]
-            super_function_name = topic.split('/')[3]
+            SOPTEST_LOG_DEBUG(f'[SUB_EXECUTE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+                              f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+                              f'target_function: {target_function_name} scenario: {scenario_name}', SoPTestLogLevel.INFO, progress=progress, color=color)
+        elif SoPProtocolType.Super.SM_RESULT_EXECUTE.get_prefix() in topic:
+            requester_middleware_name = topic_slice[6]
+            super_middleware_name = topic_slice[5]
+            super_thing_name = topic_slice[4]
+            super_function_name = topic_slice[3]
 
             super_thing = self.find_thing(super_thing_name)
-            middleware = self.find_element_middleware(super_thing)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(super_function_name)
 
             for event in list(reversed(self.event_log)):
-                if event.middleware_element == middleware and event.thing_element == super_thing and event.service_element == super_service and \
-                        event.scenario_element == scenario and event.event_type == MXEventType.SUPER_FUNCTION_EXECUTE:
-                    event.duration = timestamp - event.timestamp
-                    event.error = error_type
-                    event.return_type = return_type
-                    event.return_value = return_value
+                if not (event.event_type == SoPEventType.SUPER_FUNCTION_EXECUTE and event.middleware_component == super_thing.middleware and event.thing_component == super_thing
+                        and event.service_component == super_service and event.scenario_component == scenario):
+                    continue
+                event.duration = timestamp - event.timestamp
+                event.error = error
+                event.return_type = return_type
+                event.return_value = return_value
 
-                    passed_time = get_current_time() - self.simulation_start_time
-                    progress = passed_time / self.running_time
-                    MXTEST_LOG_DEBUG(
-                        f'[SUPER_EXECUTE END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                        f'super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} return value: {return_value} - {return_type.value} '
-                        f'error: {event.error.value}', MXTestLogLevel.INFO, progress=progress)
-                    break
+                passed_time = get_current_time() - self.simulation_start_time
+                progress = passed_time / self.running_time
+                SOPTEST_LOG_DEBUG(f'[SUPER_EXECUTE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
+                                  f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
+                                  f'return value: {return_value} - {return_type.value} error:{event.error.value}', SoPTestLogLevel.INFO, progress=progress)
+                break
         elif 'SIM/FINISH' in topic:
             scenario = self.find_scenario(scenario_name)
             scenario.cycle_count += 1
-            # MXTEST_LOG_DEBUG(f'[SIM_FINISH] scenario: {scenario.name}, cycle_count: {scenario.cycle_count}', MXTestLogLevel.WARN)
+            # SOPTEST_LOG_DEBUG(f'[SIM_FINISH] scenario: {scenario.name}, cycle_count: {scenario.cycle_count}', SoPTestLogLevel.WARN)
             return True
         else:
             print(MXProtocolType.Super.SM_SCHEDULE.get_prefix())
@@ -1430,3 +1504,92 @@ class MXEventHandler:
         #     pass
         # elif MXProtocolType.Default.TM_VALUE_PUBLISH_OLD.get_prefix() in topic:
         #     pass
+
+    # =========================
+    #         _    _  _
+    #        | |  (_)| |
+    #  _   _ | |_  _ | | ___
+    # | | | || __|| || |/ __|
+    # | |_| || |_ | || |\__ \
+    #  \__,_| \__||_||_||___/
+    # =========================
+
+    def _check_result_payload(self, payload: dict = None):
+        if not payload:
+            SOPTEST_LOG_DEBUG(f'Payload is None (timeout)!!!', SoPTestLogLevel.FAIL)
+            return None
+
+        error_code = payload['error']
+        error_string = payload.get('error_string', None)
+
+        if error_code in [0, -4]:
+            return True
+        else:
+            SOPTEST_LOG_DEBUG(f'error_code: {error_code}, error_string : {error_string if error_string else "(No error string)"}', SoPTestLogLevel.FAIL)
+            return False
+
+    def _get_device_list(self) -> List[SoPDevice]:
+        duplicated_device_list: List[SoPDevice] = [middleware.device for middleware in self.middleware_list] + [thing.device for thing in self.thing_list]
+        device_list: List[SoPDevice] = []
+
+        for device in duplicated_device_list:
+            if device in device_list:
+                continue
+            device_list.append(device)
+
+        return device_list
+
+    def find_ssh_client(self, component: Union[SoPMiddleware, SoPThing]) -> SoPSSHClient:
+        for ssh_client in self.ssh_client_list:
+            if ssh_client.device == component.device:
+                return ssh_client
+        else:
+            return None
+
+    def find_mqtt_client(self, middleware: SoPMiddleware) -> SoPMQTTClient:
+        for mqtt_client in self.mqtt_client_list:
+            if mqtt_client.middleware == middleware:
+                return mqtt_client
+        else:
+            return None
+
+    def find_middleware(self, target_middleware_name: str) -> SoPMiddleware:
+        for middleware in self.middleware_list:
+            if middleware.name == target_middleware_name:
+                return middleware
+        else:
+            return None
+
+    def find_scenario(self, target_scenario_name: str) -> SoPScenario:
+        for scenario in self.scenario_list:
+            if scenario.name == target_scenario_name:
+                return scenario
+        else:
+            return None
+
+    def find_thing(self, target_thing_name: str) -> SoPThing:
+        for thing in self.thing_list:
+            if thing.name == target_thing_name:
+                return thing
+        else:
+            return None
+
+    def find_service(self, target_service_name: str) -> SoPService:
+        for thing in self.thing_list:
+            for service in thing.service_list:
+                if service.name == target_service_name:
+                    return service
+        else:
+            return None
+
+    def find_parent_middleware(self, component: Union[SoPMiddleware, SoPScenario, SoPThing, SoPService]) -> SoPMiddleware:
+        if isinstance(component, SoPMiddleware):
+            return component.parent
+        elif isinstance(component, SoPScenario):
+            return component.middleware
+        elif isinstance(component, SoPThing):
+            return component.middleware
+        elif isinstance(component, SoPService):
+            return component.thing.middleware
+        else:
+            return None

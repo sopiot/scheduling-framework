@@ -3,40 +3,40 @@
   scenario_num: [0, 0]
   super_thing_num: [1, 1]
   super_scenario_num: [32, 32]
-  child:
+  children:
     - name: middleware
       thing_num: [0, 0]
       scenario_num: [0, 0]
       super_thing_num: [0, 0]
       super_scenario_num: [0, 0]
-      child:
+      children:
         - name: middleware
           thing_num: [10, 10]
           scenario_num: [10, 10]
           super_thing_num: [0, 0]
           super_scenario_num: [32, 32]
-          child: null
+          children: []
         - name: middleware
           thing_num: [10, 10]
           scenario_num: [10, 10]
           super_thing_num: [0, 0]
           super_scenario_num: [32, 32]
-          child: null
+          children: []
     - name: middleware
       thing_num: [0, 0]
       scenario_num: [0, 0]
       super_thing_num: [0, 0]
       super_scenario_num: [0, 0]
-      child:
+      children:
         - name: middleware
           thing_num: [10, 10]
           scenario_num: [10, 10]
           super_thing_num: [0, 0]
           super_scenario_num: [32, 32]
-          child: null
+          children: []
         - name: middleware
           thing_num: [10, 10]
           scenario_num: [10, 10]
           super_thing_num: [0, 0]
           super_scenario_num: [32, 32]
-          child: null
+          children: []
