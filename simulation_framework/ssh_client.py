@@ -9,9 +9,9 @@ def print_progress_status(transferred, toBeTransferred):
 
 
 class SoPSSHClient:
-    COMMAND_SENDING = 0
-    FILE_UPLOADING = 0
-    FILE_DOWNLOADING = 0
+    # COMMAND_SENDING = 0
+    # FILE_UPLOADING = 0
+    # FILE_DOWNLOADING = 0
 
     def __init__(self, device: SoPDevice, connect_timeout: float = 10) -> None:
         self._ssh_client: paramiko.SSHClient = paramiko.SSHClient()
@@ -123,9 +123,9 @@ class SoPSSHClient:
             target_pid_list = list(set(target_pid_list_ps_ef))
         return target_pid_list
 
-    def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
-        while not SoPSSHClient.COMMAND_SENDING < 2:
-            time.sleep(BUSY_WAIT_TIMEOUT)
+    def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False, get_pty: bool = False, force: bool = False) -> Union[bool, List[str]]:
+        # while not SoPSSHClient.COMMAND_SENDING < 2 and not force:
+        #     time.sleep(BUSY_WAIT_TIMEOUT)
 
         if isinstance(command, str):
             command_list = [command]
@@ -133,7 +133,7 @@ class SoPSSHClient:
             self.connect()
 
         try:
-            SoPSSHClient.COMMAND_SENDING += 1
+            # SoPSSHClient.COMMAND_SENDING += 1
             for command in command_list:
                 if self.connected:
                     if background:
@@ -173,7 +173,8 @@ class SoPSSHClient:
                     else:
                         return result.read().split('\n')
         finally:
-            SoPSSHClient.COMMAND_SENDING -= 1
+            # SoPSSHClient.COMMAND_SENDING -= 1
+            pass
 
     def send_command_with_check_success(self, command: Union[List[str], str], background: bool = False, get_pty: bool = False) -> bool:
         result = self.send_command(command=f'{command.strip(";")}; echo $?', ignore_result=False, background=background, get_pty=get_pty)
@@ -183,15 +184,15 @@ class SoPSSHClient:
             return False
 
     def send_file(self, local_path: str, remote_path: str):
-        while not SoPSSHClient.FILE_UPLOADING < 10:
-            time.sleep(BUSY_WAIT_TIMEOUT)
+        # while not SoPSSHClient.FILE_UPLOADING < 10:
+        #     time.sleep(BUSY_WAIT_TIMEOUT)
 
         if not self.sftp_opened:
             self.open_sftp()
 
         # SOPTEST_LOG_DEBUG(f'Send files: {local_path} -> {remote_path}', SoPTestLogLevel.PASS)
         try:
-            SoPSSHClient.FILE_UPLOADING += 1
+            # SoPSSHClient.FILE_UPLOADING += 1
             try:
                 remote_dir_path = os.path.dirname(remote_path)
                 self._sftp_client.chdir(remote_dir_path)
@@ -206,7 +207,8 @@ class SoPSSHClient:
         except Exception as e:
             print_error()
         finally:
-            SoPSSHClient.FILE_UPLOADING -= 1
+            # SoPSSHClient.FILE_UPLOADING -= 1
+            pass
 
     # local_path와 remote_path를 받아서 재귀적으로 폴더를 전송하는 함수
     def send_dir(self, local_path: str, remote_path: str):
@@ -229,8 +231,8 @@ class SoPSSHClient:
                     pass
 
     def get_file(self, remote_path: str, local_path: str, ext_filter: str = ''):
-        while not SoPSSHClient.FILE_DOWNLOADING < 20:
-            time.sleep(BUSY_WAIT_TIMEOUT)
+        # while not SoPSSHClient.FILE_DOWNLOADING < 20:
+        #     time.sleep(BUSY_WAIT_TIMEOUT)
 
         if not self.sftp_opened:
             self.open_sftp()
@@ -239,7 +241,7 @@ class SoPSSHClient:
         if remote_path.split('.')[-1] == ext_filter:
             # SOPTEST_LOG_DEBUG(f'Download file: {local_path} <- {remote_path}')
             try:
-                SoPSSHClient.FILE_DOWNLOADING += 1
+                # SoPSSHClient.FILE_DOWNLOADING += 1
 
                 local_path_dirname = os.path.dirname(local_path)
                 if not os.path.exists(local_path_dirname):
@@ -252,7 +254,8 @@ class SoPSSHClient:
             except Exception as e:
                 print_error()
             finally:
-                SoPSSHClient.FILE_DOWNLOADING -= 1
+                # SoPSSHClient.FILE_DOWNLOADING -= 1
+                pass
         else:
             SOPTEST_LOG_DEBUG(f'{remote_path} is not {ext_filter} file. Skip download...', SoPTestLogLevel.WARN)
             return False
@@ -330,7 +333,7 @@ class SoPSSHClient:
         while retry:
             try:
                 if self.connected:
-                    SOPTEST_LOG_DEBUG('Already connected to host', SoPTestLogLevel.WARN)
+                    # SOPTEST_LOG_DEBUG('Already connected to host', SoPTestLogLevel.WARN)
                     return self._ssh_client
 
                 self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

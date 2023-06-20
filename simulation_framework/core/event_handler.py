@@ -970,14 +970,13 @@ class SoPEventHandler:
         SOPTEST_LOG_DEBUG(f'Kill all middleware...', SoPTestLogLevel.INFO, 'red')
         for middleware in self.middleware_list:
             ssh_client = self.find_ssh_client(middleware)
-            ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
-            ssh_client.send_command('pidof mosquitto | xargs kill -9')
+            ssh_client.send_command('pidof sopiot_middleware | xargs kill -9', force=True)
+            ssh_client.send_command('pidof mosquitto | xargs kill -9', force=True)
 
     def kill_all_thing(self):
         SOPTEST_LOG_DEBUG(f'Kill all python instance...', SoPTestLogLevel.INFO, 'red')
 
         self_pid = os.getpid()
-
         for ssh_client in self.ssh_client_list:
             result = ssh_client.send_command(f"ps -ef | grep python | grep _thing_ | grep -v grep | awk '{{print $2}}'")
 
@@ -998,12 +997,31 @@ class SoPEventHandler:
             mqtt_client.stop()
             del mqtt_client
 
-    def kill_every_process(self):
-        SOPTEST_LOG_DEBUG(f'Kill simulation instance...', SoPTestLogLevel.INFO, 'red')
+    def kill_every_process(self) -> bool:
+        with Progress() as progress:
+            task1 = progress.add_task("Clean up simulation processes...", total=len(self.middleware_list) + len(self.ssh_client_list))
+            task2 = progress.add_task("Kill middleware processes...", total=len(self.middleware_list))
+            if not self.middleware_debug:
+                for middleware in self.middleware_list:
+                    ssh_client = self.find_ssh_client(middleware)
+                    ssh_client.send_command('pidof sopiot_middleware | xargs kill -9', force=True)
+                    ssh_client.send_command('pidof mosquitto | xargs kill -9', force=True)
+                    progress.update(task1, advance=1)
+                    progress.update(task2, advance=1)
 
-        if not self.middleware_debug:
-            self.kill_all_middleware()
-        self.kill_all_thing()
+            self_pid = os.getpid()
+            task3 = progress.add_task("Kill thing processes...", total=len(self.ssh_client_list))
+            for ssh_client in self.ssh_client_list:
+                result = ssh_client.send_command(f"ps -ef | grep python | grep _thing_ | grep -v grep | awk '{{print $2}}'")
+
+                for pid in result:
+                    if pid == self_pid:
+                        continue
+                    result = ssh_client.send_command(f'kill -9 {pid}', force=True)
+                progress.update(task1, advance=1)
+                progress.update(task3, advance=1)
+
+        return True
 
     def wrapup(self):
         self.kill_every_process()

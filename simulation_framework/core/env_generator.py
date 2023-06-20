@@ -14,7 +14,13 @@ def print_middleware_tree(root_middleware: SoPMiddleware, show: Callable = lambd
     middleware: SoPMiddleware
     cprint(f'==== Middleware Tree Structure ====', 'green')
     for pre, fill, middleware in RenderTree(root_middleware):
-        cprint(f'{pre}{middleware.name} - {show(middleware)}', 'cyan')
+        print_string = f'{pre}{middleware.name}({middleware.device.name})'
+        show_string = show(middleware)
+        if show_string:
+            print_string += f' - {show_string}'
+        else:
+            print_string += ''
+        cprint(f'{print_string}', 'cyan')
 
 
 class SoPComponentGenerateMode(Enum):
@@ -381,7 +387,6 @@ class SoPEnvGenerator:
             raise Exception('Unknown simulation generator error')
 
         SOPTEST_LOG_DEBUG(f'Map thing to middleware tree', SoPTestLogLevel.INFO)
-        # print_middleware_tree(root_middleware=root_middleware, show=lambda middleware: '\n'.join([f'{thing.name} level: {thing.level} service_num: {len(thing.service_list)}' for thing in node.thing_list]))
 
     def generate_scenario(self, root_middleware: SoPMiddleware):
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree

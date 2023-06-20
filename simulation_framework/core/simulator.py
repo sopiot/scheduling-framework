@@ -131,27 +131,24 @@ class SoPSimulator:
             if not ssh_client.send_command_with_check_success(middleware_update_command):
                 raise SSHCommandFailError(command=middleware_update_command, reason=f'Install middleware to {ssh_client.device.name} failed')
 
-            # SOPTEST_LOG_DEBUG(f'Install middleware to {ssh_client.device.name} success', SoPTestLogLevel.INFO)
             return True
 
         def install_remote_thing(ssh_client: SoPSSHClient, force_install: bool = True):
-            if not ssh_client.send_command_with_check_success('pip list | grep big-thing-py'):
-                thing_install_command = f'pip install big-thing-py'
-                if force_install:
-                    thing_install_command += '--force-reinstall'
-                # SOPTEST_LOG_DEBUG(f'{"[FORCE]" if force_install else ""} big-thing-py install to {ssh_client.device.name} start', SoPTestLogLevel.INFO)
+            thing_install_command = f'pip install big-thing-py'
+
+            if force_install:
+                thing_install_command += ' --force-reinstall'
                 if not ssh_client.send_command_with_check_success(thing_install_command):
                     raise SSHCommandFailError(command=thing_install_command, reason=f'Install big-thing-py failed to {ssh_client.device.name}')
-                # SOPTEST_LOG_DEBUG(f'{"[FORCE]" if force_install else ""} big-thing-py install to {ssh_client.device.name} end', SoPTestLogLevel.INFO)
-            else:
-                # SOPTEST_LOG_DEBUG(f'big-thing-py already installed to {ssh_client.device.name}', SoPTestLogLevel.INFO)
-                pass
+            elif not ssh_client.send_command_with_check_success('pip list | grep big-thing-py'):
+                if not ssh_client.send_command_with_check_success(thing_install_command):
+                    raise SSHCommandFailError(command=thing_install_command, reason=f'Install big-thing-py failed to {ssh_client.device.name}')
 
             return True
 
         def init_ramdisk(ssh_client: SoPSSHClient) -> None:
             ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
-                                             f'sudo mount -t tmpfs -o size=200M tmpfs /mnt/ramdisk',
+                                             f'sudo mount -t tmpfs -o size=500M tmpfs /mnt/ramdisk',
                                              f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
                                              f'sudo chmod 777 /mnt/ramdisk']
             if not ssh_client.send_command_with_check_success('ls /mnt/ramdisk'):
@@ -204,7 +201,7 @@ check_cpu_clock_setting'''
             thing_ssh_client_list = list(set([self.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
 
             ssh_client_list = list(set(middleware_ssh_client_list + thing_ssh_client_list))
-            task1 = progress.add_task("install middleware & thing", total=len(ssh_client_list))
+            task1 = progress.add_task("Install middleware & thing", total=len(ssh_client_list))
             pool_map(task, ssh_client_list)
 
         return True
