@@ -342,7 +342,11 @@ def hash_insert(hash_table: Dict[Any, list], data: tuple):
 
 def hash_pop(hash_table: Dict[Any, list], key: Any):
     if key in hash_table:
-        return hash_table[key].pop(0)
+        try:
+            item = hash_table[key].pop(0)
+            return item
+        except:
+            return None
     else:
         return None
 

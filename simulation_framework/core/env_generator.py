@@ -679,20 +679,19 @@ class MXEnvGenerator:
                                               for thing in sorted(normal_thing_list, key=lambda x: x.middleware.name, reverse=False)])
         build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_RUN, component=thing)
                                               for thing in sorted(super_thing_list, key=lambda x: x.middleware.name, reverse=False)])
+        # Wait until all thing register
         build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_CHECK)])
         static_event_timeline.extend(build_simulation_env_timeline)
 
-        # Wait until all thing register
-        static_event_timeline.append(MXEvent(delay=3, event_type=MXEventType.DELAY))
-        static_event_timeline.append(MXEvent(event_type=MXEventType.REFRESH, **dict(scenario_check=False, service_check=False, thing_register_check=True)))
+        static_event_timeline.append(MXEvent(delay=5, event_type=MXEventType.DELAY))
 
         # Scenario add start
         scenario_add_timeline = [self._generate_event(event_type=MXEventType.SCENARIO_ADD, component=scenario, middleware_component=find_component(root_middleware, scenario))
                                  for scenario in scenario_list]
         static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x.timestamp))
         static_event_timeline.append(MXEvent(event_type=MXEventType.SCENARIO_ADD_CHECK))
-        static_event_timeline.append(MXEvent(delay=20, event_type=MXEventType.DELAY))
-        static_event_timeline.append(MXEvent(event_type=MXEventType.REFRESH, **dict(scenario_check=True, service_check=True)))
+        static_event_timeline.append(MXEvent(event_type=MXEventType.SCENARIO_STATE_CHECK, **dict(target_state=[MXScenarioState.INITIALIZED], check_interval=3, retry=5)))
+        static_event_timeline.append(MXEvent(delay=5, event_type=MXEventType.DELAY))
 
         # Simulation start
         dynamic_event_timeline.append(MXEvent(event_type=MXEventType.START))

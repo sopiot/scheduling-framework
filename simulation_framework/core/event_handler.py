@@ -77,12 +77,10 @@ class MXEventType(Enum):
     SUB_SCHEDULE = 'SUB_SCHEDULE'                                       # Sub Schedule 이벤트. Super Thing이 Middleware에게 Sub Schedule 패킷을 보내는 경우의 이벤트이다.
     SUB_SCHEDULE_RESULT = 'SUB_SCHEDULE_RESULT'                         # Sub Schedule 결과 이벤트. Middleware가 Super Thing에게 Sub Schedule를 수행한 결과 패킷을 보내는 경우의 이벤트이다.
 
-    REFRESH = 'REFRESH'                                                 # Refresh 이벤트. 시뮬레이터가 EM/REFRESH 패킷을 전송한다.
     MIDDLEWARE_CHECK = 'MIDDLEWARE_CHECK'                               # 모든 Middleware가 online 상태일 때까지 기다리는 이벤트.
     THING_CHECK = 'THING_CHECK'                                         # 모든 Thing이 online 상태일 때까지 기다리는 이벤트.
     SCENARIO_ADD_CHECK = 'SCENARIO_ADD_CHECK'                           # 모든 Scenario가 추가 완료될 때까지 기다리는 이벤트.
-    SCENARIO_INIT_CHECK = 'SCENARIO_INIT_CHECK'                         # 모든 Scenario가 초기화 완료될 때까지 기다리는 이벤트.
-    SCENARIO_RUN_CHECK = 'SCENARIO_RUN_CHECK'                           # 모든 Scenario가 실행 완료될 때까지 기다리는 이벤트.
+    SCENARIO_STATE_CHECK = 'SCENARIO_STATE_CHECK'                       # 모든 Scenario의 상태가 타겟 state가 될 때까지 기다리는 이벤트.
 
     UNDEFINED = 'UNDEFINED'
 
@@ -351,8 +349,10 @@ class MXEventHandler:
             event.timestamp = get_current_time() - self.simulation_start_time
             MXTEST_LOG_DEBUG(f'Simulation End. duration: {event.timestamp:8.3f} sec', MXTestLogLevel.PASS, 'yellow')
 
-            # for check scenario state
-            self.refresh(timeout=self.timeout, scenario_check=True, check_interval=3.0)
+            # check which scenario is stucked
+            self.scenario_state_check(target_state=[MXScenarioState.INITIALIZED,
+                                                    MXScenarioState.RUNNING,
+                                                    MXScenarioState.EXECUTING], check_interval=3, retry=5, timeout=self.timeout)
             self.stop_event_listener()
             self.kill_every_process()
 
@@ -384,16 +384,14 @@ class MXEventHandler:
                 MXThread(name=f'{event.event_type.value}_{event.component.name}', target=self.delete_scenario, args=(target_component, self.timeout, )).start()
 
             # sync event
-            elif event.event_type == MXEventType.REFRESH:
-                self.refresh(timeout=self.timeout, check_interval=3.0, **event.kwargs)
             elif event.event_type == MXEventType.MIDDLEWARE_CHECK:
                 self.check_middleware(timeout=self.timeout)
             elif event.event_type == MXEventType.THING_CHECK:
                 self.check_thing(timeout=self.timeout)
             elif event.event_type == MXEventType.SCENARIO_ADD_CHECK:
                 self.scenario_add_check(timeout=self.timeout)
-            elif event.event_type == MXEventType.SCENARIO_RUN_CHECK:
-                self.scenario_run_check(timeout=self.timeout)
+            elif event.event_type == MXEventType.SCENARIO_STATE_CHECK:
+                self.scenario_state_check(timeout=self.timeout, **event.kwargs)
             else:
                 raise MXTEST_LOG_DEBUG(f'Event type is {event.event_type}, but not implemented yet', MXTestLogLevel.FAIL)
 
@@ -415,7 +413,7 @@ class MXEventHandler:
     def subscribe_scenario_finish_topic(self, middleware: MXMiddleware):
         mqtt_client = self.find_mqtt_client(middleware)
         while not mqtt_client.is_run:
-            time.sleep(BUSY_WAIT_TIMEOUT)
+            time.sleep(BUSY_WAIT_TIMEOUT * 100)
         mqtt_client.subscribe('SIM/FINISH')
 
     def run_middleware(self, middleware: MXMiddleware, timeout: float = 5) -> bool:
@@ -427,7 +425,7 @@ class MXEventHandler:
                 return True
             else:
                 while not parent_middleware.online:
-                    time.sleep(BUSY_WAIT_TIMEOUT)
+                    time.sleep(BUSY_WAIT_TIMEOUT * 100)
                 else:
                     return True
 
@@ -512,8 +510,8 @@ class MXEventHandler:
     def check_middleware(self, timeout: float) -> bool:
         remain_timeout = timeout
         while not all(middleware.online for middleware in self.middleware_list):
-            time.sleep(BUSY_WAIT_TIMEOUT)
-            remain_timeout -= BUSY_WAIT_TIMEOUT
+            time.sleep(BUSY_WAIT_TIMEOUT * 100)
+            remain_timeout -= BUSY_WAIT_TIMEOUT * 100
             if remain_timeout <= 0:
                 return False
         else:
@@ -546,11 +544,11 @@ class MXEventHandler:
         mqtt_client = self.find_mqtt_client(middleware)
 
         while not middleware.online:
-            time.sleep(BUSY_WAIT_TIMEOUT)
+            time.sleep(BUSY_WAIT_TIMEOUT * 100)
 
         if thing.is_super:
             while not all(thing.registered for thing in self.thing_list if not thing.is_super):
-                time.sleep(BUSY_WAIT_TIMEOUT)
+                time.sleep(BUSY_WAIT_TIMEOUT * 100)
             time.sleep(0.5)
 
         target_topic_list = [MXProtocolType.Base.TM_REGISTER.value % thing.name,
@@ -603,8 +601,8 @@ class MXEventHandler:
     def check_thing(self, timeout: float) -> bool:
         remain_timeout = timeout
         while not all(thing.registered for thing in self.thing_list):
-            time.sleep(BUSY_WAIT_TIMEOUT)
-            remain_timeout -= BUSY_WAIT_TIMEOUT
+            time.sleep(BUSY_WAIT_TIMEOUT * 100)
+            remain_timeout -= BUSY_WAIT_TIMEOUT * 100
             if remain_timeout <= 0:
                 return False
         else:
@@ -612,124 +610,52 @@ class MXEventHandler:
 
     ####  scenario   #############################################################################################################
 
-    def refresh(self, timeout: float, check_interval: float = 3.0, scenario_check: bool = True, service_check: bool = False, thing_register_check: bool = False):
-        refresh_result: List[bool] = []
-
-        def get_init_failed_scenario(middleware: MXMiddleware, scenario_info_list: List[MXScenarioInfo]) -> List[MXScenario]:
-            if not scenario_info_list:
-                return []
-
-            init_failed_scenario_list = []
-            for scenario in middleware.scenario_list:
-                for scenario_info in scenario_info_list:
-                    scenario.state = scenario_info.state
-                    if scenario.name != scenario_info.name:
-                        continue
-                    if scenario.state == MXScenarioState.INITIALIZED:
-                        scenario.schedule_success = True
-                        break
-                    else:
-                        MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is in {scenario.state.value} state...', MXTestLogLevel.WARN)
-                        init_failed_scenario_list.append(scenario)
-                else:
-                    MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in scenario list of {middleware.name}...', MXTestLogLevel.WARN)
-                    init_failed_scenario_list.append(scenario)
-
-            return init_failed_scenario_list
-
-        def check_service_list_valid(scenario: MXScenario, service_info_list: List[MXService]) -> bool:
-            if not service_info_list:
+    def scenario_add_check(self, timeout: float):
+        remain_timeout = timeout
+        while not all([scenario.add_result_arrived for scenario in self.scenario_list]):
+            time.sleep(BUSY_WAIT_TIMEOUT * 100)
+            remain_timeout -= BUSY_WAIT_TIMEOUT * 100
+            if remain_timeout <= 0:
                 return False
+        else:
+            MXTEST_LOG_DEBUG(f'All scenario Add is complete!...', MXTestLogLevel.INFO)
+            return True
 
-            for service in scenario.service_list:
-                if not service.name in [service_info.name for service_info in service_info_list]:
-                    MXTEST_LOG_DEBUG(f'service {service.name} is not in Scenario {scenario.name}', MXTestLogLevel.WARN)
-                    return False
-            else:
-                return True
-
-        def get_register_failed_thing(middleware: MXMiddleware):
-            thing_list = get_whole_thing_list(middleware)
-
-            register_failed_thing_list = []
-            for thing in thing_list:
-                if not thing.registered:
-                    MXTEST_LOG_DEBUG(f'Thing {thing.name} is not registered...', MXTestLogLevel.WARN)
-                    register_failed_thing_list.append(thing)
-
-            return register_failed_thing_list
+    def scenario_state_check(self, target_state: List[MXScenarioState], check_interval: float, retry: int, timeout: float):
 
         def task(middleware: MXMiddleware, timeout: float):
-            MXTEST_LOG_DEBUG(f'Refresh Start... middleware: {middleware.name}, device: {middleware.device.name}', MXTestLogLevel.INFO)
-            whole_service_info_list: List[MXService] = []
-            whole_scenario_info_list: List[MXScenarioInfo] = []
+            scenario_check_list: List[bool] = []
+            whole_scenario_info_list = self.get_whole_scenario_info(middleware, timeout=timeout)
 
-            if scenario_check:
-                whole_scenario_info_list = self.get_whole_scenario_info(middleware, timeout=timeout)
-                init_failed_scenario_list = get_init_failed_scenario(middleware, whole_scenario_info_list)
-                if len(init_failed_scenario_list) > 0:
-                    for scenario in init_failed_scenario_list:
-                        refresh_result.append(False)
-                        MXTEST_LOG_DEBUG(f'Scenario {scenario.name} in {middleware.name} init failed...', MXTestLogLevel.FAIL)
-            if service_check:
-                whole_service_info_list = self.get_whole_service_list_info(middleware, timeout=timeout)
-                scenario_list = get_whole_scenario_list(middleware)
-                for scenario in scenario_list:
-                    if not check_service_list_valid(scenario=scenario, service_info_list=whole_service_info_list):
-                        refresh_result.append(False)
-                        MXTEST_LOG_DEBUG(f'Scenario {scenario.name} in {middleware.name} service check failed...', MXTestLogLevel.FAIL)
-            if thing_register_check:
-                register_failed_thing_list = get_register_failed_thing(middleware)
-                if len(register_failed_thing_list) > 0:
-                    refresh_result.append(False)
-                    MXTEST_LOG_DEBUG(f'Thing register failed...', MXTestLogLevel.FAIL)
+            # Update scenario state
+            for scenario_info in whole_scenario_info_list:
+                scenario = self.find_scenario(scenario_info.name)
+                scenario.state = scenario_info.state
 
-            refresh_result.append(True)
-            MXTEST_LOG_DEBUG(f'Refresh Success! middleware: {middleware.name}', MXTestLogLevel.INFO)
-
-        cur_time1 = get_current_time()
-        while get_current_time() - cur_time1 < timeout:
-            cur_time2 = get_current_time()
-            pool_map(task, [(middleware, check_interval) for middleware in self.middleware_list])
-
-            if all(refresh_result):
-                break
-            else:
-                refresh_result = []
-
-            while get_current_time() - cur_time2 < check_interval:
-                time.sleep(BUSY_WAIT_TIMEOUT * 10)
-
-        return True
-
-    def scenario_add_check(self, timeout: float):
-        while not all([scenario.add_result_arrived for scenario in self.scenario_list]):
-            time.sleep(BUSY_WAIT_TIMEOUT)
-        MXTEST_LOG_DEBUG(f'All scenario Add is complete!...', MXTestLogLevel.INFO)
-
-        return True
-
-    def scenario_run_check(self, timeout: float):
-        for middleware in self.middleware_list:
-            whole_scenario_info_list: List[MXScenarioInfo] = self.get_whole_scenario_info(middleware, timeout=timeout)
-            if whole_scenario_info_list is False:
-                return False
-
-            # scenario run check
+            # Check scenario state
             for scenario in middleware.scenario_list:
-                for scenario_info in whole_scenario_info_list:
-                    scenario_info: MXScenarioInfo
-                    scenario.state = scenario_info.state
-                    if scenario.name != scenario_info.name:
-                        continue
-                    if scenario.state in [MXScenarioState.RUNNING, MXScenarioState.EXECUTING]:
-                        break
-                    else:
-                        MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not in RUN state...', MXTestLogLevel.WARN)
-                else:
-                    MXTEST_LOG_DEBUG(f'[SCENARIO RUN CHECK] Scenario {scenario.name} is not in scenario list of {middleware.name}...', MXTestLogLevel.WARN)
+                if scenario.state == MXScenarioState.INITIALIZED:
+                    scenario.schedule_success = True
 
-            MXTEST_LOG_DEBUG(f'Scenario Run Check Success! middleware: {middleware.name}', MXTestLogLevel.PASS)
+                if scenario.state in target_state:
+                    scenario_check_list.append(True)
+                else:
+                    scenario_check_list.append(False)
+
+            if all(scenario_check_list):
+                return True
+
+            return False
+
+        if isinstance(target_state, MXScenarioState):
+            target_state = [target_state]
+
+        while retry:
+            if all([scenario.schedule_success for scenario in self.scenario_list]):
+                break
+            pool_map(task, [(middleware, timeout, ) for middleware in self.middleware_list])
+            time.sleep(check_interval)
+            retry -= 1
 
         return True
 
@@ -755,7 +681,7 @@ class MXEventHandler:
             MXTEST_LOG_DEBUG(f'{MXComponentType.SCENARIO.value} of scenario: {scenario.name}, device: {scenario.middleware.device.name} {MXComponentActionType.SCENARIO_VERIFY.value} failed...', MXTestLogLevel.FAIL)
         return self
 
-    def add_scenario(self, scenario: MXScenario, timeout: float = 5, check_interval: float = 1.0):
+    def add_scenario(self, scenario: MXScenario, timeout: float = 5, check_interval: float = 3):
         middleware = self.find_parent_middleware(scenario)
         mqtt_client = self.find_mqtt_client(middleware)
 
@@ -927,11 +853,10 @@ class MXEventHandler:
             auto_unsubscribe=False,
             timeout=timeout)
 
-        topic, payload, _ = decode_MQTT_message(recv_msg)
-        if recv_msg == MXErrorCode.TIMEOUT:
-            MXTEST_LOG_DEBUG(f'Get whole scenario info of {middleware.name} failed -> MQTT timeout...', MXTestLogLevel.FAIL)
+        if recv_msg in [MXErrorCode.TIMEOUT, MXErrorCode.FAIL]:
             return []
 
+        topic, payload, _ = decode_MQTT_message(recv_msg)
         scenario_info_list = [MXScenarioInfo(id=scenario_info['id'],
                                              name=scenario_info['name'],
                                              state=MXScenarioState.get(scenario_info['state']),
@@ -1083,12 +1008,15 @@ class MXEventHandler:
                 continue
 
             recv_msg = hash_pop(component.recv_msg_table, key=target_protocol)
+            if recv_msg == None:
+                return MXErrorCode.FAIL
+
             topic, _, _ = decode_MQTT_message(recv_msg)
             if mqtt.topic_matches_sub(target_topic, topic):
                 return recv_msg
             else:
                 MXTEST_LOG_DEBUG(f'Topic match failed... Expect {target_topic} but receive {topic}', MXTestLogLevel.WARN)
-                return None
+                return MXErrorCode.FAIL
         else:
             return MXErrorCode.TIMEOUT
 
