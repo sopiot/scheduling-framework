@@ -10,7 +10,7 @@ import re
 import traceback
 
 
-class SoPTestLogLevel(Enum):
+class MXTestLogLevel(Enum):
     PASS = 'PASS'
     WARN = 'WARN'
     INFO = 'INFO'
@@ -39,7 +39,7 @@ class MicrosecondFormatter(logging.Formatter):
         return s
 
 
-class SoPLogger:
+class MXLogger:
 
     class LoggingMode(Enum):
         ALL = auto()
@@ -186,10 +186,10 @@ class SoPLogger:
             print(f'Unknown exception error : {str(e)}')
 
 
-base_logger: SoPLogger = None
+base_logger: MXLogger = None
 
 
-def START_LOGGER(whole_log_path: str = None, logging_mode: SoPLogger.LoggingMode = SoPLogger.LoggingMode.ALL):
+def START_LOGGER(whole_log_path: str = None, logging_mode: MXLogger.LoggingMode = MXLogger.LoggingMode.ALL):
     global base_logger
 
     if not whole_log_path:
@@ -201,22 +201,22 @@ def START_LOGGER(whole_log_path: str = None, logging_mode: SoPLogger.LoggingMode
     log_path = os.path.dirname(whole_log_path)
 
     if base_logger is None:
-        base_logger = SoPLogger(log_name, log_path, logging_mode)
+        base_logger = MXLogger(log_name, log_path, logging_mode)
         base_logger.start()
         # cprint('logger is started!', 'green')
 
 
-def SOPLOG_DEBUG(msg: List[str], color: str = None, mode: SoPLogger.PrintMode = SoPLogger.PrintMode.DEBUG):
+def MXLOG_DEBUG(msg: List[str], color: str = None, mode: MXLogger.PrintMode = MXLogger.PrintMode.DEBUG):
     global base_logger
     if base_logger is not None:
         base_logger.print(msg, color, mode)
     else:
-        cprint('SoPLogger is not initialized... start logger init', 'red')
+        cprint('MXLogger is not initialized... start logger init', 'red')
         START_LOGGER()
 
 
 # FIXME: Remove Exception parameter(e)
-def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, color: str = None, progress: float = None):
+def MXTEST_LOG_DEBUG(msg: str, error: MXTestLogLevel = MXTestLogLevel.PASS, color: str = None, progress: float = None):
     # error = 0  : PASS ✅
     # error = 1  : WARN ⚠ -> use b'\xe2\x9a\xa0\xef\xb8\x8f'.decode()
     # error = -1 : FAIL ❌
@@ -226,21 +226,21 @@ def SOPTEST_LOG_DEBUG(msg: str, error: SoPTestLogLevel = SoPTestLogLevel.PASS, c
     if progress:
         progress_status = f'[{progress*100:8.3f}%]'
 
-    if error == SoPTestLogLevel.PASS:
+    if error == MXTestLogLevel.PASS:
         log_msg = f'{progress_status} [PASS✅] {msg}'
-        SOPLOG_DEBUG(log_msg, 'green' if not color else color)
-    elif error == SoPTestLogLevel.WARN:
+        MXLOG_DEBUG(log_msg, 'green' if not color else color)
+    elif error == MXTestLogLevel.WARN:
         log_msg = f'{progress_status} [WARN{WARN_emoji} ] {msg}'
-        SOPLOG_DEBUG(log_msg, 'yellow' if not color else color)
-    elif error == SoPTestLogLevel.INFO:
+        MXLOG_DEBUG(log_msg, 'yellow' if not color else color)
+    elif error == MXTestLogLevel.INFO:
         log_msg = f'{progress_status} [INFOℹ️ ] {msg}'
-        SOPLOG_DEBUG(log_msg, 'cyan' if not color else color)
-    elif error == SoPTestLogLevel.FAIL:
+        MXLOG_DEBUG(log_msg, 'cyan' if not color else color)
+    elif error == MXTestLogLevel.FAIL:
         log_msg = f'{progress_status} [FAIL❌] {msg}'
-        SOPLOG_DEBUG(log_msg, 'red' if not color else color)
+        MXLOG_DEBUG(log_msg, 'red' if not color else color)
 
 
 def print_error(show_locals: bool = True):
     Console().print_exception(show_locals=show_locals)
     # traceback_msg = traceback.format_exc()
-    # SOPLOG_DEBUG(f'Traceback message : {traceback_msg}\nError: {e}', 'red')
+    # MXLOG_DEBUG(f'Traceback message : {traceback_msg}\nError: {e}', 'red')

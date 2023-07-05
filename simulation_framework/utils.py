@@ -15,7 +15,8 @@ import yaml
 import time
 import json
 
-from big_thing_py.common.thread import SoPThread
+from big_thing_py.common.thread import MXThread
+# from multiprocessing import Pool
 
 
 BUSY_WAIT_TIMEOUT = 0.0001
@@ -250,18 +251,21 @@ def write_file(path: str, data: Union[str, List[str]]) -> None:
     return path
 
 
-def load_yaml(path: str) -> dict:
+def load_yaml(path: str) -> Union[dict, bool]:
     with open(path, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
-    if not config == None:
+
+    if config != None:
         return config
     else:
         return {}
 
 
-def save_yaml(path: str, data: dict):
+def save_yaml(path: str, data: dict) -> str:
     with open(path, 'w') as f:
         yaml.dump(data, f, sort_keys=False)
+
+    return path
 
 
 def load_json(path: str) -> Union[dict, bool]:
@@ -291,12 +295,12 @@ def avg_timedelta(src: List[timedelta]) -> timedelta:
 
 
 def pool_map(func: Callable, args: List[Tuple], proc: int = 10) -> List[Any]:
-    thread_list: List[SoPThread] = []
+    thread_list: List[MXThread] = []
     for arg_chuck in [args[i:i+proc] for i in range(0, len(args), proc)]:
         for arg in arg_chuck:
             if not isinstance(arg, tuple):
                 arg = (arg,)
-            thread = SoPThread(target=func, args=arg)
+            thread = MXThread(target=func, args=arg)
             thread_list.append(thread)
             thread.start()
 

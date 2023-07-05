@@ -8,10 +8,10 @@ from getpass import getpass
 import platform
 
 
-def print_middleware_tree(root_middleware: SoPMiddleware, show: Callable = lambda middleware: None):
+def print_middleware_tree(root_middleware: MXMiddleware, show: Callable = lambda middleware: None):
     pre: str
     fill: str
-    middleware: SoPMiddleware
+    middleware: MXMiddleware
     cprint(f'==== Middleware Tree Structure ====', 'green')
     for pre, fill, middleware in RenderTree(root_middleware):
         print_string = f'{pre}{middleware.name}({middleware.device.name})'
@@ -23,7 +23,7 @@ def print_middleware_tree(root_middleware: SoPMiddleware, show: Callable = lambd
         cprint(f'{print_string}', 'cyan')
 
 
-class SoPComponentGenerateMode(Enum):
+class MXComponentGenerateMode(Enum):
     ALL_RANDOM = 'all_random'
     APPEND = 'append'
     APPEND_WITH_REMAPPING = 'append_with_remapping'
@@ -41,31 +41,31 @@ class SoPComponentGenerateMode(Enum):
             return cls.UNDEFINED
 
 
-class SoPEnvGenerator:
+class MXEnvGenerator:
     _PREDEFINED_KEYWORD_LIST = ['if', 'else', 'and', 'or', 'loop', 'wait_until', 'msec', 'list', 'normal', 'super',
                                 'sec', 'min', 'hour', 'day', 'month', 'all', 'single', 'random']
 
     def __init__(self, service_parallel: bool) -> None:
         self._service_parallel = service_parallel
-        self._config: SoPSimulationConfig
+        self._config: MXSimulationConfig
 
         self._generate_start_time: str = datetime.now().strftime('%Y%m%d_%H%M%S')
         self._simulation_folder_path: str = ''
 
-        self._middleware_device_pool: List[SoPDevice] = []
-        self._thing_device_pool: List[SoPDevice] = []
+        self._middleware_device_pool: List[MXDevice] = []
+        self._thing_device_pool: List[MXDevice] = []
 
-        # self._middleware_generator: SoPMiddlewareGenerator = None
-        # self._thing_generator: SoPThingGenerator = None
-        # self._scenario_generator: SoPServiceGenerator = None
+        # self._middleware_generator: MXMiddlewareGenerator = None
+        # self._thing_generator: MXThingGenerator = None
+        # self._scenario_generator: MXServiceGenerator = None
 
-    def load(self, config: SoPSimulationConfig):
-        """A method to load SoPEvnGenerator for generate simulation environment
+    def load(self, config: MXSimulationConfig):
+        """A method to load MXEvnGenerator for generate simulation environment
 
         Args:
-            service_pool (List[SoPService]): Generated service pool
-            thing_pool (List[SoPThing]): Generated thing pool
-            config (SoPSimulationConfig): simulation environment config
+            service_pool (List[MXService]): Generated service pool
+            thing_pool (List[MXThing]): Generated thing pool
+            config (MXSimulationConfig): simulation environment config
 
         Raises:
             Exception: _description_
@@ -82,14 +82,14 @@ class SoPEnvGenerator:
         # If local_mode is True, the program terminates if device_pool is defined or if localhost
         # does not exist in device_pool.
         if self._config.local_mode:
-            SOPTEST_LOG_DEBUG(f'local_mode is True, below config will be ignored. \n'
-                              'device pool                    (middleware.device_pool) \n'
-                              'manual middleware config path  (middleware.manual)', SoPTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(f'local_mode is True, below config will be ignored. \n'
+                             'device pool                    (middleware.device_pool) \n'
+                             'manual middleware config path  (middleware.manual)', MXTestLogLevel.WARN)
             self._middleware_device_pool = [device for device in global_device_pool if device.name == 'localhost']
             self._thing_device_pool = [device for device in global_device_pool if device.name == 'localhost']
         else:
             if manual_middleware_tree:
-                SOPTEST_LOG_DEBUG('middleware.manual config is defined. middleware.random & middleware.device config will be ignored.', SoPTestLogLevel.WARN)
+                MXTEST_LOG_DEBUG('middleware.manual config is defined. middleware.random & middleware.device config will be ignored.', MXTestLogLevel.WARN)
                 self._middleware_device_pool = global_device_pool
                 self._config.middleware_config.random = None
                 middleware_num = len(manual_middleware_tree.descendants) + 1
@@ -113,10 +113,10 @@ class SoPEnvGenerator:
                 raise SimulationFailError(f'Device pool is not enough for {os.path.basename(os.path.dirname(self._config.config_path))} simulation. '
                                           f'(Requires at least {middleware_num} devices)')
 
-        # self._service_generator = SoPServiceGenerator(self._config)
-        # self._thing_generator = SoPThingGenerator(self._config, thing_device_pool)
-        # self._middleware_generator = SoPMiddlewareGenerator(self._config, middleware_device_pool)
-        # self._scenario_generator = SoPScenarioGenerator(self._config)
+        # self._service_generator = MXServiceGenerator(self._config)
+        # self._thing_generator = MXThingGenerator(self._config, thing_device_pool)
+        # self._middleware_generator = MXMiddlewareGenerator(self._config, middleware_device_pool)
+        # self._scenario_generator = MXScenarioGenerator(self._config)
 
     def _generate_random_words(self, num_word: int = None, user_word_dictionary_file: List[str] = [], ban_word_list: List[str] = [], max_word_length: int = 7) -> List[str]:
         selected_words: List[str] = []
@@ -170,9 +170,9 @@ class SoPEnvGenerator:
         super_service_name_pool = self._generate_random_words(num_word=num_super_service_name_generate, ban_word_list=ban_name_list)
         return tag_name_pool, service_name_pool, super_service_name_pool
 
-    def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], num_service_generate: int) -> List[SoPService]:
+    def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], num_service_generate: int) -> List[MXService]:
         service_name_pool_copy = copy.deepcopy(service_name_pool)
-        service_pool: List[SoPService] = []
+        service_pool: List[MXService] = []
 
         for _ in track(range(num_service_generate), description='Generating services...'):
             tag_per_service_range = self._config.service_config.tag_per_service
@@ -190,19 +190,19 @@ class SoPEnvGenerator:
             execute_time = random.uniform(*execute_time_range)
             return_value = random.randint(*return_value_range)
 
-            service = SoPService(name=service_name,
-                                 level=level,
-                                 tag_list=tag_list,
-                                 is_super=False,
-                                 energy=energy,
-                                 execute_time=execute_time,
-                                 return_value=return_value)
+            service = MXService(name=service_name,
+                                level=level,
+                                tag_list=tag_list,
+                                is_super=False,
+                                energy=energy,
+                                execute_time=execute_time,
+                                return_value=return_value)
             service_pool.append(service)
 
-        SOPTEST_LOG_DEBUG(f'Complete generating service pool size of {len(service_pool)}', SoPTestLogLevel.INFO)
+        MXTEST_LOG_DEBUG(f'Complete generating service pool size of {len(service_pool)}', MXTestLogLevel.INFO)
         return service_pool
 
-    def generate_thing_pool(self, service_pool: List[SoPService], num_thing_generate: int) -> List[SoPThing]:
+    def generate_thing_pool(self, service_pool: List[MXService], num_thing_generate: int) -> List[MXThing]:
         thing_pool = []
         for _ in track(range(num_thing_generate), description='Generating things...'):
             device = random.choice(self._thing_device_pool)
@@ -225,33 +225,33 @@ class SoPEnvGenerator:
                 service.execute_time = service.execute_time * (1 - thing_w)
                 service.energy = service.energy * (1 + thing_w)
 
-            thing = SoPThing(name=thing_name,
-                             level=level,
-                             service_list=selected_service_list_copy,
-                             is_super=is_super,
-                             is_parallel=self._service_parallel,
-                             alive_cycle=60 * 5,
-                             device=device,
-                             thing_file_path=f'{self._simulation_folder_path}/thing/base_thing/{thing_name}.py',
-                             remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing_name}.py',
-                             fail_rate=fail_rate)
+            thing = MXThing(name=thing_name,
+                            level=level,
+                            service_list=selected_service_list_copy,
+                            is_super=is_super,
+                            is_parallel=self._service_parallel,
+                            alive_cycle=60 * 5,
+                            device=device,
+                            thing_file_path=f'{self._simulation_folder_path}/thing/base_thing/{thing_name}.py',
+                            remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing_name}.py',
+                            fail_rate=fail_rate)
             for service in thing.service_list:
                 service.thing = thing
 
             thing_pool.append(thing)
 
-        SOPTEST_LOG_DEBUG(f'Complete Generating thing pool size of {num_thing_generate}', SoPTestLogLevel.INFO)
+        MXTEST_LOG_DEBUG(f'Complete Generating thing pool size of {num_thing_generate}', MXTestLogLevel.INFO)
         return thing_pool
 
-    def generate_middleware_tree(self) -> SoPMiddleware:
+    def generate_middleware_tree(self) -> MXMiddleware:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_middleware_config = self._config.middleware_config.random
         device_pool = copy.deepcopy(self._middleware_device_pool)
 
         if manual_middleware_tree:
-            used_device_list: List[SoPDevice] = []
+            used_device_list: List[MXDevice] = []
 
-            def generate_middleware_tree_manual(middleware: SoPMiddleware, middleware_config: AnyNode, index: int) -> SoPMiddleware:
+            def generate_middleware_tree_manual(middleware: MXMiddleware, middleware_config: AnyNode, index: int) -> MXMiddleware:
                 height = middleware_config.height + 1
                 if middleware_config.is_root:
                     middleware_name = f'MW_L{height}_0'
@@ -272,15 +272,15 @@ class SoPEnvGenerator:
                     device_pool.remove(device)
                     used_device_list.append(device)
 
-                middleware = SoPMiddleware(name=middleware_name,
-                                           level=height,
-                                           thing_list=[],
-                                           scenario_list=[],
-                                           children=[],
-                                           device=device,
-                                           remote_middleware_path=self._config.middleware_config.remote_middleware_path,
-                                           remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
-                                           mqtt_port=device.mqtt_port)
+                middleware = MXMiddleware(name=middleware_name,
+                                          level=height,
+                                          thing_list=[],
+                                          scenario_list=[],
+                                          children=[],
+                                          device=device,
+                                          remote_middleware_path=self._config.middleware_config.remote_middleware_path,
+                                          remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
+                                          mqtt_port=device.mqtt_port)
                 if height == 1:
                     return middleware
 
@@ -292,7 +292,7 @@ class SoPEnvGenerator:
 
             root_middleware = generate_middleware_tree_manual(middleware=None, middleware_config=manual_middleware_tree, index=0)
         elif random_middleware_config:
-            def generate_middleware_tree_random(middleware: SoPMiddleware, height: int, width_range: ConfigRandomIntRange, index: int) -> SoPMiddleware:
+            def generate_middleware_tree_random(middleware: MXMiddleware, height: int, width_range: ConfigRandomIntRange, index: int) -> MXMiddleware:
                 if middleware == None:
                     middleware_name = f'MW_L{height}_0'
                 else:
@@ -304,15 +304,15 @@ class SoPEnvGenerator:
                 if device.name != 'localhost':
                     device_pool.remove(device)
 
-                middleware = SoPMiddleware(name=middleware_name,
-                                           level=height,
-                                           thing_list=[],
-                                           scenario_list=[],
-                                           children=[],
-                                           device=device,
-                                           remote_middleware_path=self._config.middleware_config.remote_middleware_path,
-                                           remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
-                                           mqtt_port=device.mqtt_port)
+                middleware = MXMiddleware(name=middleware_name,
+                                          level=height,
+                                          thing_list=[],
+                                          scenario_list=[],
+                                          children=[],
+                                          device=device,
+                                          remote_middleware_path=self._config.middleware_config.remote_middleware_path,
+                                          remote_middleware_config_path=self._config.middleware_config.remote_middleware_config_path,
+                                          mqtt_port=device.mqtt_port)
 
                 if height == 1:
                     return middleware
@@ -330,16 +330,16 @@ class SoPEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
-        SOPTEST_LOG_DEBUG(f'Complete Generating middleware tree', SoPTestLogLevel.INFO)
+        MXTEST_LOG_DEBUG(f'Complete Generating middleware tree', MXTestLogLevel.INFO)
         print_middleware_tree(root_middleware)
         return root_middleware
 
-    def map_thing_to_middleware(self, root_middleware: SoPMiddleware, thing_pool: List[SoPThing]) -> None:
+    def map_thing_to_middleware(self, root_middleware: MXMiddleware, thing_pool: List[MXThing]) -> None:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
 
         if manual_middleware_tree:
-            def map_thing_to_middleware_manual(middleware: SoPMiddleware, middleware_config: AnyNode) -> None:
+            def map_thing_to_middleware_manual(middleware: MXMiddleware, middleware_config: AnyNode) -> None:
                 thing_per_middleware_range = middleware_config.thing_num
                 thing_per_middleware = random.randint(*thing_per_middleware_range)
                 selected_thing_list = random.sample(thing_pool, thing_per_middleware)
@@ -363,7 +363,7 @@ class SoPEnvGenerator:
         elif random_config:
             thing_per_middleware_range = random_config.normal.thing_per_middleware
 
-            def map_thing_to_middleware_random(middleware: SoPMiddleware) -> None:
+            def map_thing_to_middleware_random(middleware: MXMiddleware) -> None:
                 thing_per_middleware = random.randint(*thing_per_middleware_range)
                 selected_thing_list = random.sample(thing_pool, thing_per_middleware)
 
@@ -386,15 +386,15 @@ class SoPEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
-        SOPTEST_LOG_DEBUG(f'Map thing to middleware tree', SoPTestLogLevel.INFO)
+        MXTEST_LOG_DEBUG(f'Map thing to middleware tree', MXTestLogLevel.INFO)
 
-    def generate_scenario(self, root_middleware: SoPMiddleware):
+    def generate_scenario(self, root_middleware: MXMiddleware):
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
         service_per_scenario_range = self._config.application_config.normal.service_per_application
 
         if manual_middleware_tree:
-            def generate_scenario_manual(middleware: SoPMiddleware, middleware_config: AnyNode) -> None:
+            def generate_scenario_manual(middleware: MXMiddleware, middleware_config: AnyNode) -> None:
                 scenario_per_middleware_range = middleware_config.scenario_num
                 scenario_per_middleware = random.randint(*scenario_per_middleware_range)
                 available_service_list = flatten_list([thing.service_list for thing in middleware.thing_list])
@@ -406,15 +406,15 @@ class SoPEnvGenerator:
                     period = random.uniform(*period_range)
                     priority = -1
                     service_per_scenario = random.randint(*service_per_scenario_range)
-                    selected_service_list: List[SoPService] = random.sample(available_service_list, service_per_scenario)
+                    selected_service_list: List[MXService] = random.sample(available_service_list, service_per_scenario)
 
-                    scenario = SoPScenario(name=scenario_name,
-                                           level=level,
-                                           service_list=selected_service_list,
-                                           period=period,
-                                           priority=priority,
-                                           scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
-                                           middleware=middleware)
+                    scenario = MXScenario(name=scenario_name,
+                                          level=level,
+                                          service_list=selected_service_list,
+                                          period=period,
+                                          priority=priority,
+                                          scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
+                                          middleware=middleware)
                     middleware.scenario_list.append(scenario)
 
                 if not middleware.children:
@@ -427,7 +427,7 @@ class SoPEnvGenerator:
             scenario_per_middleware_range = random_config.normal.scenario_per_middleware
             service_per_scenario_range = self._config.application_config.normal.service_per_application
 
-            def generate_scenario_random(middleware: SoPMiddleware) -> None:
+            def generate_scenario_random(middleware: MXMiddleware) -> None:
                 scenario_per_middleware = random.randint(*scenario_per_middleware_range)
                 available_service_list = flatten_list([thing.service_list for thing in middleware.thing_list])
 
@@ -441,15 +441,15 @@ class SoPEnvGenerator:
 
                     if len(available_service_list) < service_per_scenario:
                         raise SimulationFailError('Not enough service for scenario')
-                    selected_service_list: List[SoPService] = random.sample(available_service_list, service_per_scenario)
+                    selected_service_list: List[MXService] = random.sample(available_service_list, service_per_scenario)
 
-                    scenario = SoPScenario(name=scenario_name,
-                                           level=level,
-                                           service_list=selected_service_list,
-                                           period=period,
-                                           priority=priority,
-                                           scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
-                                           middleware=middleware)
+                    scenario = MXScenario(name=scenario_name,
+                                          level=level,
+                                          service_list=selected_service_list,
+                                          period=period,
+                                          priority=priority,
+                                          scenario_file_path=f'{self._simulation_folder_path}/application/base_application/{scenario_name}.txt',
+                                          middleware=middleware)
                     middleware.scenario_list.append(scenario)
 
                 # for index, thing in enumerate(middleware.thing_list):
@@ -466,9 +466,9 @@ class SoPEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
-        SOPTEST_LOG_DEBUG(f'Generate application to middleware tree', SoPTestLogLevel.INFO)
+        MXTEST_LOG_DEBUG(f'Generate application to middleware tree', MXTestLogLevel.INFO)
 
-    def generate_super(self, root_middleware: SoPMiddleware, tag_name_pool: List[str], super_service_name_pool: List[str]) -> List[SoPThing]:
+    def generate_super(self, root_middleware: MXMiddleware, tag_name_pool: List[str], super_service_name_pool: List[str]) -> List[MXThing]:
         super_service_name_pool_copy = copy.deepcopy(super_service_name_pool)
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
@@ -478,9 +478,9 @@ class SoPEnvGenerator:
         super_service_per_thing_range = self._config.thing_config.super.service_per_thing
         super_service_per_scenario_range = self._config.application_config.super.service_per_application
 
-        def generate_super_service_common(middleware: SoPMiddleware) -> List[SoPService]:
+        def generate_super_service_common(middleware: MXMiddleware) -> List[MXService]:
             super_service_per_thing = random.randint(*super_service_per_thing_range)
-            super_service_list: List[SoPService] = []
+            super_service_list: List[MXService] = []
             for _ in range(super_service_per_thing):
                 sub_service_list = self._get_accessible_sub_service_list(middleware=middleware, sub_service_per_super_service_range=sub_service_per_super_service_range)
 
@@ -501,21 +501,21 @@ class SoPEnvGenerator:
                 execute_time = 0
                 return_value = 0
 
-                super_service = SoPService(name=super_service_name,
-                                           level=level,
-                                           tag_list=tag_list,
-                                           is_super=True,
-                                           energy=energy,
-                                           execute_time=execute_time,
-                                           return_value=return_value,
-                                           sub_service_list=sub_service_list)
+                super_service = MXService(name=super_service_name,
+                                          level=level,
+                                          tag_list=tag_list,
+                                          is_super=True,
+                                          energy=energy,
+                                          execute_time=execute_time,
+                                          return_value=return_value,
+                                          sub_service_list=sub_service_list)
                 super_service_list.append(super_service)
 
             return super_service_list
 
-        def generate_super_thing_common(middleware: SoPMiddleware, super_thing_per_middleware: int) -> List[SoPThing]:
+        def generate_super_thing_common(middleware: MXMiddleware, super_thing_per_middleware: int) -> List[MXThing]:
             nonlocal generated_super_service_num
-            super_thing_list: List[SoPThing] = []
+            super_thing_list: List[MXThing] = []
             for index in range(super_thing_per_middleware):
                 device = middleware.device
                 super_thing_name = f'super_thing_{index}__{middleware.name}'
@@ -526,20 +526,20 @@ class SoPEnvGenerator:
                 super_service_list = generate_super_service_common(middleware=middleware)
                 generated_super_service_num += len(super_service_list)
                 if generated_super_service_num > self._config.service_config.super.service_type_num:
-                    SOPTEST_LOG_DEBUG(f'generated_super_service_num is exceed super.service_type_num: {self._config.service_config.super.service_type_num}.', SoPTestLogLevel.WARN)
+                    MXTEST_LOG_DEBUG(f'generated_super_service_num is exceed super.service_type_num: {self._config.service_config.super.service_type_num}.', MXTestLogLevel.WARN)
                 # broken_rate = self._config.thing_config.normal.broken_rate
                 # unregister_rate = self._config.thing_config.normal.unregister_rate
 
-                super_thing = SoPThing(name=super_thing_name,
-                                       level=level,
-                                       service_list=super_service_list,
-                                       is_super=is_super,
-                                       is_parallel=self._service_parallel,
-                                       alive_cycle=60 * 5,
-                                       device=device,
-                                       thing_file_path=f'{self._simulation_folder_path}/thing/super_thing/{super_thing_name}.py',
-                                       remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/super_thing/{super_thing_name}.py',
-                                       fail_rate=fail_rate)
+                super_thing = MXThing(name=super_thing_name,
+                                      level=level,
+                                      service_list=super_service_list,
+                                      is_super=is_super,
+                                      is_parallel=self._service_parallel,
+                                      alive_cycle=60 * 5,
+                                      device=device,
+                                      thing_file_path=f'{self._simulation_folder_path}/thing/super_thing/{super_thing_name}.py',
+                                      remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/super_thing/{super_thing_name}.py',
+                                      fail_rate=fail_rate)
                 for super_service in super_thing.service_list:
                     super_service.thing = super_thing
 
@@ -547,12 +547,12 @@ class SoPEnvGenerator:
 
             return super_thing_list
 
-        def generate_super_scenario_common(middleware: SoPMiddleware, super_scenario_per_middleware: int) -> List[SoPScenario]:
-            parent_middleware_list: List[SoPMiddleware] = middleware.path
+        def generate_super_scenario_common(middleware: MXMiddleware, super_scenario_per_middleware: int) -> List[MXScenario]:
+            parent_middleware_list: List[MXMiddleware] = middleware.path
             super_thing_list = [thing for thing in flatten_list([middleware.thing_list for middleware in parent_middleware_list]) if thing.is_super]
             available_super_service_list = flatten_list([thing.service_list for thing in super_thing_list])
 
-            super_scenario_list: List[SoPScenario] = []
+            super_scenario_list: List[MXScenario] = []
             for index in range(super_scenario_per_middleware):
                 super_scenario_name = f'super_scenario_{index}__{middleware.name}'
                 level = middleware.level
@@ -563,35 +563,35 @@ class SoPEnvGenerator:
 
                 if len(available_super_service_list) < super_service_per_scenario:
                     raise SimulationFailError('Not enough super service for super scenario')
-                selected_super_service_list: List[SoPService] = random.sample(available_super_service_list, super_service_per_scenario)
+                selected_super_service_list: List[MXService] = random.sample(available_super_service_list, super_service_per_scenario)
 
-                super_scenario = SoPScenario(name=super_scenario_name,
-                                             level=level,
-                                             service_list=selected_super_service_list,
-                                             period=period,
-                                             priority=priority,
-                                             scenario_file_path=f'{self._simulation_folder_path}/application/super_application/{super_scenario_name}.txt',
-                                             middleware=middleware)
+                super_scenario = MXScenario(name=super_scenario_name,
+                                            level=level,
+                                            service_list=selected_super_service_list,
+                                            period=period,
+                                            priority=priority,
+                                            scenario_file_path=f'{self._simulation_folder_path}/application/super_application/{super_scenario_name}.txt',
+                                            middleware=middleware)
                 super_scenario_list.append(super_scenario)
 
             return super_scenario_list
 
         if manual_middleware_tree:
-            def generate_super_thing_manual(middleware: SoPMiddleware, middleware_config: AnyNode) -> None:
+            def generate_super_thing_manual(middleware: MXMiddleware, middleware_config: AnyNode) -> None:
                 super_thing_per_middleware_range = middleware_config.super_thing_num
                 super_thing_per_middleware = random.randint(*super_thing_per_middleware_range)
-                super_thing_list: List[SoPThing] = generate_super_thing_common(middleware=middleware, super_thing_per_middleware=super_thing_per_middleware)
+                super_thing_list: List[MXThing] = generate_super_thing_common(middleware=middleware, super_thing_per_middleware=super_thing_per_middleware)
                 for super_thing in super_thing_list:
                     super_thing.middleware = middleware
                 middleware.thing_list.extend(super_thing_list)
 
-            def generate_super_scenario_manual(middleware: SoPMiddleware, middleware_config: AnyNode) -> List[SoPThing]:
+            def generate_super_scenario_manual(middleware: MXMiddleware, middleware_config: AnyNode) -> List[MXThing]:
                 super_scenario_per_middleware_range = middleware_config.super_scenario_num
                 super_scenario_per_middleware = random.randint(*super_scenario_per_middleware_range)
-                super_scenario_list: List[SoPScenario] = generate_super_scenario_common(middleware=middleware, super_scenario_per_middleware=super_scenario_per_middleware)
+                super_scenario_list: List[MXScenario] = generate_super_scenario_common(middleware=middleware, super_scenario_per_middleware=super_scenario_per_middleware)
                 middleware.scenario_list.extend(super_scenario_list)
 
-            def generate_super_manual(middleware: SoPMiddleware, middleware_config: AnyNode) -> None:
+            def generate_super_manual(middleware: MXMiddleware, middleware_config: AnyNode) -> None:
                 generate_super_thing_manual(middleware=middleware, middleware_config=middleware_config)
                 generate_super_scenario_manual(middleware=middleware, middleware_config=middleware_config)
 
@@ -603,19 +603,19 @@ class SoPEnvGenerator:
             super_thing_per_middleware_range = random_config.super.thing_per_middleware
             super_scenario_per_middleware_range = random_config.super.scenario_per_middleware
 
-            def generate_super_thing_random(middleware: SoPMiddleware) -> List[SoPThing]:
+            def generate_super_thing_random(middleware: MXMiddleware) -> List[MXThing]:
                 super_thing_per_middleware = random.randint(*super_thing_per_middleware_range)
-                super_thing_list: List[SoPThing] = generate_super_thing_common(middleware=middleware, super_thing_per_middleware=super_thing_per_middleware)
+                super_thing_list: List[MXThing] = generate_super_thing_common(middleware=middleware, super_thing_per_middleware=super_thing_per_middleware)
                 for super_thing in super_thing_list:
                     super_thing.middleware = middleware
                 middleware.thing_list.extend(super_thing_list)
 
-            def generate_super_scenario_random(middleware: SoPMiddleware) -> List[SoPThing]:
+            def generate_super_scenario_random(middleware: MXMiddleware) -> List[MXThing]:
                 super_scenario_per_middleware = random.randint(*super_scenario_per_middleware_range)
                 super_scenario_list = generate_super_scenario_common(middleware=middleware, super_scenario_per_middleware=super_scenario_per_middleware)
                 middleware.scenario_list.extend(super_scenario_list)
 
-            def generate_super_random(middleware: SoPMiddleware):
+            def generate_super_random(middleware: MXMiddleware):
                 generate_super_thing_random(middleware=middleware)
                 generate_super_scenario_random(middleware=middleware)
 
@@ -626,43 +626,43 @@ class SoPEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
-    def validate_simulation_env(self, middleware: SoPMiddleware):
+    def validate_simulation_env(self, middleware: MXMiddleware):
         thing_list = middleware.thing_list
         scenario_list = middleware.scenario_list
 
-    def _generate_event_timeline(self, root_middleware: SoPMiddleware) -> Tuple[List[SoPEvent], List[SoPEvent]]:
+    def _generate_event_timeline(self, root_middleware: MXMiddleware) -> Tuple[List[MXEvent], List[MXEvent]]:
 
-        def generate_dynamic_thing_event_timeline(local_thing_list: List[SoPThing], super_thing_list: List[SoPThing],
+        def generate_dynamic_thing_event_timeline(local_thing_list: List[MXThing], super_thing_list: List[MXThing],
                                                   normal_thing_select_rate: float, super_thing_select_rate: float,
-                                                  start_time_weight: float, end_time_weight: float, event_type: SoPEventType,
-                                                  delay: float) -> List[SoPEvent]:
-            if event_type == SoPEventType.THING_UNREGISTER:
-                event_type_1 = SoPEventType.THING_UNREGISTER
-                event_type_2 = SoPEventType.THING_RUN
-            elif event_type == SoPEventType.THING_KILL:
-                event_type_1 = SoPEventType.THING_KILL
-                event_type_2 = SoPEventType.THING_RUN
+                                                  start_time_weight: float, end_time_weight: float, event_type: MXEventType,
+                                                  delay: float) -> List[MXEvent]:
+            if event_type == MXEventType.THING_UNREGISTER:
+                event_type_1 = MXEventType.THING_UNREGISTER
+                event_type_2 = MXEventType.THING_RUN
+            elif event_type == MXEventType.THING_KILL:
+                event_type_1 = MXEventType.THING_KILL
+                event_type_2 = MXEventType.THING_RUN
             else:
                 raise Exception('invalid event type')
 
             selected_local_thing_list = random.sample(local_thing_list, int(len(local_thing_list) * normal_thing_select_rate))
             selected_super_thing_list = random.sample(super_thing_list, int(len(super_thing_list) * super_thing_select_rate))
-            local_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight)
+            local_thing_unregister_timeline = [self._generate_event(event_type=event_type_1, component=thing, timestamp=self._config.running_time * start_time_weight)
                                                for thing in selected_local_thing_list]
-            super_thing_unregister_timeline = [self._generate_event(component=thing, event_type=event_type_1, timestamp=self._config.running_time * start_time_weight)
+            super_thing_unregister_timeline = [self._generate_event(event_type=event_type_1, component=thing, timestamp=self._config.running_time * start_time_weight)
                                                for thing in selected_super_thing_list]
-            local_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight)
+            local_thing_register_timeline = [self._generate_event(event_type=event_type_2, component=thing, timestamp=self._config.running_time * end_time_weight)
                                              for thing in selected_local_thing_list]
-            super_thing_register_timeline = [self._generate_event(component=thing, event_type=event_type_2, timestamp=self._config.running_time * end_time_weight)
+            super_thing_register_timeline = [self._generate_event(event_type=event_type_2, component=thing, timestamp=self._config.running_time * end_time_weight)
                                              for thing in selected_super_thing_list]
 
             tmp_timeline = local_thing_unregister_timeline + super_thing_unregister_timeline + local_thing_register_timeline + super_thing_register_timeline
             if delay:
-                tmp_timeline += [SoPEvent(delay=delay, event_type=SoPEventType.DELAY)]
+                tmp_timeline += [MXEvent(delay=delay, event_type=MXEventType.DELAY)]
             return tmp_timeline
 
-        static_event_timeline: List[SoPEvent] = []
-        dynamic_event_timeline: List[SoPEvent] = []
+        static_event_timeline: List[MXEvent] = []
+        dynamic_event_timeline: List[MXEvent] = []
         middleware_list = get_whole_middleware_list(root_middleware)
         thing_list = get_whole_thing_list(root_middleware)
         scenario_list = get_whole_scenario_list(root_middleware)
@@ -672,31 +672,33 @@ class SoPEnvGenerator:
 
         # Build IoT system
         build_simulation_env_timeline = []
-        build_simulation_env_timeline.extend([self._generate_event(component=middleware, event_type=SoPEventType.MIDDLEWARE_RUN)
+        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.MIDDLEWARE_RUN, component=middleware)
                                               for middleware in sorted(middleware_list, key=lambda x: x.level, reverse=True)])
-        build_simulation_env_timeline.extend([self._generate_event(component=thing, event_type=SoPEventType.THING_RUN)
+        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.MIDDLEWARE_CHECK)])
+        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_RUN, component=thing)
                                               for thing in sorted(normal_thing_list, key=lambda x: x.middleware.name, reverse=False)])
-        build_simulation_env_timeline.extend([self._generate_event(component=thing, event_type=SoPEventType.THING_RUN)
+        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_RUN, component=thing)
                                               for thing in sorted(super_thing_list, key=lambda x: x.middleware.name, reverse=False)])
+        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_CHECK)])
         static_event_timeline.extend(build_simulation_env_timeline)
 
         # Wait until all thing register
-        static_event_timeline.append(SoPEvent(delay=3, event_type=SoPEventType.DELAY))
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH, **dict(scenario_check=False, service_check=False, thing_register_check=True)))
+        static_event_timeline.append(MXEvent(delay=3, event_type=MXEventType.DELAY))
+        static_event_timeline.append(MXEvent(event_type=MXEventType.REFRESH, **dict(scenario_check=False, service_check=False, thing_register_check=True)))
 
         # Scenario add start
-        scenario_add_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_ADD, middleware_component=find_component(root_middleware, scenario))
+        scenario_add_timeline = [self._generate_event(event_type=MXEventType.SCENARIO_ADD, component=scenario, middleware_component=find_component(root_middleware, scenario))
                                  for scenario in scenario_list]
         static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x.timestamp))
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.SCENARIO_ADD_CHECK))
-        static_event_timeline.append(SoPEvent(delay=20, event_type=SoPEventType.DELAY))
-        static_event_timeline.append(SoPEvent(event_type=SoPEventType.REFRESH, **dict(scenario_check=True, service_check=True)))
+        static_event_timeline.append(MXEvent(event_type=MXEventType.SCENARIO_ADD_CHECK))
+        static_event_timeline.append(MXEvent(delay=20, event_type=MXEventType.DELAY))
+        static_event_timeline.append(MXEvent(event_type=MXEventType.REFRESH, **dict(scenario_check=True, service_check=True)))
 
         # Simulation start
-        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.START))
+        dynamic_event_timeline.append(MXEvent(event_type=MXEventType.START))
 
         # Scenario run start
-        scenario_run_timeline = [self._generate_event(component=scenario, event_type=SoPEventType.SCENARIO_RUN)
+        scenario_run_timeline = [self._generate_event(event_type=MXEventType.SCENARIO_RUN, component=scenario)
                                  for scenario in scenario_list]
         dynamic_event_timeline.extend(sorted(scenario_run_timeline, key=lambda x: x.timestamp))
 
@@ -705,7 +707,7 @@ class SoPEnvGenerator:
         thing_unregister_timeline = generate_dynamic_thing_event_timeline(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
                                                                           normal_thing_select_rate=self._config.thing_config.normal.unregister_rate,
                                                                           super_thing_select_rate=self._config.thing_config.super.unregister_rate,
-                                                                          start_time_weight=0.2, end_time_weight=0.7, event_type=SoPEventType.THING_UNREGISTER,
+                                                                          start_time_weight=0.2, end_time_weight=0.7, event_type=MXEventType.THING_UNREGISTER,
                                                                           delay=0)
         dynamic_event_timeline.extend(thing_unregister_timeline)
 
@@ -714,12 +716,12 @@ class SoPEnvGenerator:
         thing_kill_timeline = generate_dynamic_thing_event_timeline(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
                                                                     normal_thing_select_rate=self._config.thing_config.normal.broken_rate,
                                                                     super_thing_select_rate=self._config.thing_config.super.broken_rate,
-                                                                    start_time_weight=0.5, end_time_weight=10, event_type=SoPEventType.THING_KILL,
+                                                                    start_time_weight=0.5, end_time_weight=10, event_type=MXEventType.THING_KILL,
                                                                     delay=0)
         dynamic_event_timeline.extend(thing_kill_timeline)
 
         # Simulation end event
-        dynamic_event_timeline.append(SoPEvent(event_type=SoPEventType.END, timestamp=self._config.running_time))
+        dynamic_event_timeline.append(MXEvent(event_type=MXEventType.END, timestamp=self._config.running_time))
 
         # Sort event timeline
         static_event_timeline = sorted(static_event_timeline, key=lambda x: x.timestamp)
@@ -736,7 +738,7 @@ class SoPEnvGenerator:
     #  \__,_| \__||_||_||___/
     # =========================
 
-    def _find_device(self, device_name: str, device_pool: List[SoPDevice]) -> SoPDevice:
+    def _find_device(self, device_name: str, device_pool: List[MXDevice]) -> MXDevice:
         for device in device_pool:
             if device.name == device_name:
                 return device
@@ -744,20 +746,26 @@ class SoPEnvGenerator:
 
     def _check_device_pool(self, device_pool_path: str) -> None:
         device_pool_path = self._config.device_pool_path.abs_path()
-        device_pool_dict = load_yaml(device_pool_path)
+        try:
+            device_pool_dict = load_yaml(device_pool_path)
+        except FileNotFoundError:
+            MXTEST_LOG_DEBUG(f'Device pool file is not exist... Create device_pool.yml file.', MXTestLogLevel.INFO)
+            save_yaml(device_pool_path, {})
+            device_pool_dict = {}
+
         if not 'localhost' in device_pool_dict:
-            SOPTEST_LOG_DEBUG(f'Localhost device config is not exist in device pool...', SoPTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(f'Localhost device config is not exist in device pool...', MXTestLogLevel.WARN)
             device_pool_dict = self._add_localhost_info(device_pool_dict)
             save_yaml(device_pool_path, device_pool_dict)
 
-    def _load_device_pool(self, device_pool_path: str) -> List[SoPDevice]:
+    def _load_device_pool(self, device_pool_path: str) -> List[MXDevice]:
         device_list = load_yaml(device_pool_path)
 
         whole_device_pool = []
         for device_name, device_info in device_list.items():
-            device = SoPDevice(
+            device = MXDevice(
                 name=device_name,
-                component_type=SoPComponentType.DEVICE,
+                component_type=MXComponentType.DEVICE,
                 host=device_info['host'],
                 ssh_port=device_info['ssh_port'],
                 user=device_info['user'],
@@ -820,11 +828,11 @@ class SoPEnvGenerator:
                                              user=user,
                                              password=password))
 
-        test_ssh_client = SoPSSHClient(device=SoPDevice(name='test_localhost',
-                                                        host='localhost',
-                                                        ssh_port=ssh_port,
-                                                        user=user,
-                                                        password=password))
+        test_ssh_client = MXSSHClient(device=MXDevice(name='test_localhost',
+                                                      host='localhost',
+                                                      ssh_port=ssh_port,
+                                                      user=user,
+                                                      password=password))
         try:
             test_ssh_client.connect()
         except Exception as e:
@@ -837,37 +845,37 @@ class SoPEnvGenerator:
         updated_device_pool.update(device_pool)
         return updated_device_pool
 
-    def _get_accessible_sub_service_list(self, middleware: SoPMiddleware, sub_service_per_super_service_range: ConfigRandomIntRange) -> List[SoPService]:
-        descendants_middleware_list: List[SoPMiddleware] = [middleware] + list(middleware.descendants)
-        thing_list: List[SoPThing] = flatten_list([middleware.thing_list for middleware in descendants_middleware_list])
+    def _get_accessible_sub_service_list(self, middleware: MXMiddleware, sub_service_per_super_service_range: ConfigRandomIntRange) -> List[MXService]:
+        descendants_middleware_list: List[MXMiddleware] = [middleware] + list(middleware.descendants)
+        thing_list: List[MXThing] = flatten_list([middleware.thing_list for middleware in descendants_middleware_list])
         candidate_sub_service_list = flatten_list([thing.service_list for thing in thing_list])
 
         sub_service_per_super_service = random.randint(*sub_service_per_super_service_range)
         if len(candidate_sub_service_list) < sub_service_per_super_service:
-            raise SOPTEST_LOG_DEBUG(f'Not enough candidate sub service for super service', SoPTestLogLevel.FAIL)
+            raise MXTEST_LOG_DEBUG(f'Not enough candidate sub service for super service', MXTestLogLevel.FAIL)
         sub_service_list = random.sample(candidate_sub_service_list, sub_service_per_super_service)
         return sub_service_list
 
-    def _generate_event(self, component: SoPComponent, event_type: SoPEventType, timestamp: float = 0.0, **kwargs) -> SoPEvent:
+    def _generate_event(self, event_type: MXEventType, component: MXComponent = None, timestamp: float = 0.0, **kwargs) -> MXEvent:
         event_kwargs = dict(component=component, event_type=event_type, timestamp=timestamp)
         event_kwargs.update(kwargs)
-        event = SoPEvent(**event_kwargs)
-        if isinstance(component, (SoPThing, SoPScenario)):
+        event = MXEvent(**event_kwargs)
+        if isinstance(component, (MXThing, MXScenario)):
             event.middleware_component = component.middleware
-        elif isinstance(component, SoPService):
+        elif isinstance(component, MXService):
             event.thing_component = component.thing
         return event
 
-    # def generate_data(self, simulation_env: SoPMiddleware):
-    #     middleware_list: List[SoPMiddleware] = get_whole_middleware_list(simulation_env)
-    #     thing_list: List[SoPThing] = get_whole_thing_list(simulation_env)
-    #     scenario_list: List[SoPScenario] = get_whole_scenario_list(simulation_env)
+    # def generate_data(self, simulation_env: MXMiddleware):
+    #     middleware_list: List[MXMiddleware] = get_whole_middleware_list(simulation_env)
+    #     thing_list: List[MXThing] = get_whole_thing_list(simulation_env)
+    #     scenario_list: List[MXScenario] = get_whole_scenario_list(simulation_env)
 
     #     longest_scenario = max(scenario_list, key=lambda x: x.period)
     #     if longest_scenario.period * 1.2 > self._config.running_time:
     #         running_time = longest_scenario.period * 1.2
-    #         SOPTEST_LOG_DEBUG(
-    #             f'Longest scenario period is {longest_scenario.period} but simulation time is {self._config.running_time}. Set simulation time to {running_time}', SoPTestLogLevel.WARN)
+    #         MXTEST_LOG_DEBUG(
+    #             f'Longest scenario period is {longest_scenario.period} but simulation time is {self._config.running_time}. Set simulation time to {running_time}', MXTestLogLevel.WARN)
     #     else:
     #         running_time = self._config.running_time
 
@@ -885,7 +893,7 @@ class SoPEnvGenerator:
     #                            event_timeline=event_timeline)
     #     return simulation_dump
 
-    def _export_simulation_data_file(self, simulation_env_list: List[SoPSimulationEnv], simulation_data_file_path: str) -> None:
+    def _export_simulation_data_file(self, simulation_env_list: List[MXSimulationEnv], simulation_data_file_path: str) -> None:
         os.makedirs(os.path.dirname(simulation_data_file_path), exist_ok=True)
         simulation_env_dict_list = {'simulation_list': []}
         for simulation_env in simulation_env_list:

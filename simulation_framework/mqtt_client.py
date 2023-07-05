@@ -43,8 +43,8 @@ def decode_MQTT_message(msg: mqtt.MQTTMessage, mode=dict) -> Tuple[str, dict]:
         raise UnsupportedError(f'Unexpected type!!! - {type(payload)}')
 
 
-class SoPMQTTClient:
-    def __init__(self, middleware: SoPMiddleware, debug: bool = False):
+class MXMQTTClient:
+    def __init__(self, middleware: MXMiddleware, debug: bool = False):
         self._mqtt_client: mqtt.Client = mqtt.Client(client_id=middleware.name, clean_session=True)
 
         self.middleware = middleware
@@ -67,7 +67,7 @@ class SoPMQTTClient:
         try:
             self._mqtt_client.connect(self.middleware.device.host, self.middleware.mqtt_port)
         except Exception as e:
-            SOPLOG_DEBUG(f'Connect to broker failed...', 'red')
+            MXLOG_DEBUG(f'Connect to broker failed...', 'red')
             return False
 
     def set_debug(self, debug: bool):
@@ -91,19 +91,19 @@ class SoPMQTTClient:
         if self._debug:
             if ret.rc == 0:
                 pass
-                SOPLOG_DEBUG(
+                MXLOG_DEBUG(
                     f'{f"✅ Published by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, {payload} '
                     f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
             else:
                 pass
-                SOPLOG_DEBUG(f'Publish failed...', 'red')
+                MXLOG_DEBUG(f'Publish failed...', 'red')
 
     def subscribe(self, topic: Union[List, str], qos=0):
         if type(topic) is not list:
             self._mqtt_client.subscribe(topic, qos)
             self._subscribe_list.add(topic)
             if self._debug:
-                SOPLOG_DEBUG(
+                MXLOG_DEBUG(
                     f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {topic:<80}, '
                     f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
@@ -111,7 +111,7 @@ class SoPMQTTClient:
                 self._mqtt_client.subscribe(item, qos)
                 self._subscribe_list.add(item)
                 if self._debug:
-                    SOPLOG_DEBUG(
+                    MXLOG_DEBUG(
                         f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {item:<80}, '
                         f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
@@ -121,7 +121,7 @@ class SoPMQTTClient:
             if topic in self._subscribe_list:
                 self._subscribe_list.remove(topic)
             if self._debug:
-                SOPLOG_DEBUG(
+                MXLOG_DEBUG(
                     f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {topic:<80}, '
                     f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
         else:
@@ -130,7 +130,7 @@ class SoPMQTTClient:
                 if item in self._subscribe_list:
                     self._subscribe_list.remove(item)
                 if self._debug:
-                    SOPLOG_DEBUG(
+                    MXLOG_DEBUG(
                         f'{f"❌ Unsubscribed by {self.get_client_id()}":>16}: {item:<80}, '
                         f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
@@ -179,6 +179,6 @@ class SoPMQTTClient:
         topic, payload, _ = decode_MQTT_message(message)
 
         if self._debug:
-            SOPLOG_DEBUG(
+            MXLOG_DEBUG(
                 f'{f"✅ Received by {self.get_client_id()}":>16}(qos={message.qos}): {topic:<80}, {payload} '
                 f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')

@@ -54,22 +54,11 @@ def arg_parse() -> argparse.Namespace:
     return args
 
 
-def print_code_session_label(text: str = ''):
-    from art import text2art
-    result = text2art(text, font='big')
-    f = [a for a in result.split('\n') if len(a.strip()) > 0]
-    maxlen = max([len(a) for a in f])
-
-    padding = '=' * (maxlen + 2)
-    result = '\n'.join([padding] + f + [padding])
-    print(result)
-
-
 if __name__ == '__main__':
     args = arg_parse()
 
-    simulation_framework = SoPSimulationFramework(service_parallel=args.service_parallel, result_filename=args.result_filename, download_logs=args.download_logs,
-                                                  profile=args.profile, profile_type=args.profile_type,
-                                                  mqtt_debug=args.mqtt_debug, middleware_debug=args.middleware_debug)
+    simulation_framework = MXSimulationFramework(service_parallel=args.service_parallel, result_filename=args.result_filename, download_logs=args.download_logs,
+                                                 profile=args.profile, profile_type=args.profile_type,
+                                                 mqtt_debug=args.mqtt_debug, middleware_debug=args.middleware_debug)
     simulation_framework.load(config_path=args.config_path, simulation_data_path=args.simulation_data_path, policy_path=args.policy_path)
     simulation_framework.start()

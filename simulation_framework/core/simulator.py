@@ -23,17 +23,22 @@ def exception_wrapper(func: Callable = None,
         except KeyboardInterrupt as e:
             print('KeyboardInterrupt')
             if hasattr(self._simulator, 'event_handler'):
-                event_handler: SoPEventHandler = self._simulator.event_handler
+                event_handler: MXEventHandler = self._simulator.event_handler
                 event_handler.wrapup()
-                user_input = input(
-                    'Select exit mode[1].\n1. Just exit\n2. Download remote logs\n') or '1'
-                if user_input == '1':
+
+                try:
+                    user_input = int(input('Select exit mode[default=1].\n1. Just exit\n2. Download remote logs\n')) or 1
+                except KeyboardInterrupt:
+                    user_input = 1
+
+                if user_input == 1:
                     cprint(f'Exit whole simulation...', 'red')
-                elif user_input == '2':
+                elif user_input == 2:
                     cprint(f'Download remote logs...', 'yellow')
                     event_handler.download_log_file()
                 else:
                     cprint(f'Unknown input. Exit whole simulation...', 'red')
+
                 exit(0)
         except Exception as e:
             if e is Empty:
@@ -44,7 +49,7 @@ def exception_wrapper(func: Callable = None,
                 print_error()
             else:
                 print_error()
-                event_handler: SoPEventHandler = self._simulator.event_handler
+                event_handler: MXEventHandler = self._simulator.event_handler
                 event_handler.wrapup()
             print_error()
             raise e
@@ -54,15 +59,15 @@ def exception_wrapper(func: Callable = None,
     return wrapper
 
 
-class SoPSimulator:
+class MXSimulator:
 
-    def __init__(self, simulation_env: SoPSimulationEnv, policy_path: str, mqtt_debug: bool = False, middleware_debug: bool = False, download_logs: bool = False) -> None:
+    def __init__(self, simulation_env: MXSimulationEnv, policy_path: str, mqtt_debug: bool = False, middleware_debug: bool = False, download_logs: bool = False) -> None:
         self.simulation_env = simulation_env
         self.policy_path = policy_path
-        self.static_event_timeline: List[SoPEvent] = simulation_env.static_event_timeline
-        self.dynamic_event_timeline: List[SoPEvent] = simulation_env.dynamic_event_timeline
+        self.static_event_timeline: List[MXEvent] = simulation_env.static_event_timeline
+        self.dynamic_event_timeline: List[MXEvent] = simulation_env.dynamic_event_timeline
 
-        self.event_handler: SoPEventHandler = None
+        self.event_handler: MXEventHandler = None
 
         self.mqtt_debug = mqtt_debug
         self.middleware_debug = middleware_debug
@@ -72,12 +77,12 @@ class SoPSimulator:
         self.send_middleware_file_thread_queue = Queue()
 
     def setup(self):
-        self.event_handler = SoPEventHandler(root_middleware=self.simulation_env.root_middleware,
-                                             timeout=self.simulation_env.config.event_timeout,
-                                             running_time=self.simulation_env.config.running_time,
-                                             download_logs=self.download_logs,
-                                             mqtt_debug=self.mqtt_debug,
-                                             middleware_debug=self.middleware_debug)
+        self.event_handler = MXEventHandler(root_middleware=self.simulation_env.root_middleware,
+                                            timeout=self.simulation_env.config.event_timeout,
+                                            running_time=self.simulation_env.config.running_time,
+                                            download_logs=self.download_logs,
+                                            mqtt_debug=self.mqtt_debug,
+                                            middleware_debug=self.middleware_debug)
         self.event_handler.remove_duplicated_device_instance()
         self.event_handler.init_ssh_client_list()
         self.event_handler.init_mqtt_client_list()
@@ -98,7 +103,7 @@ class SoPSimulator:
 
     def _update_middleware_thing(self):
 
-        def get_remote_device_OS(ssh_client: SoPSSHClient) -> str:
+        def get_remote_device_OS(ssh_client: MXSSHClient) -> str:
             if not ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True):
                 command = 'sudo apt install lsb-release -y;'
                 if not ssh_client.send_command_with_check_success(command, get_pty=True):
@@ -107,7 +112,7 @@ class SoPSimulator:
             remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
             return remote_device_os
 
-        def install_remote_middleware(ssh_client: SoPSSHClient, user: str):
+        def install_remote_middleware(ssh_client: MXSSHClient, user: str):
             remote_device_os = get_remote_device_OS(ssh_client)
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
             remote_middleware_path = self.simulation_env.config.middleware_config.remote_middleware_path
@@ -133,7 +138,7 @@ class SoPSimulator:
 
             return True
 
-        def install_remote_thing(ssh_client: SoPSSHClient, force_install: bool = True):
+        def install_remote_thing(ssh_client: MXSSHClient, force_install: bool = True):
             thing_install_command = f'pip install big-thing-py'
 
             if force_install:
@@ -146,7 +151,7 @@ class SoPSimulator:
 
             return True
 
-        def init_ramdisk(ssh_client: SoPSSHClient) -> None:
+        def init_ramdisk(ssh_client: MXSSHClient) -> None:
             ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
                                              f'sudo mount -t tmpfs -o size=500M tmpfs /mnt/ramdisk',
                                              f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
@@ -158,7 +163,7 @@ class SoPSimulator:
 
             return True
 
-        def set_cpu_clock_remote(ssh_client: SoPSSHClient) -> None:
+        def set_cpu_clock_remote(ssh_client: MXSSHClient) -> None:
             set_clock_command = '''\
 function check_cpu_clock_setting() {
 	sudo cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
@@ -181,10 +186,10 @@ check_cpu_clock_setting
 set_cpu_clock
 check_cpu_clock_setting'''
             if not ssh_client.send_command_with_check_success(set_clock_command):
-                SOPTEST_LOG_DEBUG(f'Set cpu clock {ssh_client.device.name} failed!', SoPTestLogLevel.FAIL)
+                MXTEST_LOG_DEBUG(f'Set cpu clock {ssh_client.device.name} failed!', MXTestLogLevel.FAIL)
 
         with Progress() as progress:
-            def task(ssh_client: SoPSSHClient):
+            def task(ssh_client: MXSSHClient):
                 user = ssh_client.device.user
                 install_remote_middleware(ssh_client=ssh_client, user=user)
                 install_remote_thing(ssh_client=ssh_client, force_install=True)
@@ -196,7 +201,7 @@ check_cpu_clock_setting'''
 
                 progress.update(task1, advance=1)
 
-            middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
+            middleware_list: List[MXMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
             middleware_ssh_client_list = list(set([self.event_handler.find_ssh_client(middleware) for middleware in middleware_list]))
             thing_ssh_client_list = list(set([self.event_handler.find_ssh_client(thing) for middleware in middleware_list for thing in middleware.thing_list]))
 
@@ -218,8 +223,8 @@ check_cpu_clock_setting'''
         self._trigger_static_events()
         self._trigger_dynamic_events()
 
-    def _generate_middleware_configs(self, root_middleware: SoPMiddleware, simulation_data_file_path: str):
-        middleware_list: List[SoPMiddleware] = get_whole_middleware_list(root_middleware)
+    def _generate_middleware_configs(self, root_middleware: MXMiddleware, simulation_data_file_path: str):
+        middleware_list: List[MXMiddleware] = get_whole_middleware_list(root_middleware)
         for middleware in middleware_list:
             remote_home_dir = f'/home/{middleware.device.user}'
 
@@ -235,21 +240,21 @@ check_cpu_clock_setting'''
             write_file(mosquitto_conf_file_path, mosquitto_conf)
             write_file(init_script_file_path, init_script)
 
-    def _generate_thing_codes(self, root_middleware: SoPMiddleware):
-        thing_list: List[SoPThing] = get_whole_thing_list(root_middleware)
+    def _generate_thing_codes(self, root_middleware: MXMiddleware):
+        thing_list: List[MXThing] = get_whole_thing_list(root_middleware)
 
         for thing in thing_list:
             write_file(thing.thing_file_path, thing.thing_code())
 
-    def _generate_scenario_codes(self, root_middleware: SoPMiddleware):
-        scenario_list: List[SoPScenario] = get_whole_scenario_list(root_middleware)
+    def _generate_scenario_codes(self, root_middleware: MXMiddleware):
+        scenario_list: List[MXScenario] = get_whole_scenario_list(root_middleware)
         for scenario in scenario_list:
             write_file(scenario.scenario_file_path, scenario.scenario_code())
 
     def _send_middleware_configs(self):
 
         with Progress() as progress:
-            def task(middleware: SoPMiddleware):
+            def task(middleware: MXMiddleware):
                 ssh_client = self.event_handler.find_ssh_client(middleware)
                 user = middleware.device.user
                 simulation_data_file_path = self.simulation_env.simulation_data_file_path
@@ -274,12 +279,12 @@ check_cpu_clock_setting'''
                 ssh_client.send_file(os.path.abspath(middleware_cfg_file_path), home_dir_append(remote_middleware_cfg_file_path, user))
                 ssh_client.send_file(os.path.abspath(mosquitto_conf_file_path), home_dir_append(remote_mosquitto_conf_file_path, user))
                 ssh_client.send_file(os.path.abspath(init_script_file_path), home_dir_append(remote_init_script_file_path, user))
-                # SOPTEST_LOG_DEBUG(f'Send middleware config folder {middleware.name}', SoPTestLogLevel.PASS)
+                # MXTEST_LOG_DEBUG(f'Send middleware config folder {middleware.name}', MXTestLogLevel.PASS)
 
                 progress.update(task1, advance=1)
                 return True
 
-            middleware_list: List[SoPMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
+            middleware_list: List[MXMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
             task1 = progress.add_task("Send middleware configs...", total=len(middleware_list))
             pool_map(task, middleware_list, proc=1)
 
@@ -288,7 +293,7 @@ check_cpu_clock_setting'''
     def _send_thing_codes(self):
 
         with Progress() as progress:
-            def send_task(thing: SoPThing):
+            def send_task(thing: MXThing):
                 ssh_client = self.event_handler.find_ssh_client(thing)
                 user = thing.device.user
                 try:
@@ -298,12 +303,12 @@ check_cpu_clock_setting'''
                     os.system(f'sshpass -p "{ssh_client.device.password}" scp -o StrictHostKeyChecking=no -P {ssh_client.device.ssh_port} '
                               f'{os.path.abspath(thing.thing_file_path)} {ssh_client.device.user}@{ssh_client.device.host}:{thing.remote_thing_file_path} > /dev/null 2>&1 &')
 
-                # SOPTEST_LOG_DEBUG(f'Send thing file {os.path.basename(thing.thing_file_path)}', SoPTestLogLevel.PASS)
+                # MXTEST_LOG_DEBUG(f'Send thing file {os.path.basename(thing.thing_file_path)}', MXTestLogLevel.PASS)
 
                 progress.update(task1, advance=1)
                 return True
 
-            thing_list: List[SoPThing] = get_whole_thing_list(self.simulation_env.root_middleware)
+            thing_list: List[MXThing] = get_whole_thing_list(self.simulation_env.root_middleware)
             task1 = progress.add_task("Send thing codes...", total=len(thing_list))
             pool_map(send_task, thing_list, proc=1)
 
@@ -319,18 +324,18 @@ check_cpu_clock_setting'''
     # =========================
 
     # for load event_timeline from simulation data file
-    def _load_event_timeline(simulation_env: SoPSimulationEnv, event_timeline: List[dict]) -> List[SoPEvent]:
-        event_timeline: List[SoPEvent] = [SoPEvent(event_type=SoPEventType.get(event['event_type']),
-                                                   component=find_component_by_name(simulation_env.root_middleware, event['component'])[0],
-                                                   timestamp=event['timestamp'],
-                                                   duration=event['duration'],
-                                                   delay=event['delay'],
-                                                   middleware_component=event['middleware_component'])
-                                          for event in event_timeline]
+    def _load_event_timeline(simulation_env: MXSimulationEnv, event_timeline: List[dict]) -> List[MXEvent]:
+        event_timeline: List[MXEvent] = [MXEvent(event_type=MXEventType.get(event['event_type']),
+                                                 component=find_component_by_name(simulation_env.root_middleware, event['component'])[0],
+                                                 timestamp=event['timestamp'],
+                                                 duration=event['duration'],
+                                                 delay=event['delay'],
+                                                 middleware_component=event['middleware_component'])
+                                         for event in event_timeline]
 
         return event_timeline
 
-    def get_event_log(self) -> List[SoPEvent]:
+    def get_event_log(self) -> List[MXEvent]:
         return self.event_handler.event_log
 
 

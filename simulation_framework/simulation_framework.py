@@ -4,12 +4,12 @@ from simulation_framework.core.evaluator import *
 from simulation_framework.profiler import *
 
 
-class SoPSimulationFramework:
+class MXSimulationFramework:
 
     def __init__(self, service_parallel: bool = True, result_filename: str = '', download_logs: bool = False,
                  profile: bool = False, profile_type: ProfileType = ProfileType.EXECUTE,
                  mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
-        self._simulator: SoPSimulator = None
+        self._simulator: MXSimulator = None
         self._service_parallel = service_parallel
         self._result_filename = result_filename
         self._download_logs = download_logs
@@ -18,9 +18,9 @@ class SoPSimulationFramework:
         self._mqtt_debug = mqtt_debug
         self._middleware_debug = middleware_debug
 
-        self._config_list: List[SoPSimulationConfig] = []
+        self._config_list: List[MXSimulationConfig] = []
         self._policy_path_list: List[str] = []
-        self._simulation_env_list: List[SoPSimulationEnv] = []
+        self._simulation_env_list: List[MXSimulationEnv] = []
 
     def load(self, config_path: str = '', simulation_data_path: str = '', policy_path: str = '') -> None:
         if config_path:
@@ -32,16 +32,16 @@ class SoPSimulationFramework:
 
         self._policy_path_list = self.load_policy(policy_path=policy_path)
 
-    def load_config(self, config_path: str) -> List[SoPSimulationConfig]:
+    def load_config(self, config_path: str) -> List[MXSimulationConfig]:
         if os.path.isdir(config_path):
-            config_list = [SoPSimulationConfig(config_path=os.path.join(config_path, config_file_path)) for config_file_path in os.listdir(config_path)
+            config_list = [MXSimulationConfig(config_path=os.path.join(config_path, config_file_path)) for config_file_path in os.listdir(config_path)
                            if config_file_path.startswith('config') and config_file_path.endswith('.yml')]
         else:
-            config_list = ([SoPSimulationConfig(config_path=config_path)]
+            config_list = ([MXSimulationConfig(config_path=config_path)]
                            if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')) else [])
         return config_list
 
-    def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[str], List[str], List[str], List[SoPService], List[SoPThing]]:
+    def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[str], List[str], List[str], List[MXService], List[MXThing]]:
         if not os.path.exists(service_thing_pool_path):
             return [], [], [], [], []
 
@@ -49,23 +49,23 @@ class SoPSimulationFramework:
         tag_name_pool = service_thing_pool['tag_name_pool']
         service_name_pool = service_thing_pool['service_name_pool']
         super_service_name_pool = service_thing_pool['super_service_name_pool']
-        service_pool = [SoPService.load(service_info) for service_info in service_thing_pool['service_pool']]
-        thing_pool = [SoPThing.load(thing_info) for thing_info in service_thing_pool['thing_pool']]
+        service_pool = [MXService.load(service_info) for service_info in service_thing_pool['service_pool']]
+        thing_pool = [MXThing.load(thing_info) for thing_info in service_thing_pool['thing_pool']]
         for thing in thing_pool:
             for service in thing.service_list:
                 service.thing = thing
 
-        SOPTEST_LOG_DEBUG(f'Load service_thing_pool from ./{os.path.relpath(service_thing_pool_path, get_project_root())}', SoPTestLogLevel.INFO)
+        MXTEST_LOG_DEBUG(f'Load service_thing_pool from ./{os.path.relpath(service_thing_pool_path, get_project_root())}', MXTestLogLevel.INFO)
         return tag_name_pool, service_name_pool, super_service_name_pool, service_pool, thing_pool
 
-    def load_simulation_data(self, simulation_data_path: str) -> Tuple[SoPSimulationConfig, List[SoPSimulationEnv]]:
+    def load_simulation_data(self, simulation_data_path: str) -> Tuple[MXSimulationConfig, List[MXSimulationEnv]]:
         simulation_data_file = load_json(simulation_data_path)
-        simulation_env_list: List[SoPSimulationEnv] = []
+        simulation_env_list: List[MXSimulationEnv] = []
         for simulation_env_info in simulation_data_file['simulation_env_list']:
             config = simulation_env_info['config']
-            root_middleware = SoPMiddleware.load(simulation_env_info['root_middleware'])
+            root_middleware = MXMiddleware.load(simulation_env_info['root_middleware'])
             event_timeline = simulation_env_info['event_timeline']
-            simulation_env = SoPSimulationEnv(config=config, root_middleware=root_middleware, event_timeline=event_timeline)
+            simulation_env = MXSimulationEnv(config=config, root_middleware=root_middleware, event_timeline=event_timeline)
             simulation_env_list.append(simulation_env)
 
         return simulation_env_list
@@ -84,7 +84,7 @@ class SoPSimulationFramework:
 
         # Run simulation with simulation_env_list and policy_path_list.
         # Simulation will run with count of len(simulation_env_list) * len(policy_path_list).
-        simulation_result_list: List[SoPSimulationResult] = []
+        simulation_result_list: List[MXSimulationResult] = []
         for index, simulation_env in enumerate(self._simulation_env_list):
             for policy_path in self._policy_path_list:
                 simulation_result = self.run_simulation(simulation_env=simulation_env, policy_path=policy_path, index=index)
@@ -92,23 +92,23 @@ class SoPSimulationFramework:
 
         self.print_ranking(simulation_result_list=simulation_result_list)
 
-    def print_ranking(self, simulation_result_list: List[SoPSimulationResult]):
+    def print_ranking(self, simulation_result_list: List[MXSimulationResult]):
         if not simulation_result_list:
-            SOPTEST_LOG_DEBUG(f'No simulation result', SoPTestLogLevel.WARN)
+            MXTEST_LOG_DEBUG(f'No simulation result', MXTestLogLevel.WARN)
             return False
 
-        simulation_result_list_sort_by_policy: Dict[str, List[SoPSimulationResult]] = {}
+        simulation_result_list_sort_by_policy: Dict[str, List[MXSimulationResult]] = {}
         for simulation_result in simulation_result_list:
             if simulation_result.policy_path in simulation_result_list_sort_by_policy:
                 simulation_result_list_sort_by_policy[simulation_result.policy_path].append(simulation_result)
             else:
                 simulation_result_list_sort_by_policy[simulation_result.policy_path] = [simulation_result]
-        simulation_result_list: List[SoPSimulationResult] = []
+        simulation_result_list: List[MXSimulationResult] = []
         for policy, result_list in simulation_result_list_sort_by_policy.items():
-            simulation_result_avg = SoPSimulationResult(policy_path=policy,
-                                                        avg_latency=avg([result.get_avg_latency()[0] for result in result_list]),
-                                                        avg_energy=avg([result.get_avg_energy()[0] for result in result_list]),
-                                                        avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
+            simulation_result_avg = MXSimulationResult(policy_path=policy,
+                                                       avg_latency=avg([result.get_avg_latency()[0] for result in result_list]),
+                                                       avg_energy=avg([result.get_avg_energy()[0] for result in result_list]),
+                                                       avg_success_ratio=avg([result.get_avg_success_ratio()[0] for result in result_list]))
             simulation_result_list.append(simulation_result_avg)
 
         simulation_result_list_sort_by_application_latency = sorted(simulation_result_list, key=lambda x: x.avg_latency)
@@ -126,7 +126,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
 
         return True
 
-    def calculate_num_service_thing_generate(self, config: SoPSimulationConfig) -> Tuple[int, int]:
+    def calculate_num_service_thing_generate(self, config: MXSimulationConfig) -> Tuple[int, int]:
         manual_middleware_tree = config.middleware_config.manual_middleware_tree
         random_middleware_config = config.middleware_config.random
 
@@ -151,13 +151,13 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
 
         return num_service_generate, num_thing_generate
 
-    def generate_simulation_env(self, config_list: List[SoPSimulationConfig]) -> List[SoPSimulationEnv]:
-        self.env_generator = SoPEnvGenerator(service_parallel=self._service_parallel)
+    def generate_simulation_env(self, config_list: List[MXSimulationConfig]) -> List[MXSimulationEnv]:
+        self.env_generator = MXEnvGenerator(service_parallel=self._service_parallel)
 
-        simulation_env_list: List[SoPSimulationEnv] = []
+        simulation_env_list: List[MXSimulationEnv] = []
         for config in config_list:
             loaded_tag_name_pool, loaded_service_name_pool, loaded_super_service_name_pool, loaded_service_pool, loaded_thing_pool = [], [], [], [], []
-            simulation_env = SoPSimulationEnv(config=config)
+            simulation_env = MXSimulationEnv(config=config)
             service_thing_pool_path = config.service_thing_pool_path.abs_path()
 
             self.env_generator.load(config=simulation_env.config)
@@ -244,15 +244,15 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
         return simulation_env_list
 
     @exception_wrapper
-    def run_simulation(self, simulation_env: SoPSimulationEnv, policy_path: str, index: int):
-        SOPTEST_LOG_DEBUG(f'==== Start simulation {simulation_env.config.name}[{index}], policy: {os.path.basename(policy_path)} ====', SoPTestLogLevel.INFO)
-        self._simulator = SoPSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug, middleware_debug=self._middleware_debug, download_logs=self._download_logs)
+    def run_simulation(self, simulation_env: MXSimulationEnv, policy_path: str, index: int):
+        MXTEST_LOG_DEBUG(f'==== Start simulation {simulation_env.config.name}, iter: {index}, policy: {os.path.basename(policy_path)} ====', MXTestLogLevel.INFO)
+        self._simulator = MXSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug, middleware_debug=self._middleware_debug, download_logs=self._download_logs)
         self._simulator.setup()
         self._simulator.cleanup()
         self._simulator.build_iot_system()
         self._simulator.start()
 
-        evaluator = SoPEvaluator(simulation_env=simulation_env, event_log=self._simulator.get_event_log()).classify_event_log()
+        evaluator = MXEvaluator(simulation_env=simulation_env, event_log=self._simulator.get_event_log()).classify_event_log()
         simulation_result = evaluator.evaluate_simulation()
 
         simulation_result.config_path = simulation_env.config.config_path
@@ -287,7 +287,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
     #  \__,_| \__||_||_||___/
     # =========================
 
-    def _export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], super_service_name_pool: List[str], service_pool: List[SoPService], thing_pool: List[SoPThing]):
+    def _export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], super_service_name_pool: List[str], service_pool: List[MXService], thing_pool: List[MXThing]):
         service_pool_dict = [service.dict() for service in service_pool]
         thing_pool_dict = [thing.dict() for thing in thing_pool]
         service_thing_pool = {'tag_name_pool': tag_name_pool,

@@ -7,14 +7,14 @@ from abc import ABCMeta
 import paho.mqtt.client as mqtt
 
 
-def get_whole_middleware_list(middleware: 'SoPMiddleware') -> List['SoPMiddleware']:
+def get_whole_middleware_list(middleware: 'MXMiddleware') -> List['MXMiddleware']:
     root_middleware = middleware.root
 
     middleware_list = [root_middleware] + list(root_middleware.descendants)
     return middleware_list
 
 
-def get_whole_thing_list(middleware: 'SoPMiddleware') -> List['SoPThing']:
+def get_whole_thing_list(middleware: 'MXMiddleware') -> List['MXThing']:
     root_middleware = middleware.root
 
     middleware_list = get_whole_middleware_list(root_middleware)
@@ -22,7 +22,7 @@ def get_whole_thing_list(middleware: 'SoPMiddleware') -> List['SoPThing']:
     return thing_list
 
 
-def get_whole_scenario_list(middleware: 'SoPMiddleware') -> List['SoPScenario']:
+def get_whole_scenario_list(middleware: 'MXMiddleware') -> List['MXScenario']:
     root_middleware = middleware.root
 
     middleware_list = get_whole_middleware_list(root_middleware)
@@ -30,7 +30,7 @@ def get_whole_scenario_list(middleware: 'SoPMiddleware') -> List['SoPScenario']:
     return scenario_list
 
 
-def get_whole_service_list(middleware: 'SoPMiddleware') -> List['SoPService']:
+def get_whole_service_list(middleware: 'MXMiddleware') -> List['MXService']:
     root_middleware = middleware.root
 
     thing_list = get_whole_thing_list(root_middleware)
@@ -38,30 +38,30 @@ def get_whole_service_list(middleware: 'SoPMiddleware') -> List['SoPService']:
     return service_list
 
 
-def find_component(root_middleware: 'SoPMiddleware', component: 'SoPComponent', key: Callable = lambda x: x) -> T:
-    if isinstance(component, SoPMiddleware):
+def find_component(root_middleware: 'MXMiddleware', component: 'MXComponent', key: Callable = lambda x: x) -> T:
+    if isinstance(component, MXMiddleware):
         middleware_list = get_whole_middleware_list(root_middleware)
         for middleware in middleware_list:
             if key(middleware) == key(component):
                 return middleware
-    elif isinstance(component, SoPThing):
+    elif isinstance(component, MXThing):
         thing_list = get_whole_thing_list(root_middleware)
         for thing in thing_list:
             if key(thing) == key(component):
                 return thing
-    elif isinstance(component, SoPScenario):
+    elif isinstance(component, MXScenario):
         scenario_list = get_whole_scenario_list(root_middleware)
         for scenario in scenario_list:
             if key(scenario) == key(component):
                 return scenario
-    elif isinstance(component, SoPService):
+    elif isinstance(component, MXService):
         service_list = get_whole_service_list(root_middleware)
         for service in service_list:
             if key(service) == key(component):
                 return service
 
 
-def find_component_by_name(root_middleware: 'SoPMiddleware', component_name: str) -> 'SoPComponent':
+def find_component_by_name(root_middleware: 'MXMiddleware', component_name: str) -> 'MXComponent':
     middleware_list = get_whole_middleware_list(root_middleware)
     thing_list = get_whole_thing_list(root_middleware)
     scenario_list = get_whole_scenario_list(root_middleware)
@@ -72,7 +72,7 @@ def find_component_by_name(root_middleware: 'SoPMiddleware', component_name: str
             return component
 
 
-class SoPComponentType(Enum):
+class MXComponentType(Enum):
     DEVICE = 'DEVICE'
     MIDDLEWARE = 'MIDDLEWARE'
     THING = 'THING'
@@ -92,7 +92,7 @@ class SoPComponentType(Enum):
             return cls.UNDEFINED
 
 
-class SoPComponentActionType(Enum):
+class MXComponentActionType(Enum):
     RUN = 'RUN'
     KILL = 'KILL'
     UNREGISTER = 'UNREGISTER'
@@ -117,7 +117,7 @@ class SoPComponentActionType(Enum):
             return cls.UNDEFINED
 
 
-class SoPScenarioState(Enum):
+class MXScenarioState(Enum):
     CREATED = 'CREATED'
     SCHEDULING = 'SCHEDULING'
     INITIALIZED = 'INITIALIZED'
@@ -156,7 +156,7 @@ class MXScenarioInfo:
         self.schedule_info = schedule_info
 
 
-class SoPThingFaultType(Enum):
+class MXThingFaultType(Enum):
     NORMAL = 'NORMAL'
     FAIL = 'FAIL'
     TIMEOUT = 'TIMEOUT'
@@ -175,7 +175,7 @@ class SoPThingFaultType(Enum):
             return cls.UNDEFINED
 
 
-class SoPComponentScopeType(Enum):
+class MXComponentScopeType(Enum):
     LOCAL = 'LOCAL'
     SUPER = 'SUPER'
 
@@ -192,8 +192,8 @@ class SoPComponentScopeType(Enum):
             return cls.UNDEFINED
 
 
-class SoPComponent(metaclass=ABCMeta):
-    def __init__(self, name: str, level: int, component_type: SoPComponentType) -> None:
+class MXComponent(metaclass=ABCMeta):
+    def __init__(self, name: str, level: int, component_type: MXComponentType) -> None:
         # basic info
         self.name = name
         self.level = level
@@ -216,11 +216,11 @@ class SoPComponent(metaclass=ABCMeta):
         self.component_type = state['component_type']
 
     @classmethod
-    def load(cls, data: dict) -> 'SoPComponent':
+    def load(cls, data: dict) -> 'MXComponent':
         component = cls()
         component.name = data['name']
         component.level = data['level']
-        component.component_type = SoPComponentType.get(data['component_type'])
+        component.component_type = MXComponentType.get(data['component_type'])
 
         return component
 
@@ -230,8 +230,8 @@ class SoPComponent(metaclass=ABCMeta):
                     component_type=self.component_type.value)
 
 
-class SoPDevice(SoPComponent):
-    def __init__(self, name: str = '', level: int = -1, component_type: SoPComponentType = SoPComponentType.DEVICE,
+class MXDevice(MXComponent):
+    def __init__(self, name: str = '', level: int = -1, component_type: MXComponentType = MXComponentType.DEVICE,
                  host: str = '', ssh_port: int = None, user: str = '', password: str = '',
                  mqtt_port: int = None,
                  mqtt_ssl_port: int = None,
@@ -257,8 +257,8 @@ class SoPDevice(SoPComponent):
         return self.host == __o.host and self.user == __o.user and self.ssh_port == __o.ssh_port and self.password == __o.password
 
     @classmethod
-    def load(cls, data: dict) -> 'SoPDevice':
-        device: SoPDevice = super().load(data=data)
+    def load(cls, data: dict) -> 'MXDevice':
+        device: MXDevice = super().load(data=data)
 
         device.host = data['host']
         device.ssh_port = data['ssh_port']
@@ -288,7 +288,7 @@ class SoPDevice(SoPComponent):
                     localserver_port=self.localserver_port)
 
 
-class SoPMiddleware(SoPComponent, NodeMixin):
+class MXMiddleware(MXComponent, NodeMixin):
     CFG_TEMPLATE = '''%s
 broker_uri = "tcp://%s:%d"
 
@@ -328,16 +328,16 @@ sqlite3 $MAIN_DB < %s/MainDBCreate
 sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
     def __init__(self, name: str = '', level: int = -1,
-                 thing_list: List['SoPThing'] = [], scenario_list: List['SoPScenario'] = [], parent: 'SoPMiddleware' = None, children: List['SoPMiddleware'] = [],
-                 device: SoPDevice = None,
+                 thing_list: List['MXThing'] = [], scenario_list: List['MXScenario'] = [], parent: 'MXMiddleware' = None, children: List['MXMiddleware'] = [],
+                 device: MXDevice = None,
                  remote_middleware_path: str = None, remote_middleware_config_path: str = None,
                  mqtt_port: int = None, mqtt_ssl_port: int = None, websocket_port: int = None, websocket_ssl_port: int = None, localserver_port: int = 58132) -> None:
-        super().__init__(name, level, component_type=SoPComponentType.MIDDLEWARE)
+        super().__init__(name, level, component_type=MXComponentType.MIDDLEWARE)
 
         self.thing_list = thing_list
         self.scenario_list = scenario_list
-        self.parent: SoPMiddleware = parent
-        self.children: List[SoPMiddleware] = children
+        self.parent: MXMiddleware = parent
+        self.children: List[MXMiddleware] = children
 
         self.device = device
 
@@ -398,14 +398,14 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.recv_queue: Queue = Queue()
 
     @classmethod
-    def load(cls, data: dict) -> 'SoPMiddleware':
-        middleware: SoPMiddleware = super().load(data=data)
+    def load(cls, data: dict) -> 'MXMiddleware':
+        middleware: MXMiddleware = super().load(data=data)
 
-        middleware.thing_list = [SoPThing.load(thing_info) for thing_info in data['thing_list']]
-        middleware.scenario_list = [SoPScenario.load(scenario_info) for scenario_info in data['scenario_list']]
-        middleware.children = [SoPMiddleware.load(child_middleware_info) for child_middleware_info in data['child_middleware_list']]
+        middleware.thing_list = [MXThing.load(thing_info) for thing_info in data['thing_list']]
+        middleware.scenario_list = [MXScenario.load(scenario_info) for scenario_info in data['scenario_list']]
+        middleware.children = [MXMiddleware.load(child_middleware_info) for child_middleware_info in data['child_middleware_list']]
 
-        middleware.device = SoPDevice.load(data['device'])
+        middleware.device = MXDevice.load(data['device'])
 
         middleware.remote_middleware_path = data['remote_middleware_path']
         middleware.remote_middleware_config_path = data['remote_middleware_config_path']
@@ -420,7 +420,7 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         return middleware
 
     def dict(self):
-        self.children: List[SoPMiddleware]
+        self.children: List[MXMiddleware]
         return dict(**super().dict(),
                     thing_list=[thing.dict() for thing in self.thing_list],
                     scenario_list=[scenario.dict() for scenario in self.scenario_list],
@@ -441,38 +441,38 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
             parent_middleware_line = f'parent_broker_uri = "tcp://{self.parent.device.host}:{self.parent.mqtt_port}"'
 
         remote_home_dir = f'/home/{user}'
-        middleware_cfg = SoPMiddleware.CFG_TEMPLATE % (parent_middleware_line,
-                                                       '127.0.0.1',
-                                                       self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
-                                                       self.name,
-                                                       self.localserver_port,
-                                                       home_dir_append(path=self.remote_middleware_config_path, user=user),
-                                                       self.name,
-                                                       home_dir_append(path=self.remote_middleware_config_path, user=user),
-                                                       self.name,
-                                                       remote_home_dir,
-                                                       self.name)
+        middleware_cfg = MXMiddleware.CFG_TEMPLATE % (parent_middleware_line,
+                                                      '127.0.0.1',
+                                                      self.mqtt_port if self.mqtt_port else self.device.mqtt_port,
+                                                      self.name,
+                                                      self.localserver_port,
+                                                      home_dir_append(path=self.remote_middleware_config_path, user=user),
+                                                      self.name,
+                                                      home_dir_append(path=self.remote_middleware_config_path, user=user),
+                                                      self.name,
+                                                      remote_home_dir,
+                                                      self.name)
         return middleware_cfg
 
     def generate_mosquitto_conf_file(self) -> str:
         mosquitto_port = self.mqtt_port if self.mqtt_port else self.device.mqtt_port
-        mosquitto_conf = SoPMiddleware.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
+        mosquitto_conf = MXMiddleware.MOSQUITTO_CONF_TEMPLATE.substitute(port=mosquitto_port)
 
         return mosquitto_conf
 
     def generate_init_script_file(self, user: str) -> str:
         remote_middleware_config_abspath = home_dir_append(path=self.remote_middleware_config_path, user=user)
         remote_middleware_abspath = home_dir_append(path=self.remote_middleware_path, user=user)
-        init_script = SoPMiddleware.INIT_SCRIPT_TEMPLATE % (remote_middleware_config_abspath,
-                                                            self.name,
-                                                            remote_middleware_config_abspath,
-                                                            self.name,
-                                                            remote_middleware_abspath,
-                                                            remote_middleware_abspath)
+        init_script = MXMiddleware.INIT_SCRIPT_TEMPLATE % (remote_middleware_config_abspath,
+                                                           self.name,
+                                                           remote_middleware_config_abspath,
+                                                           self.name,
+                                                           remote_middleware_abspath,
+                                                           remote_middleware_abspath)
         return init_script
 
 
-class SoPService(SoPComponent):
+class MXService(MXComponent):
     ERROR_TEMPLATE = '''\
 global thing_start_time
 global service_fail_flag
@@ -488,10 +488,10 @@ if random.uniform(0, 1) < %f or service_fail_flag[f'{get_current_function_name()
 results += [self.req(sub_service_name='%s', tag_list=%s, arg_list=(), return_type=%s, service_type=MXServiceType.FUNCTION, range_type=MXRangeType.%s)]'''
 
     SERVICE_INSTANCE_TEMPLATE = '''\
-SoPFunction(func=%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%8.3f, timeout=%8.3f, energy=%d)'''
+MXFunction(func=%s, return_type=MXType.STRING, tag_list=[%s], arg_list=[], exec_time=%8.3f, timeout=%8.3f, energy=%d)'''
 
     SUPER_SERVICE_INSTANCE_TEMPLATE = '''\
-SoPSuperFunction(func=self.%s, return_type=SoPType.STRING, tag_list=[%s], arg_list=[], exec_time=%8.3f, timeout=%8.3f, energy=%d)'''
+MXSuperFunction(func=self.%s, return_type=MXType.STRING, tag_list=[%s], arg_list=[], exec_time=%8.3f, timeout=%8.3f, energy=%d)'''
 
     FUNCTION_TEMPLATE = '''\
 def %s() -> str:
@@ -529,8 +529,8 @@ def %s(self) -> str:
 
     def __init__(self, name: str = '', level: int = -1,
                  tag_list: List[str] = [], is_super: bool = False, energy: float = 0, execute_time: float = 0, return_value: int = 0,
-                 sub_service_list: List['SoPService'] = [], thing: 'SoPThing' = None) -> None:
-        super().__init__(name, level, component_type=SoPComponentType.SERVICE)
+                 sub_service_list: List['MXService'] = [], thing: 'MXThing' = None) -> None:
+        super().__init__(name, level, component_type=MXComponentType.SERVICE)
 
         self.tag_list = tag_list
         self.is_super = is_super
@@ -561,7 +561,7 @@ elif thing_start_time == 1:
         for subfunction in self.sub_service_list:
             picked_tag_list = random.sample(subfunction.tag_list, random.randint(1, len(subfunction.tag_list)))
             if len(picked_tag_list) != len(set(picked_tag_list)):
-                SOPTEST_LOG_DEBUG(f'request line of {self.name}:{subfunction.name}\'s tag_list has duplicated words! check this out...', SoPTestLogLevel.FAIL)
+                MXTEST_LOG_DEBUG(f'request line of {self.name}:{subfunction.name}\'s tag_list has duplicated words! check this out...', MXTestLogLevel.FAIL)
                 picked_tag_list = list(set(picked_tag_list))
 
             # TODO: policy(ALL, SINGLE) 비율을 조정할 수 있도록 수정하면 좋을 것 같다. (현재는 1:1로 고정)
@@ -569,6 +569,7 @@ elif thing_start_time == 1:
 
             sub_service_request_code_list.append(self.SUBFUNCTION_TEMPLATE % (subfunction.name,
                                                                               picked_tag_list,
+                                                                              'MXType.STRING',
                                                                               policy))
         return '\n'.join(sub_service_request_code_list).rstrip()
 
@@ -604,8 +605,8 @@ elif thing_start_time == 1:
         return service_code
 
     @classmethod
-    def load(cls, data: dict) -> 'SoPService':
-        service: SoPService = super().load(data=data)
+    def load(cls, data: dict) -> 'MXService':
+        service: MXService = super().load(data=data)
 
         service.tag_list = data['tag_list']
         service.is_super = data['is_super']
@@ -613,7 +614,7 @@ elif thing_start_time == 1:
         service.execute_time = data['execute_time']
         service.return_value = data['return_value']
 
-        service.sub_service_list = [SoPService.load(service_info) for service_info in data['subfunction_list']]
+        service.sub_service_list = [MXService.load(service_info) for service_info in data['subfunction_list']]
 
         return service
 
@@ -627,7 +628,7 @@ elif thing_start_time == 1:
                     subfunction_list=[subfunction.dict() for subfunction in self.sub_service_list])
 
 
-class SoPThing(SoPComponent):
+class MXThing(MXComponent):
     THING_TEMPLATE = '''\
 from big_thing_py.big_thing import *
 
@@ -654,8 +655,6 @@ def arg_parse():
                         required=False, default=%8.3f, help="refresh_cycle")
     parser.add_argument("--append_mac", '-am', action='%s',                         # store_true, store_false
                         required=False, help="append mac address to thing name")
-    parser.add_argument("--retry_register", action='store_true',
-                        required=False, help="retry register feature enable")
     args = parser.parse_args()
     return args
 
@@ -667,8 +666,7 @@ def main():
     value_list = []
     thing = MXBigThing(name=args.name, service_list=function_list + value_list,
                         alive_cycle=args.alive_cycle, is_super=False, is_parallel=%s, ip=args.host, port=args.port,
-                        ssl_ca_path=None, ssl_enable=None, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.FULL,
-                        retry_register=args.retry_register)
+                        ssl_ca_path=None, ssl_enable=None, append_mac_address=False, log_name='%s', log_mode=MXPrintMode.FULL)
     thing.setup(avahi_enable=False)
     thing.run()
 
@@ -686,9 +684,9 @@ thing_start_time = 0
 
 class MXBasicSuperThing(MXSuperThing):
 
-    def __init__(self, name: str, service_list: List[SoPService] = ..., alive_cycle: float = 600, is_super: bool = False, is_parallel: bool = True,
-                 ip: str = None, port: int = None, ssl_ca_path: str = None, ssl_enable: bool = False, log_name: str = None, log_enable: bool = True, log_mode: SoPPrintMode = SoPPrintMode.FULL, append_mac_address: bool = True,
-                 refresh_cycle: float = 10, retry_register: bool = False):
+    def __init__(self, name: str, service_list: List[MXService] = ..., alive_cycle: float = 600, is_super: bool = False, is_parallel: bool = True,
+                 ip: str = None, port: int = None, ssl_ca_path: str = None, ssl_enable: bool = False, log_name: str = None, log_enable: bool = True, log_mode: MXPrintMode = MXPrintMode.FULL, append_mac_address: bool = True,
+                 refresh_cycle: float = 10):
         value_list = []
         function_list = \\
             [%s]
@@ -719,17 +717,14 @@ def arg_parse():
                         required=False, default=MXPrintMode.FULL, help="log mode")
     parser.add_argument("--append_mac", '-am', action='store_true',                         # store_true, store_false
                         required=False, help="append mac address to thing name")
-    parser.add_argument("--retry_register", action='store_true',
-                        required=False, help="retry register feature enable")
     args = parser.parse_args()
 
     return args
 
 
 def generate_thing(args):
-    super_thing = SoPBasicSuperThing(name=args.name, ip=args.host, port=args.port, is_super=True, is_parallel=%s, ssl_ca_path=None, ssl_enable=None,
-                                     alive_cycle=args.alive_cycle, refresh_cycle=args.refresh_cycle, append_mac_address=False, log_name='%s', log_mode=SoPPrintMode.FULL,
-                                     retry_register=args.retry_register)
+    super_thing = MXBasicSuperThing(name=args.name, ip=args.host, port=args.port, is_super=True, is_parallel=%s, ssl_ca_path=None, ssl_enable=None,
+                                     alive_cycle=args.alive_cycle, refresh_cycle=args.refresh_cycle, append_mac_address=False, log_name='%s', log_mode=MXPrintMode.FULL)
     return super_thing
 
 
@@ -741,11 +736,11 @@ if __name__ == '__main__':
 '''
 
     def __init__(self, name: str = '', level: int = -1,
-                 service_list: List['SoPService'] = [], is_super: bool = False, is_parallel: bool = False, alive_cycle: float = 0,
-                 device: SoPDevice = None, middleware: SoPMiddleware = None,
+                 service_list: List['MXService'] = [], is_super: bool = False, is_parallel: bool = False, alive_cycle: float = 0,
+                 device: MXDevice = None, middleware: MXMiddleware = None,
                  thing_file_path: str = '', remote_thing_file_path: str = '',
                  fail_rate: float = None) -> None:
-        super().__init__(name, level, component_type=SoPComponentType.THING)
+        super().__init__(name, level, component_type=MXComponentType.THING)
 
         self.service_list = service_list
         self.is_super = is_super
@@ -806,15 +801,15 @@ if __name__ == '__main__':
 
     @classmethod
     def load(cls, data: dict):
-        thing: SoPThing = super().load(data=data)
+        thing: MXThing = super().load(data=data)
 
-        thing.service_list = [SoPService.load(service_info)
+        thing.service_list = [MXService.load(service_info)
                               for service_info in data['service_list']]
         thing.is_super = data['is_super']
         thing.is_parallel = data['is_parallel']
         thing.alive_cycle = data['alive_cycle']
 
-        thing.device = SoPDevice.load(data['device'])
+        thing.device = MXDevice.load(data['device'])
 
         thing.thing_file_path = data['thing_file_path']
         thing.remote_thing_file_path = data['remote_thing_file_path']
@@ -869,22 +864,22 @@ if __name__ == '__main__':
                                                       f'./log/{self.name}.log')
         return thing_code
 
-    def find_service_by_name(self, service_name: str) -> SoPService:
+    def find_service_by_name(self, service_name: str) -> MXService:
         for service in self.service_list:
             if service.name == service_name:
                 return service
 
 
-class SoPScenario(SoPComponent):
+class MXScenario(MXComponent):
     SCENARIO_TEMPLATE = '''loop(%s) {
 %s
 }
 '''
 
     def __init__(self, name: str = '', level: int = -1,
-                 service_list: List[SoPService] = [], period: float = None, priority: int = None,
-                 scenario_file_path: str = '', middleware: SoPMiddleware = None) -> None:
-        super().__init__(name, level, component_type=SoPComponentType.SCENARIO)
+                 service_list: List[MXService] = [], period: float = None, priority: int = None,
+                 scenario_file_path: str = '', middleware: MXMiddleware = None) -> None:
+        super().__init__(name, level, component_type=MXComponentType.SCENARIO)
 
         self.service_list = service_list
         self.period = period
@@ -892,7 +887,7 @@ class SoPScenario(SoPComponent):
         self.scenario_file_path = scenario_file_path
         self.middleware = middleware
 
-        self.state: SoPScenarioState = SoPScenarioState.UNDEFINED
+        self.state: MXScenarioState = MXScenarioState.UNDEFINED
         self.add_result_arrived = False
         self.schedule_success = False
         self.schedule_timeout = False
@@ -936,9 +931,9 @@ class SoPScenario(SoPComponent):
 
     @classmethod
     def load(cls, data: dict) -> None:
-        scenario: SoPScenario = super().load(data=data)
+        scenario: MXScenario = super().load(data=data)
 
-        scenario.service_list = [SoPService.load(service_info)
+        scenario.service_list = [MXService.load(service_info)
                                  for service_info in data['service_list']]
         scenario.period = data['period']
         scenario.scenario_file_path = data['scenario_file_path']
