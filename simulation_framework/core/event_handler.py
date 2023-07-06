@@ -196,7 +196,7 @@ class MXEventHandler:
 
         self.schedule_running_task: TaskID = None
         self.execute_running_task: TaskID = None
-        self.super_execute_running_task_pool: List[TaskID] = []
+        self.super_execute_running_task_pool: Dict[str, TaskID] = {}
 
     def _add_mqtt_client(self, mqtt_client: MXMQTTClient):
         self.mqtt_client_list.append(mqtt_client)
@@ -366,6 +366,9 @@ class MXEventHandler:
             self.scenario_state_check(target_state=[MXScenarioState.INITIALIZED,
                                                     MXScenarioState.RUNNING,
                                                     MXScenarioState.EXECUTING], check_interval=3, retry=5, timeout=self.timeout)
+            for k, v in self.super_execute_running_task_pool.items():
+                self.simulation_progress.remove_task(v)
+            self.super_execute_running_task_pool = {}
             self.simulation_progress.stop()
             self.stop_event_listener()
             self.kill_every_process()
@@ -923,15 +926,12 @@ class MXEventHandler:
             return dict(thing_pid_list=thing_pid_list)
 
     def kill_all_middleware(self):
-        MXTEST_LOG_DEBUG(f'Kill all middleware...', MXTestLogLevel.INFO, 'red')
         for middleware in self.middleware_list:
             ssh_client = self.find_ssh_client(middleware)
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
             ssh_client.send_command('pidof mosquitto | xargs kill -9')
 
     def kill_all_thing(self):
-        MXTEST_LOG_DEBUG(f'Kill all python instance...', MXTestLogLevel.INFO, 'red')
-
         self_pid = os.getpid()
         for ssh_client in self.ssh_client_list:
             result = ssh_client.send_command(f"ps -ef | grep python | grep _thing_ | grep -v grep | awk '{{print $2}}'")
@@ -942,13 +942,11 @@ class MXEventHandler:
                 result = ssh_client.send_command(f'kill -9 {pid}')
 
     def _kill_every_ssh_client(self):
-        MXTEST_LOG_DEBUG(f'Kill all ssh client', MXTestLogLevel.INFO, 'red')
         for ssh_client in self.ssh_client_list:
             ssh_client.disconnect()
             del ssh_client
 
     def _kill_every_mqtt_client(self):
-        MXTEST_LOG_DEBUG(f'Kill all mqtt client', MXTestLogLevel.INFO, 'red')
         for mqtt_client in self.mqtt_client_list:
             mqtt_client.stop()
             del mqtt_client
@@ -1379,11 +1377,13 @@ class MXEventHandler:
             # 이에 따라 다른 energy 소모량을 가질 수 있다.
             # for subfunction in super_service.subfunction_list:
             #     subfunction.energy = 0
-
+            # requester_middleware@super_thing@super_service@subrequest_order
             self.event_log.append(MXEvent(event_type=MXEventType.SUPER_FUNCTION_EXECUTE, middleware_component=super_thing.middleware, thing_component=super_thing,
                                           service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
 
-            # self.super_execute_running_task_pool.append(self.simulation_progress.add_task('', total=len(super_service.sub_service_list)))
+            task_key = f'{requester_middleware_name}@{super_thing_name}@{super_service.name}@{scenario_name}'
+            self.super_execute_running_task_pool[task_key] = self.simulation_progress.add_task(f'Super Service {super_service.name} by {scenario_name}',
+                                                                                               total=len(super_service.sub_service_list))
 
             # MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
             #                  f'super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress)
@@ -1399,9 +1399,6 @@ class MXEventHandler:
 
             scenario = self.find_scenario(scenario_name)
 
-            passed_time = get_current_time() - self.simulation_start_time
-            progress = passed_time / self.running_time
-            color = 'light_magenta'
             # MXTEST_LOG_DEBUG(f'[SUB_EXECUTE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
             #                  f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
             #                  f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
@@ -1417,9 +1414,9 @@ class MXEventHandler:
 
             scenario = self.find_scenario(scenario_name)
 
-            passed_time = get_current_time() - self.simulation_start_time
-            progress = passed_time / self.running_time
-            color = 'light_magenta'
+            task_key = f'{requester_middleware_name}@{super_thing_name}@{super_function_name}@{scenario_name}'
+            self.simulation_progress.update(self.super_execute_running_task_pool[task_key], advance=1)
+
             # MXTEST_LOG_DEBUG(f'[SUB_EXECUTE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
             #                  f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
             #                  f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
@@ -1442,8 +1439,11 @@ class MXEventHandler:
                 event.return_type = return_type
                 event.return_value = return_value
 
-                passed_time = get_current_time() - self.simulation_start_time
-                progress = passed_time / self.running_time
+                task_key = f'{requester_middleware_name}@{super_thing_name}@{super_function_name}@{scenario_name}'
+                self.simulation_progress.update(self.super_execute_running_task_pool[task_key], completed=len(super_service.sub_service_list), visible=False)
+                self.simulation_progress.remove_task(self.super_execute_running_task_pool[task_key])
+                self.super_execute_running_task_pool.pop(task_key)
+
                 # MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
                 #                  f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
                 #                  f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.INFO, progress=progress)
