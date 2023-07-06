@@ -216,27 +216,24 @@ def MXLOG_DEBUG(msg: List[str], color: str = None, mode: MXLogger.PrintMode = MX
 
 
 # FIXME: Remove Exception parameter(e)
-def MXTEST_LOG_DEBUG(msg: str, error: MXTestLogLevel = MXTestLogLevel.PASS, color: str = None, progress: float = None):
+def MXTEST_LOG_DEBUG(msg: str, error: MXTestLogLevel = MXTestLogLevel.PASS, color: str = None):
     # error = 0  : PASS ✅
     # error = 1  : WARN ⚠ -> use b'\xe2\x9a\xa0\xef\xb8\x8f'.decode()
     # error = -1 : FAIL ❌
     log_msg = ''
     WARN_emoji = b'\xe2\x9a\xa0\xef\xb8\x8f'.decode()
-    progress_status = ''
-    if progress:
-        progress_status = f'[{progress*100:8.3f}%]'
 
     if error == MXTestLogLevel.PASS:
-        log_msg = f'{progress_status} [PASS✅] {msg}'
+        log_msg = f'[PASS✅] {msg}'
         MXLOG_DEBUG(log_msg, 'green' if not color else color)
     elif error == MXTestLogLevel.WARN:
-        log_msg = f'{progress_status} [WARN{WARN_emoji} ] {msg}'
+        log_msg = f'[WARN{WARN_emoji} ] {msg}'
         MXLOG_DEBUG(log_msg, 'yellow' if not color else color)
     elif error == MXTestLogLevel.INFO:
-        log_msg = f'{progress_status} [INFOℹ️ ] {msg}'
+        log_msg = f'[INFOℹ️ ] {msg}'
         MXLOG_DEBUG(log_msg, 'cyan' if not color else color)
     elif error == MXTestLogLevel.FAIL:
-        log_msg = f'{progress_status} [FAIL❌] {msg}'
+        log_msg = f'[FAIL❌] {msg}'
         MXLOG_DEBUG(log_msg, 'red' if not color else color)
 
 
