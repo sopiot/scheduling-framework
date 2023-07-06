@@ -3,7 +3,6 @@ from simulation_framework.core.components import *
 from simulation_framework.config import *
 from simulation_framework.ssh_client import *
 from simulation_framework.mqtt_client import *
-from tqdm import tqdm
 from rich.progress import track, Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TaskID
 
 from big_thing_py.common.mxtype import MXProtocolType, MXType
