@@ -33,6 +33,7 @@ setup(
     install_requires=[
         'big-thing-py',
         'pyyaml',
+        'anytree',
         'paramiko',
         'termcolor',
         'tabulate',

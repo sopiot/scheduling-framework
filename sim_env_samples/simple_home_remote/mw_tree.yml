@@ -1,5 +1,4 @@
 name: middleware
-device: [localhost]
 thing_num: [10, 10]
 scenario_num: [10, 10]
 super_thing_num: [1, 1]
