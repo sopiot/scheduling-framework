@@ -212,16 +212,36 @@ check_cpu_clock_setting'''
         return True
 
     def _trigger_static_events(self) -> None:
+        self.event_handler.middleware_run_task = self.event_handler.simulation_progress.add_task("Middleware running", total=len(self.event_handler.middleware_list))
+        self.event_handler.thing_run_task = self.event_handler.simulation_progress.add_task("Thing running", total=len(self.event_handler.thing_list))
+        self.event_handler.scenario_add_task = self.event_handler.simulation_progress.add_task("Scenario adding", total=len(self.event_handler.scenario_list))
+        self.event_handler.scenario_init_check_task = self.event_handler.simulation_progress.add_task("Scenario init checking", total=len(self.event_handler.scenario_list))
+        self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, completed=0)
+
         for event in self.static_event_timeline:
             self.event_handler.event_trigger(event)
+            self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, advance=1)
+
+        self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, completed=len(self.static_event_timeline) + 10)
+        self.event_handler.simulation_progress.update(self.event_handler.middleware_run_task, visible=False)
+        self.event_handler.simulation_progress.update(self.event_handler.thing_run_task, visible=False)
+        self.event_handler.simulation_progress.update(self.event_handler.scenario_add_task, visible=False)
+        self.event_handler.simulation_progress.update(self.event_handler.scenario_init_check_task, visible=False)
+        self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, visible=False)
 
     def _trigger_dynamic_events(self) -> None:
+        # MXTEST_LOG_DEBUG(f'==== Dynamic Simulation Event Start ====', MXTestLogLevel.PASS)
+        # self.event_handler.schedule_running_task = self.event_handler.simulation_progress.add_task("Scheduling progress", total=len(self.event_handler.scenario_list))
+        self.event_handler.execute_running_task = self.event_handler.simulation_progress.add_task("Execution progress", total=self.event_handler.running_time)
         for event in self.dynamic_event_timeline:
             self.event_handler.event_trigger(event)
 
     def start(self) -> None:
-        self._trigger_static_events()
-        self._trigger_dynamic_events()
+        with self.event_handler.simulation_progress:
+            self.event_handler.static_event_running_task = self.event_handler.simulation_progress.add_task("[green bold]Static event running...",
+                                                                                                           total=len(self.static_event_timeline))
+            self._trigger_static_events()
+            self._trigger_dynamic_events()
 
     def _generate_middleware_configs(self, root_middleware: MXMiddleware, simulation_data_file_path: str):
         middleware_list: List[MXMiddleware] = get_whole_middleware_list(root_middleware)

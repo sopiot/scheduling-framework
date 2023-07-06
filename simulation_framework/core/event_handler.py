@@ -4,7 +4,7 @@ from simulation_framework.config import *
 from simulation_framework.ssh_client import *
 from simulation_framework.mqtt_client import *
 from tqdm import tqdm
-from rich.progress import track, Progress
+from rich.progress import track, Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TaskID
 
 from big_thing_py.common.mxtype import MXProtocolType, MXType
 from big_thing_py.common.error import MXErrorCode
@@ -186,6 +186,17 @@ class MXEventHandler:
 
         self.download_log_file_thread_queue = Queue()
 
+        # progress bar
+        self.simulation_progress = Progress()
+        self.static_event_running_task: TaskID = None
+        self.middleware_run_task: TaskID = None
+        self.thing_run_task: TaskID = None
+        self.scenario_add_task: TaskID = None
+        self.scenario_init_check_task: TaskID = None
+
+        self.schedule_running_task: TaskID = None
+        self.execute_running_task: TaskID = None
+
     def _add_mqtt_client(self, mqtt_client: MXMQTTClient):
         self.mqtt_client_list.append(mqtt_client)
 
@@ -235,7 +246,6 @@ class MXEventHandler:
                 else:
                     if '192.168' in device.host or device.host == 'localhost':
                         device.available_port_list = ssh_client.available_port()
-                        # MXTEST_LOG_DEBUG(f'Found available port of {device.name}', MXTestLogLevel.INFO)
                     else:
                         raise Exception(f'mqtt_port of {device.name} is not specified.')
 
@@ -337,13 +347,15 @@ class MXEventHandler:
             time.sleep(BUSY_WAIT_TIMEOUT)
 
         if event.event_type == MXEventType.DELAY:
-            MXTEST_LOG_DEBUG(f'Delay {event.delay} Sec start...', MXTestLogLevel.INFO, 'yellow')
+            # MXTEST_LOG_DEBUG(f'Delay {event.delay} Sec start...', MXTestLogLevel.INFO, 'yellow')
+            self.simulation_progress
             self.event_log.append(event)
             time.sleep(event.delay)
         elif event.event_type == MXEventType.START:
             cur_time = get_current_time()
             event.timestamp = cur_time
             self.simulation_start_time = cur_time
+
             MXTEST_LOG_DEBUG(f'Simulation Start', MXTestLogLevel.PASS, 'yellow')
         elif event.event_type == MXEventType.END:
             event.timestamp = get_current_time() - self.simulation_start_time
@@ -419,7 +431,7 @@ class MXEventHandler:
     def run_middleware(self, middleware: MXMiddleware, timeout: float = 5) -> bool:
 
         def wait_parent_middleware_online(middleware: MXMiddleware) -> bool:
-            MXTEST_LOG_DEBUG(f'Wait for middleware: {middleware.name}, device: {middleware.device.name} online', MXTestLogLevel.INFO, 'yellow')
+            # MXTEST_LOG_DEBUG(f'Wait for middleware: {middleware.name}, device: {middleware.device.name} online', MXTestLogLevel.INFO, 'yellow')
             parent_middleware = middleware.parent
             if not parent_middleware:
                 return True
@@ -464,8 +476,8 @@ class MXEventHandler:
             cur_time = get_current_time()
             while get_current_time() - cur_time < timeout:
                 if check_online(mqtt_client=mqtt_client, timeout=check_interval):
-                    MXTEST_LOG_DEBUG(f'Middleware: {middleware.name}, device: {middleware.device.name} on {middleware.device.host}:{middleware.mqtt_port} '
-                                     f'- websocket: {middleware.websocket_port} is online!', MXTestLogLevel.PASS)
+                    # MXTEST_LOG_DEBUG(f'Middleware: {middleware.name}, device: {middleware.device.name} on {middleware.device.host}:{middleware.mqtt_port} '
+                    #                  f'- websocket: {middleware.websocket_port} is online!', MXTestLogLevel.PASS)
                     return True
                 else:
                     time.sleep(BUSY_WAIT_TIMEOUT)
@@ -492,6 +504,7 @@ class MXEventHandler:
             return self.run_middleware(middleware, timeout=timeout)
 
         self.subscribe_scenario_finish_topic(middleware=middleware)
+        self.simulation_progress.update(self.middleware_run_task, advance=1)
         return True
 
     def kill_middleware(self, middleware: MXMiddleware) -> bool:
@@ -570,10 +583,10 @@ class MXEventHandler:
         #                                              MXProtocolType.Base.TM_REGISTER.value % (thing.name),)
         # thing.pid = ssh_rets[0]
 
-        reg_start_time = get_current_time()
+        # reg_start_time = get_current_time()
         recv_msg = self.expect(thing,
                                MXProtocolType.Base.MT_RESULT_REGISTER.value % (thing.name),)
-        reg_end_time = get_current_time()
+        # reg_end_time = get_current_time()
 
         topic, payload, _ = decode_MQTT_message(recv_msg)
         if recv_msg == MXErrorCode.TIMEOUT:
@@ -584,17 +597,18 @@ class MXEventHandler:
             thing.middleware_client_name = payload['middleware_name']
             self.subscribe_thing_topic(thing, mqtt_client)
 
-            progress = [thing.registered for thing in self.thing_list].count(True) / len(self.thing_list)
-            MXTEST_LOG_DEBUG(f'[REGISTER] thing: {thing.name} duration: {(reg_end_time - reg_start_time):0.4f}', MXTestLogLevel.INFO, progress=progress, color='green')
+            # progress = [thing.registered for thing in self.thing_list].count(True) / len(self.thing_list)
+            # MXTEST_LOG_DEBUG(f'[REGISTER] thing: {thing.name} duration: {(reg_end_time - reg_start_time):0.4f}', MXTestLogLevel.INFO, progress=progress, color='green')
+            self.simulation_progress.update(self.thing_run_task, advance=1)
             return True
 
     def unregister_thing(self, thing: MXThing):
-        MXTEST_LOG_DEBUG(f'Unregister Thing {thing.name}...', MXTestLogLevel.INFO, color='yellow')
+        # MXTEST_LOG_DEBUG(f'Unregister Thing {thing.name}...', MXTestLogLevel.INFO, color='yellow')
         ssh_client = self.find_ssh_client(thing)
         ssh_client.send_command(f'kill -2 {thing.pid}')
 
     def kill_thing(self, thing: MXThing):
-        MXTEST_LOG_DEBUG(f'Kill Thing {thing.name}...', MXTestLogLevel.INFO, color='yellow')
+        # MXTEST_LOG_DEBUG(f'Kill Thing {thing.name}...', MXTestLogLevel.INFO, color='yellow')
         ssh_client = self.find_ssh_client(thing)
         ssh_client.send_command(f'kill -9 {thing.pid}')
 
@@ -618,7 +632,7 @@ class MXEventHandler:
             if remain_timeout <= 0:
                 return False
         else:
-            MXTEST_LOG_DEBUG(f'All scenario Add is complete!...', MXTestLogLevel.INFO)
+            # MXTEST_LOG_DEBUG(f'All scenario Add is complete!...', MXTestLogLevel.INFO)
             return True
 
     def scenario_state_check(self, target_state: List[MXScenarioState], check_interval: float, retry: int, timeout: float):
@@ -643,6 +657,7 @@ class MXEventHandler:
                     scenario_check_list.append(False)
 
             if all(scenario_check_list):
+                self.simulation_progress.update(self.scenario_init_check_task, advance=len(middleware.scenario_list))
                 return True
 
             return False
@@ -653,7 +668,8 @@ class MXEventHandler:
         while retry:
             if all([scenario.schedule_success for scenario in self.scenario_list]):
                 break
-            pool_map(task, [(middleware, timeout, ) for middleware in self.middleware_list])
+            # Skip task run for middleware that only have schedule finished scenarios.
+            pool_map(task, [(middleware, timeout, ) for middleware in self.middleware_list if not all(scenario.schedule_success for scenario in middleware.scenario_list)])
             time.sleep(check_interval)
             retry -= 1
 
@@ -696,7 +712,6 @@ class MXEventHandler:
         scenario.schedule_success = False
 
         mqtt_client.subscribe(trigger_topic)
-        pub_time = get_current_time()
         recv_msg = self.publish_and_expect(
             scenario,
             trigger_message,
@@ -704,7 +719,6 @@ class MXEventHandler:
             auto_subscribe=True,
             auto_unsubscribe=False,
             timeout=timeout)
-        recv_time = get_current_time()
 
         topic, payload, _ = decode_MQTT_message(recv_msg)
         if recv_msg == MXErrorCode.TIMEOUT:
@@ -716,21 +730,19 @@ class MXEventHandler:
             return False
         elif self._check_result_payload(payload):
             scenario.add_result_arrived = True
-
-            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
-            MXTEST_LOG_DEBUG(f'[SCENE_ADD] scenario: {scenario.name} duration: {(recv_time - pub_time):0.4f}', MXTestLogLevel.INFO, progress=progress, color='green')
+            self.simulation_progress.update(self.scenario_add_task, advance=1)
             return True
 
-        MXTEST_LOG_DEBUG(f'middleware: {middleware.name} scenario: {scenario.name}, device: {scenario.middleware.device.name} {MXComponentActionType.SCENARIO_ADD.value} success...', MXTestLogLevel.WARN)
+        # MXTEST_LOG_DEBUG(f'middleware: {middleware.name} scenario: {scenario.name}, device: {scenario.middleware.device.name} {MXComponentActionType.SCENARIO_ADD.value} success...', MXTestLogLevel.WARN)
 
     def run_scenario(self, scenario: MXScenario, timeout: float = 5):
         # NOTE: 이미 add_scenario를 통해 시나리오가 정상적으로 init되어있는 것이 확인되어있는 상태이므로 다시 시나리오상태를 확인할 필요는 없다.
 
         if scenario.schedule_timeout:
-            MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is timeout. Skip scenario run...', MXTestLogLevel.WARN)
+            # MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is timeout. Skip scenario run...', MXTestLogLevel.WARN)
             return False
         if not scenario.schedule_success:
-            MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not initialized. Skip scenario run...', MXTestLogLevel.WARN)
+            # MXTEST_LOG_DEBUG(f'Scenario {scenario.name} is not initialized. Skip scenario run...', MXTestLogLevel.WARN)
             return False
 
         middleware = self.find_parent_middleware(scenario)
@@ -742,7 +754,6 @@ class MXEventHandler:
         target_topic = MXProtocolType.WebClient.ME_RESULT_RUN_SCENARIO.value % mqtt_client.get_client_id()
 
         mqtt_client.subscribe(trigger_topic)
-        pub_time = get_current_time()
         recv_msg = self.publish_and_expect(
             scenario,
             trigger_message,
@@ -750,15 +761,13 @@ class MXEventHandler:
             auto_subscribe=True,
             auto_unsubscribe=False,
             timeout=timeout)
-        recv_time = get_current_time()
 
         topic, payload, _ = decode_MQTT_message(recv_msg)
         if recv_msg == MXErrorCode.TIMEOUT:
-            MXTEST_LOG_DEBUG(f'{MXComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {MXComponentActionType.SCENARIO_RUN.value} failed...', MXTestLogLevel.FAIL)
+            # MXTEST_LOG_DEBUG(f'{MXComponentType.SCENARIO.value} scenario: {scenario.name}, device: {scenario.middleware.device.name} {MXComponentActionType.SCENARIO_RUN.value} failed...', MXTestLogLevel.FAIL)
             return False
         elif self._check_result_payload(payload):
-            progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
-            MXTEST_LOG_DEBUG(f'[SCENE_RUN] scenario: {scenario.name} duration: {(recv_time - pub_time):0.4f}', MXTestLogLevel.INFO, progress=progress, color='green')
+            # MXTEST_LOG_DEBUG(f'[SCENE_RUN] scenario: {scenario.name} duration: {(recv_time - pub_time):0.4f}', MXTestLogLevel.INFO, progress=progress, color='green')
             return True
 
     def stop_scenario(self, scenario: MXScenario, timeout: float = 5):
@@ -930,21 +939,21 @@ class MXEventHandler:
                 result = ssh_client.send_command(f'kill -9 {pid}')
 
     def _kill_every_ssh_client(self):
-        MXTEST_LOG_DEBUG(f'Kill all ssh client...', MXTestLogLevel.INFO, 'red')
+        MXTEST_LOG_DEBUG(f'Kill all ssh client', MXTestLogLevel.INFO, 'red')
         for ssh_client in self.ssh_client_list:
             ssh_client.disconnect()
             del ssh_client
 
     def _kill_every_mqtt_client(self):
-        MXTEST_LOG_DEBUG(f'Kill all mqtt client...', MXTestLogLevel.INFO, 'red')
+        MXTEST_LOG_DEBUG(f'Kill all mqtt client', MXTestLogLevel.INFO, 'red')
         for mqtt_client in self.mqtt_client_list:
             mqtt_client.stop()
             del mqtt_client
 
     def kill_every_process(self) -> bool:
         with Progress() as progress:
-            task1 = progress.add_task("Clean up simulation processes...", total=len(self.middleware_list) + len(self.ssh_client_list))
-            task2 = progress.add_task("Kill middleware processes...", total=len(self.middleware_list))
+            task1 = progress.add_task("Clean up simulation processes", total=len(self.middleware_list) + len(self.ssh_client_list))
+            task2 = progress.add_task("Kill middleware processes", total=len(self.middleware_list))
             if not self.middleware_debug:
                 for middleware in self.middleware_list:
                     ssh_client = self.find_ssh_client(middleware)
@@ -954,7 +963,7 @@ class MXEventHandler:
                     progress.update(task2, advance=1)
 
             self_pid = os.getpid()
-            task3 = progress.add_task("Kill thing processes...", total=len(self.ssh_client_list))
+            task3 = progress.add_task("Kill thing processes", total=len(self.ssh_client_list))
             for ssh_client in self.ssh_client_list:
                 result = ssh_client.send_command(f"ps -ef | grep python | grep _thing_ | grep -v grep | awk '{{print $2}}'")
 
@@ -1126,7 +1135,7 @@ class MXEventHandler:
                     continue
                 event.duration = timestamp - event.timestamp
                 event.error = error
-                MXTEST_LOG_DEBUG(f'[UNREGISTER] thing: {thing_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
+                # MXTEST_LOG_DEBUG(f'[UNREGISTER] thing: {thing_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
                 break
         elif protocol == MXProtocolType.Base.MT_EXECUTE:
             function_name = topic_slice[2]
@@ -1187,14 +1196,14 @@ class MXEventHandler:
 
                     if event.event_type == MXEventType.SUB_FUNCTION_EXECUTE:
                         color = 'light_magenta' if event.error == MXErrorCode.FAIL else 'light_cyan'
-                        MXTEST_LOG_DEBUG(f'[EXECUTE_SUB] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
-                                         f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
-                                         f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.PASS, progress=progress, color=color)
+                        # MXTEST_LOG_DEBUG(f'[EXECUTE_SUB] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
+                        #                  f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
+                        #                  f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.PASS, progress=progress, color=color)
                     elif event.event_type == MXEventType.FUNCTION_EXECUTE:
                         color = 'red' if event.error == MXErrorCode.FAIL else 'green'
-                        MXTEST_LOG_DEBUG(f'[EXECUTE] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
-                                         f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
-                                         f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.PASS, progress=progress, color=color)
+                        # MXTEST_LOG_DEBUG(f'[EXECUTE] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
+                        #                  f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
+                        #                  f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.PASS, progress=progress, color=color)
                     break
         elif protocol == MXProtocolType.WebClient.EM_VERIFY_SCENARIO:
             scenario = self.find_scenario(scenario_name)
@@ -1207,7 +1216,7 @@ class MXEventHandler:
                     continue
                 event.duration = timestamp - event.timestamp
                 event.error = error
-                MXTEST_LOG_DEBUG(f'[SCENE_VERIFY] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
+                # MXTEST_LOG_DEBUG(f'[SCENE_VERIFY] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
                 break
         elif protocol == MXProtocolType.WebClient.EM_ADD_SCENARIO:
             scenario = self.find_scenario(scenario_name)
@@ -1232,7 +1241,7 @@ class MXEventHandler:
                     continue
                 event.duration = timestamp - event.timestamp
                 event.error = error
-                MXTEST_LOG_DEBUG(f'[SCENE_RUN] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
+                # MXTEST_LOG_DEBUG(f'[SCENE_RUN] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
                 break
         elif protocol == MXProtocolType.WebClient.EM_STOP_SCENARIO:
             scenario = self.find_scenario(scenario_name)
@@ -1245,7 +1254,7 @@ class MXEventHandler:
                     continue
                 event.duration = timestamp - event.timestamp
                 event.error = error
-                MXTEST_LOG_DEBUG(f'[SCENE_STOP] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
+                # MXTEST_LOG_DEBUG(f'[SCENE_STOP] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
                 break
         elif protocol == MXProtocolType.WebClient.EM_UPDATE_SCENARIO:
             scenario = self.find_scenario(scenario_name)
@@ -1258,7 +1267,7 @@ class MXEventHandler:
                     continue
                 event.duration = timestamp - event.timestamp
                 event.error = error
-                MXTEST_LOG_DEBUG(f'[SCENE_UPDATE] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
+                # MXTEST_LOG_DEBUG(f'[SCENE_UPDATE] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
                 break
         elif protocol == MXProtocolType.WebClient.EM_DELETE_SCENARIO:
             scenario = self.find_scenario(scenario_name)
@@ -1271,7 +1280,7 @@ class MXEventHandler:
                     continue
                 event.duration = timestamp - event.timestamp
                 event.error = error
-                MXTEST_LOG_DEBUG(f'[SCENE_DELETE] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
+                # MXTEST_LOG_DEBUG(f'[SCENE_DELETE] scenario: {scenario_name} duration: {event.duration:0.4f}', MXTestLogLevel.INFO)
                 break
 
         ####################################################################################################################################################
@@ -1288,8 +1297,8 @@ class MXEventHandler:
 
             self.event_log.append(MXEvent(event_type=MXEventType.SUPER_SCHEDULE, middleware_component=super_thing.middleware, thing_component=super_thing,
                                           service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
-            MXTEST_LOG_DEBUG(f'[SUPER_SCHEDULE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
-                             f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO)
+            # MXTEST_LOG_DEBUG(f'[SUPER_SCHEDULE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
+            #                  f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO)
         elif protocol == MXProtocolType.Super.SM_SCHEDULE:
             target_middleware_name = topic_slice[4]
             target_thing_name = topic_slice[3]
@@ -1304,9 +1313,9 @@ class MXEventHandler:
 
             progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_SCHEDULE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
+            # MXTEST_LOG_DEBUG(f'[SUB_SCHEDULE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+            #                  f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+            #                  f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
         elif protocol == MXProtocolType.Super.MS_RESULT_SCHEDULE:
             target_middleware_name = topic_slice[5]
             target_thing_name = topic_slice[4]
@@ -1321,9 +1330,9 @@ class MXEventHandler:
 
             progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_SCHEDULE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
+            # MXTEST_LOG_DEBUG(f'[SUB_SCHEDULE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+            #                  f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+            #                  f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
         elif protocol == MXProtocolType.Super.SM_RESULT_SCHEDULE:
             requester_middleware_name = topic_slice[6]
             super_middleware_name = topic_slice[5]
@@ -1345,9 +1354,9 @@ class MXEventHandler:
                 event.return_value = return_value
 
                 progress = [scenario.add_result_arrived for scenario in self.scenario_list].count(True) / len(self.scenario_list)
-                MXTEST_LOG_DEBUG(f'[SUPER_SCHEDULE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
-                                 f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
-                                 f'result: {event.error.value}', MXTestLogLevel.INFO, progress=progress)
+                # MXTEST_LOG_DEBUG(f'[SUPER_SCHEDULE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
+                #                  f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
+                #                  f'result: {event.error.value}', MXTestLogLevel.INFO, progress=progress)
                 break
         elif protocol == MXProtocolType.Super.MS_EXECUTE:
             super_function_name = topic_slice[2]
@@ -1369,8 +1378,8 @@ class MXEventHandler:
                                           service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
             passed_time = get_current_time() - self.simulation_start_time
             progress = passed_time / self.running_time
-            MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress)
+            # MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+            #                  f'super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress)
         elif protocol == MXProtocolType.Super.SM_EXECUTE:
             target_middleware_name = topic_slice[4]
             target_thing_name = topic_slice[3]
@@ -1386,9 +1395,9 @@ class MXEventHandler:
             passed_time = get_current_time() - self.simulation_start_time
             progress = passed_time / self.running_time
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_EXECUTE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
+            # MXTEST_LOG_DEBUG(f'[SUB_EXECUTE_START] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+            #                  f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+            #                  f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
         elif protocol == MXProtocolType.Super.MS_RESULT_EXECUTE:
             target_middleware_name = topic_slice[5]
             target_thing_name = topic_slice[4]
@@ -1404,9 +1413,9 @@ class MXEventHandler:
             passed_time = get_current_time() - self.simulation_start_time
             progress = passed_time / self.running_time
             color = 'light_magenta'
-            MXTEST_LOG_DEBUG(f'[SUB_EXECUTE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
-                             f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
-                             f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
+            # MXTEST_LOG_DEBUG(f'[SUB_EXECUTE_END] super_middleware: {""} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
+            #                  f'super_function: {super_function_name} target_middleware: {target_middleware_name} target_thing: {target_thing_name} '
+            #                  f'target_function: {target_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress, color=color)
         elif protocol == MXProtocolType.Super.SM_RESULT_EXECUTE:
             requester_middleware_name = topic_slice[6]
             super_middleware_name = topic_slice[5]
@@ -1428,9 +1437,9 @@ class MXEventHandler:
 
                 passed_time = get_current_time() - self.simulation_start_time
                 progress = passed_time / self.running_time
-                MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
-                                 f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
-                                 f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.INFO, progress=progress)
+                # MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE_END] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} '
+                #                  f'super_thing: {super_thing_name} super_function: {super_function_name} scenario: {scenario_name} duration: {event.duration:0.4f} '
+                #                  f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.INFO, progress=progress)
                 break
         elif 'SIM/FINISH' in topic:
             scenario = self.find_scenario(scenario_name)
