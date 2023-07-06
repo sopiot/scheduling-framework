@@ -196,6 +196,7 @@ class MXEventHandler:
 
         self.schedule_running_task: TaskID = None
         self.execute_running_task: TaskID = None
+        self.super_execute_running_task_pool: List[TaskID] = []
 
     def _add_mqtt_client(self, mqtt_client: MXMQTTClient):
         self.mqtt_client_list.append(mqtt_client)
@@ -356,21 +357,23 @@ class MXEventHandler:
             event.timestamp = cur_time
             self.simulation_start_time = cur_time
 
-            MXTEST_LOG_DEBUG(f'Simulation Start', MXTestLogLevel.PASS, 'yellow')
+            # MXTEST_LOG_DEBUG(f'Simulation Start', MXTestLogLevel.PASS, 'yellow')
         elif event.event_type == MXEventType.END:
             event.timestamp = get_current_time() - self.simulation_start_time
-            MXTEST_LOG_DEBUG(f'Simulation End. duration: {event.timestamp:8.3f} sec', MXTestLogLevel.PASS, 'yellow')
+            self.simulation_progress.update(self.execute_running_task, completed=self.running_time, visible=False)
 
             # check which scenario is stucked
             self.scenario_state_check(target_state=[MXScenarioState.INITIALIZED,
                                                     MXScenarioState.RUNNING,
                                                     MXScenarioState.EXECUTING], check_interval=3, retry=5, timeout=self.timeout)
+            self.simulation_progress.stop()
             self.stop_event_listener()
             self.kill_every_process()
 
             return True
         else:
             target_component = event.component
+
             # async event
             if event.event_type == MXEventType.MIDDLEWARE_RUN:
                 MXThread(name=f'{event.event_type.value}_{event.component.name}', target=self.run_middleware, args=(target_component, 10, )).start()
@@ -1094,6 +1097,9 @@ class MXEventHandler:
         topic, payload, _ = decode_MQTT_message(msg)
         timestamp = get_current_time() - self.simulation_start_time
 
+        if self.execute_running_task:
+            self.simulation_progress.update(self.execute_running_task, completed=timestamp)
+
         protocol = MXProtocolType.get(topic)
         return_type = MXType.get(payload.get('return_type', None))
         return_value = payload.get('return_value', None)
@@ -1376,8 +1382,9 @@ class MXEventHandler:
 
             self.event_log.append(MXEvent(event_type=MXEventType.SUPER_FUNCTION_EXECUTE, middleware_component=super_thing.middleware, thing_component=super_thing,
                                           service_component=super_service, scenario_component=scenario, timestamp=timestamp, duration=0))
-            passed_time = get_current_time() - self.simulation_start_time
-            progress = passed_time / self.running_time
+
+            # self.super_execute_running_task_pool.append(self.simulation_progress.add_task('', total=len(super_service.sub_service_list)))
+
             # MXTEST_LOG_DEBUG(f'[SUPER_EXECUTE_START] super_middleware: {super_middleware_name} requester_middleware: {requester_middleware_name} super_thing: {super_thing_name} '
             #                  f'super_function: {super_function_name} scenario: {scenario_name}', MXTestLogLevel.INFO, progress=progress)
         elif protocol == MXProtocolType.Super.SM_EXECUTE:

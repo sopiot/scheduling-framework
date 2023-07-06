@@ -215,7 +215,7 @@ check_cpu_clock_setting'''
         self.event_handler.middleware_run_task = self.event_handler.simulation_progress.add_task("Middleware running", total=len(self.event_handler.middleware_list))
         self.event_handler.thing_run_task = self.event_handler.simulation_progress.add_task("Thing running", total=len(self.event_handler.thing_list))
         self.event_handler.scenario_add_task = self.event_handler.simulation_progress.add_task("Scenario adding", total=len(self.event_handler.scenario_list))
-        self.event_handler.scenario_init_check_task = self.event_handler.simulation_progress.add_task("Scenario init checking", total=len(self.event_handler.scenario_list))
+        self.event_handler.scenario_init_check_task = self.event_handler.simulation_progress.add_task("Scenario init check", total=len(self.event_handler.scenario_list))
         self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, completed=0)
 
         for event in self.static_event_timeline:
@@ -232,7 +232,7 @@ check_cpu_clock_setting'''
     def _trigger_dynamic_events(self) -> None:
         # MXTEST_LOG_DEBUG(f'==== Dynamic Simulation Event Start ====', MXTestLogLevel.PASS)
         # self.event_handler.schedule_running_task = self.event_handler.simulation_progress.add_task("Scheduling progress", total=len(self.event_handler.scenario_list))
-        self.event_handler.execute_running_task = self.event_handler.simulation_progress.add_task("Execution progress", total=self.event_handler.running_time)
+        self.event_handler.execute_running_task = self.event_handler.simulation_progress.add_task("[green bold]Execution progress...", total=self.event_handler.running_time)
         for event in self.dynamic_event_timeline:
             self.event_handler.event_trigger(event)
 
@@ -305,7 +305,7 @@ check_cpu_clock_setting'''
                 return True
 
             middleware_list: List[MXMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
-            task1 = progress.add_task("Send middleware configs...", total=len(middleware_list))
+            task1 = progress.add_task("Send middleware configs", total=len(middleware_list))
             pool_map(task, middleware_list, proc=1)
 
         return True
@@ -329,7 +329,7 @@ check_cpu_clock_setting'''
                 return True
 
             thing_list: List[MXThing] = get_whole_thing_list(self.simulation_env.root_middleware)
-            task1 = progress.add_task("Send thing codes...", total=len(thing_list))
+            task1 = progress.add_task("Send thing codes", total=len(thing_list))
             pool_map(send_task, thing_list, proc=1)
 
         return True
