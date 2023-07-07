@@ -281,25 +281,37 @@ middlerware_1: # device_name
 
 This section provides an explanation of the format for the **Simulation Environment file**. The **Simulation Environment file** must be a `yaml` file starting with the string `config`, for example, `config_simple_home.yml`. It has the following structure:
 
-- **device_pool_path**: `{str}`
-
-  A file that specifies information about devices that will be used to designate device pools within the **Simulation Environment file**. If not specified, `device_pool.yml` is set as default.
-
 - **simulation**
 
   A section that specifies settings for the simulation.
 
   - **name**: `{str}`
 
-    name of the simulation. Defaults to base_name in **Simulation Environment file** if not specified.
+    Name of the simulation. Defaults to base_name in **Simulation Environment file** if not specified.
 
   - **running_time**: `{float}`
 
-    running time of the simulation. Defaults to 120 seconds if not specified.
+    Running time of the simulation. Defaults to 120 seconds if not specified.
+
+  - **device_pool_path** _(optional)_: `{str}`
+
+    A file that specifies information about devices that will be used to designate device pools within the **Simulation Environment file**. Default value is `${ROOT}/device_pool.yml`
+
+  - **service_thing_pool_path** _(optional)_: `{str}`
+
+    A file that the pool file for service, thing to be used in the simulation. If the file does not exist, create a pool file to specified path. Default value is `service_thing_pool.yml`
+
+  - **force_generate** _(optional)_: `{str}`
+
+    Option to force the creation of the service, thing pool. If the option is set to `true`, create a new service, thing pool regardless of whether the pool file exists. default value is `false`
 
   - **event_timeout** _(optional)_: `{float}`
 
-    The timeout time for events that take place to perform the simulation. Defaults to 30 seconds if not specified.
+    The timeout time for events that take place to perform the simulation. Default value is `15` (seconds).
+
+  - **local_mode** _(optional)_: `{float}`
+
+    Option to run the simulation within the local device rather than the remote device. Default value is `false`.
 
 - **middleware**
 
