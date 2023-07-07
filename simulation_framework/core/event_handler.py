@@ -1197,6 +1197,9 @@ class MXEventHandler:
                 super_function_name = None
                 requester_middleware_name = None
 
+            if self.execute_running_task:
+                self.simulation_progress.update(self.execute_running_task, description=f'[green bold]Execution progress... - Service {function_name} executed!')
+
             for event in list(reversed(self.event_log)):
                 if event.middleware_component == thing.middleware and event.thing_component == thing and event.service_component == service and event.scenario_component == scenario and event.requester_middleware_name == requester_middleware_name and event.event_type in [MXEventType.FUNCTION_EXECUTE, MXEventType.SUB_FUNCTION_EXECUTE]:
                     event.duration = timestamp - event.timestamp
@@ -1441,6 +1444,9 @@ class MXEventHandler:
             super_thing = self.find_thing(super_thing_name)
             scenario = self.find_scenario(scenario_name)
             super_service = super_thing.find_service_by_name(super_function_name)
+
+            if self.execute_running_task:
+                self.simulation_progress.update(self.execute_running_task, description=f'[green bold]Execution progress... - Service {super_function_name} executed!')
 
             for event in list(reversed(self.event_log)):
                 if not (event.event_type == MXEventType.SUPER_FUNCTION_EXECUTE and event.middleware_component == super_thing.middleware and event.thing_component == super_thing
