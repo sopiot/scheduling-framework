@@ -534,7 +534,7 @@ class MXEnvGenerator:
                                       level=level,
                                       service_list=super_service_list,
                                       is_super=is_super,
-                                      is_parallel=self._service_parallel,
+                                      is_parallel=True,
                                       alive_cycle=60 * 5,
                                       device=device,
                                       thing_file_path=f'{self._simulation_folder_path}/thing/super_thing/{super_thing_name}.py',
