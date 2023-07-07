@@ -251,7 +251,7 @@ class MXSSHClient:
                 # MXSSHClient.FILE_DOWNLOADING -= 1
                 pass
         else:
-            MXTEST_LOG_DEBUG(f'{remote_path} is not {ext_filter} file. Skip download...', MXTestLogLevel.WARN)
+            # MXTEST_LOG_DEBUG(f'{remote_path} is not {ext_filter} file. Skip download...', MXTestLogLevel.WARN)
             return False
 
     # FIXME: 폴더자체를 받아오는 것이 아니라 폴더안의 파일만 받아오는 것으로 되어있음. 해당 부분을 폴더까지 같이 받아오는 것으로 수정해야함
@@ -361,7 +361,7 @@ class MXSSHClient:
             self.connect()
 
         if self.sftp_opened:
-            MXTEST_LOG_DEBUG('SFTP client already opened', MXTestLogLevel.WARN)
+            # MXTEST_LOG_DEBUG('SFTP client already opened', MXTestLogLevel.WARN)
             return self._sftp_client
 
         self._sftp_client = self._ssh_client.open_sftp()

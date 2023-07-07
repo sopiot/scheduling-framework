@@ -1,4 +1,5 @@
 from simulation_framework.core.components import *
+from rich.progress import track, Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TaskID
 from abc import ABCMeta, abstractmethod
 
 from big_thing_py.common.mxtype import MXProtocolType
@@ -782,14 +783,14 @@ class Profiler:
         middleware_level = int(dir_name.split('.')[2].split('level')[1])
 
         file_list = os.listdir(path)
-        for file in file_list:
+        for file in track(file_list, description='Generate MiddlewareLog...'):
             if not '.log' in file or '_mosquitto' in file:
                 continue
             middleware_name = file.split('.')[0]
             middleware_log_path = os.path.join(path, file)
             middleware_log = MiddlewareLog(level=middleware_level, component_name=middleware_name, device=device)
             middleware_log.load(log_path=middleware_log_path)
-            MXLOG_DEBUG(f'Generate MiddlewareLog of middleware {middleware_log.component_name} from {file}', 'green')
+            # MXLOG_DEBUG(f'Generate MiddlewareLog of middleware {middleware_log.component_name} from {file}', 'green')
 
             return middleware_log
 
@@ -804,7 +805,7 @@ class Profiler:
             return []
 
         thing_log_list = []
-        for file in file_list:
+        for file in track(file_list, description='Generate ThingLog'):
             if not '.log' in file:
                 continue
             is_super = True if file.split('.')[0] == 'super_thing' else False
@@ -812,7 +813,7 @@ class Profiler:
             thing_log_path = os.path.join(path, file)
             thing_log = ThingLog(level=thing_level, component_name=thing_name, device=device, is_super=is_super)
             thing_log.load(log_path=thing_log_path)
-            MXLOG_DEBUG(f'Generate ThingLog of thing {thing_log.component_name} from {file}', 'green')
+            # MXLOG_DEBUG(f'Generate ThingLog of thing {thing_log.component_name} from {file}', 'green')
 
             thing_log_list.append(thing_log)
 
@@ -967,7 +968,7 @@ class Profiler:
                 log_string = self.make_log_line_string(duration, log_line)
                 f.write(log_string)
 
-        MXLOG_DEBUG(f'Write {log_file_name}...', 'yellow')
+        # MXLOG_DEBUG(f'Write {log_file_name}...', 'yellow')
 
     ##########################################################################################################################################
 
@@ -1141,29 +1142,35 @@ class Profiler:
         super_service_list = set([request_start_log.super_service for request_start_log in request_start_log_line_list])
         super_service_index_lookup_table = {super_service: 0 for super_service in super_service_list}
 
-        for i, request_start_log in enumerate(request_start_log_line_list):
-            request_log_line_list: List[LogLine] = self.collect_log_line_by_request(request_start_log, profile_type=profile_type)
-            if not request_log_line_list:
-                continue
-            super_service_request_index = super_service_index_lookup_table[request_start_log.super_service]
+        profile_progress = Progress()
+        profile_task = profile_progress.add_task(description='Profiling...', total=len(request_start_log_line_list))
+        num_invalid_request = 0
+        with profile_progress:
+            for i, request_start_log in enumerate(request_start_log_line_list):
+                request_log_line_list: List[LogLine] = self.collect_log_line_by_request(request_start_log, profile_type=profile_type)
+                if not request_log_line_list:
+                    continue
+                super_service_request_index = super_service_index_lookup_table[request_start_log.super_service]
 
-            if export:
-                self.export_to_file(log_file_name=f'./profile_result_{file_created_time}/log_{request_start_log.super_service}_request_{super_service_request_index}.txt',
-                                    request_log_line_list=request_log_line_list)
-            request_overhead = self.profile_request(request_log_line_list=request_log_line_list, profile_type=profile_type)
-            if request_overhead == ProfileErrorCode.INVALID_LOG:
-                MXLOG_DEBUG(f'log file is not valid... skip this log file', 'red')
-                return ProfileErrorCode.INVALID_LOG
-            elif request_overhead == ProfileErrorCode.INVALID_REQUEST:
-                MXLOG_DEBUG(f'request log is not valid... skip this request', 'red')
-                continue
-            elif request_overhead == ProfileErrorCode.TOO_HIGH_OVERHEAD:
-                MXLOG_DEBUG(f'log file overhead is too high... skip this request', 'red')
-                continue
+                if export:
+                    self.export_to_file(log_file_name=f'./profile_result_{file_created_time}/log_{request_start_log.super_service}_request_{super_service_request_index}.txt',
+                                        request_log_line_list=request_log_line_list)
+                request_overhead = self.profile_request(request_log_line_list=request_log_line_list, profile_type=profile_type)
+                if request_overhead == ProfileErrorCode.INVALID_LOG:
+                    MXLOG_DEBUG(f'log file is not valid... skip this log file', 'red')
+                    return ProfileErrorCode.INVALID_LOG
+                elif request_overhead == ProfileErrorCode.INVALID_REQUEST:
+                    # MXLOG_DEBUG(f'request log is not valid... skip this request', 'red')
+                    num_invalid_request += 1
+                    profile_progress.update(profile_task, description=f'[red bold]Profiling... not valid request [{num_invalid_request}]')
+                    continue
+                elif request_overhead == ProfileErrorCode.TOO_HIGH_OVERHEAD:
+                    MXLOG_DEBUG(f'log file overhead is too high... skip this request', 'red')
+                    continue
 
-            MXLOG_DEBUG(f'Profile request: {request_log_line_list[0].request_key}:{i} complete!', 'cyan')
-            self.profile_result.add(request_overhead)
-            super_service_index_lookup_table[request_start_log.super_service] += 1
+                MXLOG_DEBUG(f'Profile request: {request_log_line_list[0].request_key}:{i} complete!', 'cyan')
+                self.profile_result.add(request_overhead)
+                super_service_index_lookup_table[request_start_log.super_service] += 1
 
         return self.profile_result
 

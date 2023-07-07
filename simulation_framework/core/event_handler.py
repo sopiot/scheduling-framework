@@ -196,6 +196,7 @@ class MXEventHandler:
         self.schedule_running_task: TaskID = None
         self.execute_running_task: TaskID = None
         self.super_execute_running_task_pool: Dict[str, TaskID] = {}
+        self.scenario_running_task_pool: Dict[str, TaskID] = {}
 
     def _add_mqtt_client(self, mqtt_client: MXMQTTClient):
         self.mqtt_client_list.append(mqtt_client)
@@ -287,55 +288,58 @@ class MXEventHandler:
 
     def download_log_file(self) -> str:
 
-        def task(middleware: MXMiddleware):
-            user = middleware.device.user
-            ssh_client = self.find_ssh_client(middleware)
-            ssh_client.open_sftp()
+        with Progress() as progress:
+            task1 = progress.add_task(description='Download remote logs', total=len(self.middleware_list))
 
-            remote_home_dir = f'/home/{user}'
-            target_middleware_log_path = os.path.join(target_simulation_log_path, f'middleware.{ssh_client.device.name}.level{middleware.level}.{middleware.name}')
+            def task(middleware: MXMiddleware):
+                user = middleware.device.user
+                ssh_client = self.find_ssh_client(middleware)
+                ssh_client.open_sftp()
 
-            file_attr_list = ssh_client._sftp_client.listdir_attr(
-                middleware.remote_middleware_config_path)
-            for file_attr in file_attr_list:
-                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
-                                    local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.cfg'), ext_filter='cfg')
-                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
-                                    local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.mosquitto.conf'), ext_filter='conf')
-                ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
-                                    local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}_mosquitto.log'), ext_filter='log')
+                remote_home_dir = f'/home/{user}'
+                target_middleware_log_path = os.path.join(target_simulation_log_path, f'middleware.{ssh_client.device.name}.level{middleware.level}.{middleware.name}')
 
-            remote_middleware_log_path = os.path.join(remote_home_dir, 'simulation_log')
-            file_attr_list = ssh_client._sftp_client.listdir_attr(remote_middleware_log_path)
-            for file_attr in file_attr_list:
-                file_base_name = file_attr.filename.split(".")[0]
-                if not (f'{file_base_name}' == f"{middleware.name}_middleware" or f'{file_base_name}' == middleware.name):
-                    continue
-                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
-                                    local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.log'), ext_filter='log')
-                ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
-                                    local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.stdout'), ext_filter='stdout')
-
-            for thing in middleware.thing_list:
-                thing_ssh_client = self.find_ssh_client(thing)
-                thing_ssh_client.open_sftp()
-
-                target_thing_log_file_name = f'base_thing.{thing.name}.log' if not thing.is_super else f'super_thing.{thing.name}.log'
-
-                thing_log_path = os.path.join(os.path.dirname(thing.remote_thing_file_path), 'log')
-
-                file_attr_list = thing_ssh_client._sftp_client.listdir_attr(thing_log_path)
+                file_attr_list = ssh_client._sftp_client.listdir_attr(
+                    middleware.remote_middleware_config_path)
                 for file_attr in file_attr_list:
-                    if not thing.name in file_attr.filename:
+                    ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
+                                        local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.cfg'), ext_filter='cfg')
+                    ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
+                                        local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.mosquitto.conf'), ext_filter='conf')
+                    ssh_client.get_file(remote_path=os.path.join(middleware.remote_middleware_config_path, file_attr.filename),
+                                        local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}_mosquitto.log'), ext_filter='log')
+
+                remote_middleware_log_path = os.path.join(remote_home_dir, 'simulation_log')
+                file_attr_list = ssh_client._sftp_client.listdir_attr(remote_middleware_log_path)
+                for file_attr in file_attr_list:
+                    file_base_name = file_attr.filename.split(".")[0]
+                    if not (f'{file_base_name}' == f"{middleware.name}_middleware" or f'{file_base_name}' == middleware.name):
                         continue
-                    thing_ssh_client.get_file(remote_path=os.path.join(thing_log_path, file_attr.filename),
-                                              local_path=os.path.join(target_middleware_log_path, 'thing', target_thing_log_file_name), ext_filter='log')
+                    ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
+                                        local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.log'), ext_filter='log')
+                    ssh_client.get_file(remote_path=os.path.join(remote_middleware_log_path, file_attr.filename),
+                                        local_path=os.path.join(target_middleware_log_path, 'middleware', f'{middleware.name}.stdout'), ext_filter='stdout')
 
-            return True
+                for thing in middleware.thing_list:
+                    thing_ssh_client = self.find_ssh_client(thing)
+                    thing_ssh_client.open_sftp()
 
-        target_simulation_log_path = home_dir_append(f'remote_logs/simulation_log_{get_current_time(mode=TimeFormat.DATETIME2)}')
+                    target_thing_log_file_name = f'base_thing.{thing.name}.log' if not thing.is_super else f'super_thing.{thing.name}.log'
 
-        pool_map(task, self.middleware_list, proc=1)
+                    thing_log_path = os.path.join(os.path.dirname(thing.remote_thing_file_path), 'log')
+
+                    file_attr_list = thing_ssh_client._sftp_client.listdir_attr(thing_log_path)
+                    for file_attr in file_attr_list:
+                        if not thing.name in file_attr.filename:
+                            continue
+                        thing_ssh_client.get_file(remote_path=os.path.join(thing_log_path, file_attr.filename),
+                                                  local_path=os.path.join(target_middleware_log_path, 'thing', target_thing_log_file_name), ext_filter='log')
+
+                progress.update(task1, advance=1)
+                return True
+
+            target_simulation_log_path = home_dir_append(f'remote_logs/simulation_log_{get_current_time(mode=TimeFormat.DATETIME2)}')
+            pool_map(task, self.middleware_list, proc=1)
 
         return target_simulation_log_path
 
@@ -367,6 +371,9 @@ class MXEventHandler:
                                                     MXScenarioState.EXECUTING], check_interval=3, retry=5, timeout=self.timeout)
             for k, v in self.super_execute_running_task_pool.items():
                 self.simulation_progress.remove_task(v)
+            # for k, v in self.scenario_running_task_pool.items():
+            #     self.simulation_progress.remove_task(v)
+
             self.super_execute_running_task_pool = {}
             self.simulation_progress.stop()
             self.stop_event_listener()
@@ -577,7 +584,7 @@ class MXEventHandler:
 
         user = middleware.device.user
         thing_cd_command = f'cd {os.path.dirname(thing.remote_thing_file_path)}'
-        thing_run_command = (f'{thing_cd_command}; python {home_dir_append(thing.remote_thing_file_path, user)} -n {thing.name} -ip '
+        thing_run_command = (f'{thing_cd_command}; python3 {home_dir_append(thing.remote_thing_file_path, user)} -n {thing.name} -ip '
                              f'{mqtt_client.host if not thing.is_super else "localhost"} -p {mqtt_client.port} -ac {thing.alive_cycle} > /dev/null 2>&1 & echo $!')
         # print(thing_run_command.split('>')[0].strip())
         thing_run_result = ssh_client.send_command(thing_run_command)
@@ -1163,6 +1170,10 @@ class MXEventHandler:
             else:
                 event_type = MXEventType.FUNCTION_EXECUTE
 
+            # task_key = f'{requester_middleware_name}@{scenario_name}'
+            # self.scenario_running_task_pool[task_key] = self.simulation_progress.add_task(f'Scenario {scenario_name} progress',
+            #                                                                               total=len(scenario.service_list))
+
             self.event_log.append(MXEvent(event_type=event_type, middleware_component=thing.middleware, thing_component=thing, service_component=service,
                                           scenario_component=scenario, timestamp=timestamp, duration=0, requester_middleware_name=requester_middleware_name,
                                           super_thing_name=super_thing_name, super_function_name=super_function_name))
@@ -1194,16 +1205,18 @@ class MXEventHandler:
                     event.return_value = return_value
                     event.requester_middleware_name = requester_middleware_name
 
-                    passed_time = get_current_time() - self.simulation_start_time
-                    progress = passed_time / self.running_time
-
                     if event.event_type == MXEventType.SUB_FUNCTION_EXECUTE:
-                        color = 'light_magenta' if event.error == MXErrorCode.FAIL else 'light_cyan'
+                        pass
                         # MXTEST_LOG_DEBUG(f'[EXECUTE_SUB] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
                         #                  f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
                         #                  f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.PASS, progress=progress, color=color)
                     elif event.event_type == MXEventType.FUNCTION_EXECUTE:
-                        color = 'red' if event.error == MXErrorCode.FAIL else 'green'
+                        # task_key = f'{requester_middleware_name}@{scenario_name}'
+                        # self.simulation_progress.update(self.scenario_running_task_pool[task_key], advance=1)
+                        # if function_name == scenario.service_list[-1].name:
+                        #     self.simulation_progress.remove_task(self.scenario_running_task_pool[task_key])
+                        #     self.scenario_running_task_pool.pop(task_key)
+                        pass
                         # MXTEST_LOG_DEBUG(f'[EXECUTE] thing: {thing_name} function: {function_name} scenario: {scenario_name} '
                         #                  f'requester_middleware_name: {requester_middleware_name} duration: {event.duration:0.4f} '
                         #                  f'return value: {return_value} - {return_type.value} error:{event.error.value}', MXTestLogLevel.PASS, progress=progress, color=color)
