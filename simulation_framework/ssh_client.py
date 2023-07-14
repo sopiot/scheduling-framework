@@ -1,6 +1,7 @@
 from simulation_framework.core.components import *
 
 import paramiko
+import platform
 import stat
 
 
@@ -35,10 +36,17 @@ class MXSSHClient:
             if 'tcp' in line:
                 parts = line.split()
                 local_address = parts[3]
-                foreign_address = parts[4]
+                # foreign_address = parts[4]
                 port_status = parts[5]
                 if 'TIME_WAIT' == port_status or 'ESTABLISHED' == port_status or 'CONNECTED' == port_status or 'LISTEN' == port_status:
-                    local_port = int(local_address.split(':')[-1])
+                    # 로컬 머신의 os 버전을 os.system을이용하여 체크하는 함수
+                    if 'Darwin' == platform.system():
+                        local_port = int(local_address.split('.')[-1])
+                    elif 'Linux' == platform.system():
+                        local_port = int(local_address.split(':')[-1])
+                    else:
+                        raise UnsupportedError(f'Not Support platform: {platform.platform()}')
+
                     used_ports.append(local_port)
 
         # Compare the list of ports in use with the list of available ports to create a list of ports that are not in use.

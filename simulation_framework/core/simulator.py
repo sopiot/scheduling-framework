@@ -27,7 +27,7 @@ def exception_wrapper(func: Callable = None,
                 event_handler.wrapup()
 
                 try:
-                    user_input = int(input('Select exit mode[default=1].\n1. Just exit\n2. Download remote logs\n')) or 1
+                    user_input = int(input('Select exit mode[default=1].\n1. Just exit\n2. Download remote logs\n') or 1)
                 except KeyboardInterrupt:
                     user_input = 1
 
