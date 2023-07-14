@@ -64,8 +64,8 @@ class MXSimulationFramework:
         for simulation_env_info in simulation_data_file['simulation_env_list']:
             config = simulation_env_info['config']
             root_middleware = MXMiddleware.load(simulation_env_info['root_middleware'])
-            event_timeline = simulation_env_info['event_timeline']
-            simulation_env = MXSimulationEnv(config=config, root_middleware=root_middleware, event_timeline=event_timeline)
+            event_timing_list = simulation_env_info['event_timing_list']
+            simulation_env = MXSimulationEnv(config=config, root_middleware=root_middleware, event_timing_list=event_timing_list)
             simulation_env_list.append(simulation_env)
 
         return simulation_env_list
@@ -225,15 +225,15 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
             # Generate super service, super thing and super scenario
             self.env_generator.generate_super(root_middleware=root_middleware, tag_name_pool=tag_name_pool, super_service_name_pool=super_service_name_pool)
 
-            # Generate event timeline
-            static_event_timeline, dynamic_event_timeline = self.env_generator._generate_event_timeline(root_middleware=root_middleware)
+            # Generate event timing_list
+            static_event_timing_list, dynamic_event_timing_list = self.env_generator._generate_event_timing_list(root_middleware=root_middleware)
 
             # Update simulation env
             simulation_env.root_middleware = root_middleware
             simulation_env.service_pool = service_pool
             simulation_env.thing_pool = thing_pool
-            simulation_env.static_event_timeline = static_event_timeline
-            simulation_env.dynamic_event_timeline = dynamic_event_timeline
+            simulation_env.static_event_timing_list = static_event_timing_list
+            simulation_env.dynamic_event_timing_list = dynamic_event_timing_list
             simulation_env_list.append(simulation_env)
 
         simulation_data_file_path = f'{self.env_generator._simulation_folder_path}/simulation_data.json'

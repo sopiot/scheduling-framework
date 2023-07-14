@@ -12,13 +12,13 @@ from big_thing_py.common.thread import MXThread, Event, Empty
 
 class MXSimulationEnv:
     def __init__(self, config: MXSimulationConfig, root_middleware: MXMiddleware = None,
-                 static_event_timeline: List['MXEvent'] = [], dynamic_event_timeline: List['MXEvent'] = [],
+                 static_event_timing_list: List['MXEvent'] = [], dynamic_event_timing_list: List['MXEvent'] = [],
                  service_pool: List[MXService] = [], thing_pool: List[MXThing] = [],
                  simulation_data_file_path: str = '') -> None:
         self.config = config
         self.root_middleware = root_middleware
-        self.static_event_timeline = static_event_timeline
-        self.dynamic_event_timeline = dynamic_event_timeline
+        self.static_event_timing_list = static_event_timing_list
+        self.dynamic_event_timing_list = dynamic_event_timing_list
         self.service_pool = service_pool
         self.thing_pool = thing_pool
         self.simulation_data_file_path = simulation_data_file_path
@@ -26,8 +26,8 @@ class MXSimulationEnv:
     def dict(self):
         return dict(config_path=self.config.config_path,
                     root_middleware=self.root_middleware.dict(),
-                    static_event_timeline=[event.dict() for event in self.static_event_timeline],
-                    dynamic_event_timeline=[event.dict() for event in self.dynamic_event_timeline],
+                    static_event_timing_list=[event.dict() for event in self.static_event_timing_list],
+                    dynamic_event_timing_list=[event.dict() for event in self.dynamic_event_timing_list],
                     service_pool=[service.dict() for service in self.service_pool],
                     thing_pool=[thing.dict() for thing in self.thing_pool])
 

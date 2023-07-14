@@ -630,12 +630,12 @@ class MXEnvGenerator:
         thing_list = middleware.thing_list
         scenario_list = middleware.scenario_list
 
-    def _generate_event_timeline(self, root_middleware: MXMiddleware) -> Tuple[List[MXEvent], List[MXEvent]]:
+    def _generate_event_timing_list(self, root_middleware: MXMiddleware) -> Tuple[List[MXEvent], List[MXEvent]]:
 
-        def generate_dynamic_thing_event_timeline(local_thing_list: List[MXThing], super_thing_list: List[MXThing],
-                                                  normal_thing_select_rate: float, super_thing_select_rate: float,
-                                                  start_time_weight: float, end_time_weight: float, event_type: MXEventType,
-                                                  delay: float) -> List[MXEvent]:
+        def generate_dynamic_thing_event_timing_list(local_thing_list: List[MXThing], super_thing_list: List[MXThing],
+                                                     normal_thing_select_rate: float, super_thing_select_rate: float,
+                                                     start_time_weight: float, end_time_weight: float, event_type: MXEventType,
+                                                     delay: float) -> List[MXEvent]:
             if event_type == MXEventType.THING_UNREGISTER:
                 event_type_1 = MXEventType.THING_UNREGISTER
                 event_type_2 = MXEventType.THING_RUN
@@ -647,22 +647,22 @@ class MXEnvGenerator:
 
             selected_local_thing_list = random.sample(local_thing_list, int(len(local_thing_list) * normal_thing_select_rate))
             selected_super_thing_list = random.sample(super_thing_list, int(len(super_thing_list) * super_thing_select_rate))
-            local_thing_unregister_timeline = [self._generate_event(event_type=event_type_1, component=thing, timestamp=self._config.running_time * start_time_weight)
-                                               for thing in selected_local_thing_list]
-            super_thing_unregister_timeline = [self._generate_event(event_type=event_type_1, component=thing, timestamp=self._config.running_time * start_time_weight)
-                                               for thing in selected_super_thing_list]
-            local_thing_register_timeline = [self._generate_event(event_type=event_type_2, component=thing, timestamp=self._config.running_time * end_time_weight)
-                                             for thing in selected_local_thing_list]
-            super_thing_register_timeline = [self._generate_event(event_type=event_type_2, component=thing, timestamp=self._config.running_time * end_time_weight)
-                                             for thing in selected_super_thing_list]
+            local_thing_unregister_timing_list = [self._generate_event(event_type=event_type_1, component=thing, timestamp=self._config.running_time * start_time_weight)
+                                                  for thing in selected_local_thing_list]
+            super_thing_unregister_timing_list = [self._generate_event(event_type=event_type_1, component=thing, timestamp=self._config.running_time * start_time_weight)
+                                                  for thing in selected_super_thing_list]
+            local_thing_register_timing_list = [self._generate_event(event_type=event_type_2, component=thing, timestamp=self._config.running_time * end_time_weight)
+                                                for thing in selected_local_thing_list]
+            super_thing_register_timing_list = [self._generate_event(event_type=event_type_2, component=thing, timestamp=self._config.running_time * end_time_weight)
+                                                for thing in selected_super_thing_list]
 
-            tmp_timeline = local_thing_unregister_timeline + super_thing_unregister_timeline + local_thing_register_timeline + super_thing_register_timeline
+            tmp_timing_list = local_thing_unregister_timing_list + super_thing_unregister_timing_list + local_thing_register_timing_list + super_thing_register_timing_list
             if delay:
-                tmp_timeline += [MXEvent(delay=delay, event_type=MXEventType.DELAY)]
-            return tmp_timeline
+                tmp_timing_list += [MXEvent(delay=delay, event_type=MXEventType.DELAY)]
+            return tmp_timing_list
 
-        static_event_timeline: List[MXEvent] = []
-        dynamic_event_timeline: List[MXEvent] = []
+        static_event_timing_list: List[MXEvent] = []
+        dynamic_event_timing_list: List[MXEvent] = []
         middleware_list = get_whole_middleware_list(root_middleware)
         thing_list = get_whole_thing_list(root_middleware)
         scenario_list = get_whole_scenario_list(root_middleware)
@@ -671,62 +671,62 @@ class MXEnvGenerator:
         super_thing_list = sorted([thing for thing in thing_list if thing.is_super == True], key=lambda x: x.middleware.name)
 
         # Build IoT system
-        build_simulation_env_timeline = []
-        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.MIDDLEWARE_RUN, component=middleware)
-                                              for middleware in sorted(middleware_list, key=lambda x: x.level, reverse=True)])
-        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.MIDDLEWARE_CHECK)])
-        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_RUN, component=thing)
-                                              for thing in sorted(normal_thing_list, key=lambda x: x.middleware.name, reverse=False)])
-        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_RUN, component=thing)
-                                              for thing in sorted(super_thing_list, key=lambda x: x.middleware.name, reverse=False)])
+        build_simulation_env_timing_list = []
+        build_simulation_env_timing_list.extend([self._generate_event(event_type=MXEventType.MIDDLEWARE_RUN, component=middleware)
+                                                 for middleware in sorted(middleware_list, key=lambda x: x.level, reverse=True)])
+        build_simulation_env_timing_list.extend([self._generate_event(event_type=MXEventType.MIDDLEWARE_CHECK)])
+        build_simulation_env_timing_list.extend([self._generate_event(event_type=MXEventType.THING_RUN, component=thing)
+                                                 for thing in sorted(normal_thing_list, key=lambda x: x.middleware.name, reverse=False)])
+        build_simulation_env_timing_list.extend([self._generate_event(event_type=MXEventType.THING_RUN, component=thing)
+                                                 for thing in sorted(super_thing_list, key=lambda x: x.middleware.name, reverse=False)])
         # Wait until all thing register
-        build_simulation_env_timeline.extend([self._generate_event(event_type=MXEventType.THING_CHECK)])
-        static_event_timeline.extend(build_simulation_env_timeline)
+        build_simulation_env_timing_list.extend([self._generate_event(event_type=MXEventType.THING_CHECK)])
+        static_event_timing_list.extend(build_simulation_env_timing_list)
 
-        static_event_timeline.append(MXEvent(delay=5, event_type=MXEventType.DELAY))
+        static_event_timing_list.append(MXEvent(delay=5, event_type=MXEventType.DELAY))
 
         # Scenario add start
-        scenario_add_timeline = [self._generate_event(event_type=MXEventType.SCENARIO_ADD, component=scenario, middleware_component=find_component(root_middleware, scenario))
-                                 for scenario in scenario_list]
-        static_event_timeline.extend(sorted(scenario_add_timeline, key=lambda x: x.timestamp))
-        static_event_timeline.append(MXEvent(event_type=MXEventType.SCENARIO_ADD_CHECK))
-        static_event_timeline.append(MXEvent(event_type=MXEventType.SCENARIO_STATE_CHECK, **dict(target_state=[MXScenarioState.INITIALIZED], check_interval=3, retry=5)))
-        static_event_timeline.append(MXEvent(delay=5, event_type=MXEventType.DELAY))
+        scenario_add_timing_list = [self._generate_event(event_type=MXEventType.SCENARIO_ADD, component=scenario, middleware_component=find_component(root_middleware, scenario))
+                                    for scenario in scenario_list]
+        static_event_timing_list.extend(sorted(scenario_add_timing_list, key=lambda x: x.timestamp))
+        static_event_timing_list.append(MXEvent(event_type=MXEventType.SCENARIO_ADD_CHECK))
+        static_event_timing_list.append(MXEvent(event_type=MXEventType.SCENARIO_STATE_CHECK, **dict(target_state=[MXScenarioState.INITIALIZED], check_interval=3, retry=5)))
+        static_event_timing_list.append(MXEvent(delay=5, event_type=MXEventType.DELAY))
 
         # Simulation start
-        dynamic_event_timeline.append(MXEvent(event_type=MXEventType.START))
+        dynamic_event_timing_list.append(MXEvent(event_type=MXEventType.START))
 
         # Scenario run start
-        scenario_run_timeline = [self._generate_event(event_type=MXEventType.SCENARIO_RUN, component=scenario)
-                                 for scenario in scenario_list]
-        dynamic_event_timeline.extend(sorted(scenario_run_timeline, key=lambda x: x.timestamp))
+        scenario_run_timing_list = [self._generate_event(event_type=MXEventType.SCENARIO_RUN, component=scenario)
+                                    for scenario in scenario_list]
+        dynamic_event_timing_list.extend(sorted(scenario_run_timing_list, key=lambda x: x.timestamp))
 
         # Thing unregister event
         # if unregister_rate is 0, then no event will be generated
-        thing_unregister_timeline = generate_dynamic_thing_event_timeline(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
-                                                                          normal_thing_select_rate=self._config.thing_config.normal.unregister_rate,
-                                                                          super_thing_select_rate=self._config.thing_config.super.unregister_rate,
-                                                                          start_time_weight=0.2, end_time_weight=0.7, event_type=MXEventType.THING_UNREGISTER,
-                                                                          delay=0)
-        dynamic_event_timeline.extend(thing_unregister_timeline)
+        thing_unregister_timing_list = generate_dynamic_thing_event_timing_list(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
+                                                                                normal_thing_select_rate=self._config.thing_config.normal.unregister_rate,
+                                                                                super_thing_select_rate=self._config.thing_config.super.unregister_rate,
+                                                                                start_time_weight=0.2, end_time_weight=0.7, event_type=MXEventType.THING_UNREGISTER,
+                                                                                delay=0)
+        dynamic_event_timing_list.extend(thing_unregister_timing_list)
 
         # Thing kill event
         # if kill_rate is 0, then no event will be generated
-        thing_kill_timeline = generate_dynamic_thing_event_timeline(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
-                                                                    normal_thing_select_rate=self._config.thing_config.normal.broken_rate,
-                                                                    super_thing_select_rate=self._config.thing_config.super.broken_rate,
-                                                                    start_time_weight=0.5, end_time_weight=10, event_type=MXEventType.THING_KILL,
-                                                                    delay=0)
-        dynamic_event_timeline.extend(thing_kill_timeline)
+        thing_kill_timing_list = generate_dynamic_thing_event_timing_list(local_thing_list=normal_thing_list, super_thing_list=super_thing_list,
+                                                                          normal_thing_select_rate=self._config.thing_config.normal.broken_rate,
+                                                                          super_thing_select_rate=self._config.thing_config.super.broken_rate,
+                                                                          start_time_weight=0.5, end_time_weight=10, event_type=MXEventType.THING_KILL,
+                                                                          delay=0)
+        dynamic_event_timing_list.extend(thing_kill_timing_list)
 
         # Simulation end event
-        dynamic_event_timeline.append(MXEvent(event_type=MXEventType.END, timestamp=self._config.running_time))
+        dynamic_event_timing_list.append(MXEvent(event_type=MXEventType.END, timestamp=self._config.running_time))
 
-        # Sort event timeline
-        static_event_timeline = sorted(static_event_timeline, key=lambda x: x.timestamp)
-        dynamic_event_timeline = sorted(dynamic_event_timeline, key=lambda x: x.timestamp)
+        # Sort event timing_list
+        static_event_timing_list = sorted(static_event_timing_list, key=lambda x: x.timestamp)
+        dynamic_event_timing_list = sorted(dynamic_event_timing_list, key=lambda x: x.timestamp)
 
-        return static_event_timeline, dynamic_event_timeline
+        return static_event_timing_list, dynamic_event_timing_list
 
     # =========================
     #         _    _  _
@@ -882,14 +882,14 @@ class MXEnvGenerator:
     #                   running_time=running_time,
     #                   event_timeout=self._config.event_timeout)
     #     component = simulation_env.dict()
-    #     event_timeline = self._generate_event_timeline(middleware_list=middleware_list,
+    #     event_timing_list = self._generate_event_timing_list(middleware_list=middleware_list,
     #                                                    thing_list=thing_list,
     #                                                    scenario_list=scenario_list,
     #                                                    running_time=running_time,
     #                                                    event_timeout=self._config.event_timeout)
     #     simulation_dump = dict(config=config,
     #                            component=component,
-    #                            event_timeline=event_timeline)
+    #                            event_timing_list=event_timing_list)
     #     return simulation_dump
 
     def _export_simulation_data_file(self, simulation_env_list: List[MXSimulationEnv], simulation_data_file_path: str) -> None:

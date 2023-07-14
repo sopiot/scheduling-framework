@@ -64,8 +64,8 @@ class MXSimulator:
     def __init__(self, simulation_env: MXSimulationEnv, policy_path: str, mqtt_debug: bool = False, middleware_debug: bool = False, download_logs: bool = False) -> None:
         self.simulation_env = simulation_env
         self.policy_path = policy_path
-        self.static_event_timeline: List[MXEvent] = simulation_env.static_event_timeline
-        self.dynamic_event_timeline: List[MXEvent] = simulation_env.dynamic_event_timeline
+        self.static_event_timing_list: List[MXEvent] = simulation_env.static_event_timing_list
+        self.dynamic_event_timing_list: List[MXEvent] = simulation_env.dynamic_event_timing_list
 
         self.event_handler: MXEventHandler = None
 
@@ -218,11 +218,11 @@ check_cpu_clock_setting'''
         self.event_handler.scenario_init_check_task = self.event_handler.simulation_progress.add_task("Scenario init check", total=len(self.event_handler.scenario_list))
         self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, completed=0)
 
-        for event in self.static_event_timeline:
+        for event in self.static_event_timing_list:
             self.event_handler.event_trigger(event)
             self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, advance=1)
 
-        self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, completed=len(self.static_event_timeline) + 10)
+        self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, completed=len(self.static_event_timing_list) + 10)
         self.event_handler.simulation_progress.update(self.event_handler.middleware_run_task, visible=False)
         self.event_handler.simulation_progress.update(self.event_handler.thing_run_task, visible=False)
         self.event_handler.simulation_progress.update(self.event_handler.scenario_add_task, visible=False)
@@ -233,13 +233,13 @@ check_cpu_clock_setting'''
         # MXTEST_LOG_DEBUG(f'==== Dynamic Simulation Event Start ====', MXTestLogLevel.PASS)
         # self.event_handler.schedule_running_task = self.event_handler.simulation_progress.add_task("Scheduling progress", total=len(self.event_handler.scenario_list))
         self.event_handler.execute_running_task = self.event_handler.simulation_progress.add_task("[green bold]Execution progress...", total=self.event_handler.running_time)
-        for event in self.dynamic_event_timeline:
+        for event in self.dynamic_event_timing_list:
             self.event_handler.event_trigger(event)
 
     def start(self) -> None:
         with self.event_handler.simulation_progress:
             self.event_handler.static_event_running_task = self.event_handler.simulation_progress.add_task("[green bold]Static event running...",
-                                                                                                           total=len(self.static_event_timeline))
+                                                                                                           total=len(self.static_event_timing_list))
             self._trigger_static_events()
             self._trigger_dynamic_events()
 
@@ -343,17 +343,17 @@ check_cpu_clock_setting'''
     #  \__,_| \__||_||_||___/
     # =========================
 
-    # for load event_timeline from simulation data file
-    def _load_event_timeline(simulation_env: MXSimulationEnv, event_timeline: List[dict]) -> List[MXEvent]:
-        event_timeline: List[MXEvent] = [MXEvent(event_type=MXEventType.get(event['event_type']),
-                                                 component=find_component_by_name(simulation_env.root_middleware, event['component'])[0],
-                                                 timestamp=event['timestamp'],
-                                                 duration=event['duration'],
-                                                 delay=event['delay'],
-                                                 middleware_component=event['middleware_component'])
-                                         for event in event_timeline]
+    # for load event_timing_list from simulation data file
+    def _load_event_timing_list(simulation_env: MXSimulationEnv, event_timing_list: List[dict]) -> List[MXEvent]:
+        event_timing_list: List[MXEvent] = [MXEvent(event_type=MXEventType.get(event['event_type']),
+                                                    component=find_component_by_name(simulation_env.root_middleware, event['component'])[0],
+                                                    timestamp=event['timestamp'],
+                                                    duration=event['duration'],
+                                                    delay=event['delay'],
+                                                    middleware_component=event['middleware_component'])
+                                            for event in event_timing_list]
 
-        return event_timeline
+        return event_timing_list
 
     def get_event_log(self) -> List[MXEvent]:
         return self.event_handler.event_log

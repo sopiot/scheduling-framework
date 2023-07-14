@@ -680,7 +680,7 @@ class MXEvaluator:
     #     table.append([f'Deadline Meet Ratio: {deadline_meet_ratio * 100:0.2f}%', '', '', '', ''])
     #     return table, header
 
-    # def make_whole_timeline_table(self, target_middleware: MXMiddleware):
+    # def make_whole_timing_list_table(self, target_middleware: MXMiddleware):
     #     header = ['time', 'duration', 'event_type', 'level', 'requester_middleware', 'thing',
     #               'service(delay)', 'application(period)', 'result', 'return_value', 'return_type']
     #     table = []
