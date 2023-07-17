@@ -61,7 +61,7 @@ def exception_wrapper(func: Callable = None,
 
 class MXSimulator:
 
-    def __init__(self, simulation_env: MXSimulationEnv, policy_path: str, mqtt_debug: bool = False, middleware_debug: bool = False, download_logs: bool = False) -> None:
+    def __init__(self, simulation_env: MXSimulationEnv, policy_path: str, mqtt_debug: bool = False, middleware_debug: bool = False, download_logs: bool = False, ram_disk: bool = False) -> None:
         self.simulation_env = simulation_env
         self.policy_path = policy_path
         self.static_event_timing_list: List[MXEvent] = simulation_env.static_event_timing_list
@@ -72,6 +72,7 @@ class MXSimulator:
         self.mqtt_debug = mqtt_debug
         self.middleware_debug = middleware_debug
         self.download_logs = download_logs
+        self.ram_disk = ram_disk
 
         self.send_thing_file_thread_queue = Queue()
         self.send_middleware_file_thread_queue = Queue()
@@ -101,7 +102,7 @@ class MXSimulator:
         self._send_thing_codes()
         self._update_middleware_thing()
 
-    def _update_middleware_thing(self, ramdisk: bool = False):
+    def _update_middleware_thing(self):
 
         def get_remote_device_OS(ssh_client: MXSSHClient) -> str:
             if not ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True):
@@ -151,7 +152,7 @@ class MXSimulator:
 
             return True
 
-        def init_ramdisk(ssh_client: MXSSHClient) -> None:
+        def init_ram_disk(ssh_client: MXSSHClient) -> None:
             ramdisk_generate_command_list = [f'sudo mkdir -p /mnt/ramdisk',
                                              f'sudo mount -t tmpfs -o size=500M tmpfs /mnt/ramdisk',
                                              f'echo "none /mnt/ramdisk tmpfs defaults,size=200M 0 0" | sudo tee -a /etc/fstab > /dev/null',
@@ -193,8 +194,8 @@ check_cpu_clock_setting'''
                 user = ssh_client.device.user
                 install_remote_middleware(ssh_client=ssh_client, user=user)
                 install_remote_thing(ssh_client=ssh_client, force_install=True)
-                if ramdisk:
-                    init_ramdisk(ssh_client=ssh_client)
+                if self.ram_disk:
+                    init_ram_disk(ssh_client=ssh_client)
 
                 remote_device_os = get_remote_device_OS(ssh_client=ssh_client)
                 if 'Raspbian' in remote_device_os and ssh_client.device.name != 'localhost':

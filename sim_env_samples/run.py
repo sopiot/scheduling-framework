@@ -37,6 +37,9 @@ def arg_parse() -> argparse.Namespace:
                         required=False, help=('Path containing simulation logs\n'
                                               'If there are multiple simulation logs in a folder, profile them all.'
                                               'If the given log path is for a single log, profile for only one log'))
+    parser.add_argument('--ram-disk', '-rd', dest='ram_disk', action='store_true',
+                        required=False, help=('Enable ramdisk\n'
+                                              'Store Middleware & Thing files in ramdisk to improve performance.'))
     args = parser.parse_args()
 
     if not args.only_profile:
@@ -58,7 +61,7 @@ if __name__ == '__main__':
     args = arg_parse()
 
     simulation_framework = MXSimulationFramework(service_parallel=args.service_parallel, result_filename=args.result_filename, download_logs=args.download_logs,
-                                                 profile=args.profile, profile_type=args.profile_type,
+                                                 profile=args.profile, profile_type=args.profile_type, ram_disk=args.ram_disk,
                                                  mqtt_debug=args.mqtt_debug, middleware_debug=args.middleware_debug)
     simulation_framework.load(config_path=args.config_path, simulation_data_path=args.simulation_data_path, policy_path=args.policy_path)
     simulation_framework.start()

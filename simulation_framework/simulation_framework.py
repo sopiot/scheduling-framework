@@ -6,15 +6,16 @@ from simulation_framework.profiler import *
 
 class MXSimulationFramework:
 
-    def __init__(self, service_parallel: bool = True, result_filename: str = '', download_logs: bool = False,
-                 profile: bool = False, profile_type: ProfileType = ProfileType.EXECUTE,
-                 mqtt_debug: bool = False, middleware_debug: bool = False) -> None:
+    def __init__(self, service_parallel: bool, result_filename: str, download_logs: bool,
+                 profile: bool, profile_type: ProfileType, ram_disk: bool,
+                 mqtt_debug: bool, middleware_debug: bool) -> None:
         self._simulator: MXSimulator = None
         self._service_parallel = service_parallel
         self._result_filename = result_filename
         self._download_logs = download_logs
         self._profile = profile
         self._profile_type = profile_type
+        self._ram_disk = ram_disk
         self._mqtt_debug = mqtt_debug
         self._middleware_debug = middleware_debug
 
