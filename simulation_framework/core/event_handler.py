@@ -48,6 +48,24 @@ class MXSimulationEnv:
 
         return self.root_middleware
 
+    def cleanup(self):
+        whole_middleware_list = get_whole_middleware_list(self.root_middleware)
+        whole_thing_list = get_whole_thing_list(self.root_middleware)
+        whole_scenario_list = get_whole_scenario_list(self.root_middleware)
+
+        for middleware in whole_middleware_list:
+            middleware.online = False
+        for thing in whole_thing_list:
+            thing.middleware_client_name = ''
+            thing.registered = False
+            thing.pid: int = 0
+        for scenario in whole_scenario_list:
+            scenario.state = MXScenarioState.UNDEFINED
+            scenario.add_result_arrived = False
+            scenario.schedule_success = False
+            scenario.schedule_timeout = False
+            scenario.cycle_count = 0
+
 
 class MXEventType(Enum):
     START = 'START'                                                     # Simulation 시작 이벤트. 해당 이벤트가 발생하면 Simulation duration 타이머가 시작된다.
@@ -598,8 +616,7 @@ class MXEventHandler:
         # thing.pid = ssh_rets[0]
 
         # reg_start_time = get_current_time()
-        recv_msg = self.expect(thing,
-                               MXProtocolType.Base.MT_RESULT_REGISTER.value % (thing.name),)
+        recv_msg = self.expect(thing, MXProtocolType.Base.MT_RESULT_REGISTER.value % (thing.name), timeout=self.timeout)
         # reg_end_time = get_current_time()
 
         topic, payload, _ = decode_MQTT_message(recv_msg)
@@ -951,16 +968,6 @@ class MXEventHandler:
                     continue
                 result = ssh_client.send_command(f'kill -9 {pid}')
 
-    def _kill_every_ssh_client(self):
-        for ssh_client in self.ssh_client_list:
-            ssh_client.disconnect()
-            del ssh_client
-
-    def _kill_every_mqtt_client(self):
-        for mqtt_client in self.mqtt_client_list:
-            mqtt_client.stop()
-            del mqtt_client
-
     def kill_every_process(self) -> bool:
         with Progress() as progress:
             task1 = progress.add_task("Clean up simulation processes", total=len(self.middleware_list) + len(self.ssh_client_list))
@@ -986,6 +993,16 @@ class MXEventHandler:
                 progress.update(task3, advance=1)
 
         return True
+
+    def _kill_every_ssh_client(self):
+        for ssh_client in self.ssh_client_list:
+            ssh_client.disconnect()
+            del ssh_client
+
+    def _kill_every_mqtt_client(self):
+        for mqtt_client in self.mqtt_client_list:
+            mqtt_client.stop()
+            del mqtt_client
 
     def wrapup(self):
         self.kill_every_process()
@@ -1029,7 +1046,8 @@ class MXEventHandler:
 
             recv_msg = hash_pop(component.recv_msg_table, key=target_protocol)
             if recv_msg == None:
-                return MXErrorCode.FAIL
+                time.sleep(BUSY_WAIT_TIMEOUT)
+                continue
 
             topic, _, _ = decode_MQTT_message(recv_msg)
             if mqtt.topic_matches_sub(target_topic, topic):

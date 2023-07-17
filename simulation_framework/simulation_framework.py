@@ -268,19 +268,17 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
             simulation_env.thing_pool = thing_pool
             simulation_env.static_event_timing_list = static_event_timing_list
             simulation_env.dynamic_event_timing_list = dynamic_event_timing_list
+            simulation_env.simulation_data_file_path = f'{self.env_generator._simulation_folder_path}/simulation_data.json'
             simulation_env_list.append(simulation_env)
 
-        simulation_data_file_path = f'{self.env_generator._simulation_folder_path}/simulation_data.json'
-        for simulation_env in simulation_env_list:
-            simulation_env.simulation_data_file_path = simulation_data_file_path
-
-        self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_data_file_path=simulation_data_file_path)
+        self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_data_file_path=simulation_env_list[0].simulation_data_file_path)
         return simulation_env_list
 
     @exception_wrapper
     def run_simulation(self, simulation_env: MXSimulationEnv, policy_path: str, index: int):
         MXTEST_LOG_DEBUG(f'==== Start simulation {simulation_env.config.name}, iter: {index}, policy: {os.path.basename(policy_path)} ====', MXTestLogLevel.INFO)
-        self._simulator = MXSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug, middleware_debug=self._middleware_debug, download_logs=self._download_logs)
+        self._simulator = MXSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug,
+                                      middleware_debug=self._middleware_debug, download_logs=self._download_logs)
         self._simulator.setup()
         self._simulator.cleanup()
         self._simulator.build_iot_system()

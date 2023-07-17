@@ -96,6 +96,7 @@ class MXSimulator:
     def cleanup(self):
         self.event_handler.remove_all_remote_simulation_file()
         self.event_handler.kill_every_process()
+        self.simulation_env.cleanup()
 
     def build_iot_system(self):
         self._send_middleware_configs()

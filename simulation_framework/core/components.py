@@ -268,7 +268,6 @@ class MXDevice(MXComponent):
         device.ssh_port = data['ssh_port']
         device.user = data['user']
         device.password = data['password']
-
         device.mqtt_port = data['mqtt_port']
         device.mqtt_ssl_port = data['mqtt_ssl_port']
         device.websocket_port = data['websocket_port']
@@ -342,9 +341,7 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.scenario_list = scenario_list
         self.parent: MXMiddleware = parent
         self.children: List[MXMiddleware] = children
-
         self.device = device
-
         self.remote_middleware_path = remote_middleware_path
         self.remote_middleware_config_path = remote_middleware_config_path
         self.mqtt_port = mqtt_port
@@ -352,9 +349,7 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.websocket_port = websocket_port
         self.websocket_ssl_port = websocket_ssl_port
         self.localserver_port = localserver_port
-
         self.middleware_cfg = ''
-
         self.online = False
 
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
@@ -365,18 +360,18 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         state['thing_list'] = self.thing_list
         state['scenario_list'] = self.scenario_list
         state['device'] = self.device
-        state['alive_cycle'] = self.alive_cycle
-        state['device'] = self.device
-        state['thing_file_path'] = self.thing_file_path
-        state['remote_thing_file_path'] = self.remote_thing_file_path
-        state['fail_rate'] = self.fail_rate
-        state['middleware_client_name'] = self.middleware_client_name
-        state['registered'] = self.registered
-        state['pid'] = self.pid
+        state['remote_middleware_path'] = self.remote_middleware_path
+        state['remote_middleware_config_path'] = self.remote_middleware_config_path
+        state['mqtt_port'] = self.mqtt_port
+        state['mqtt_ssl_port'] = self.mqtt_ssl_port
+        state['websocket_port'] = self.websocket_port
+        state['websocket_ssl_port'] = self.websocket_ssl_port
+        state['localserver_port'] = self.localserver_port
+        state['middleware_cfg'] = self.middleware_cfg
+        state['online'] = self.online
 
         del state['parent']
         del state['children']
-        del state['recv_queue']
         del state['recv_msg_table']
 
         return state
@@ -384,20 +379,22 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
     def __setstate__(self, state):
         super().__setstate__(state)
 
-        self.service_list = state['service_list']
-        self.is_super = state['is_super']
-        self.is_parallel = state['is_parallel']
-        self.alive_cycle = state['alive_cycle']
+        self.thing_list = state['thing_list']
+        self.scenario_list = state['scenario_list']
         self.device = state['device']
-        self.thing_file_path = state['thing_file_path']
-        self.remote_thing_file_path = state['remote_thing_file_path']
-        self.fail_rate = state['fail_rate']
-        self.middleware_client_name = state['middleware_client_name']
-        self.registered = state['registered']
-        self.pid = state['pid']
+        self.remote_middleware_path = state['remote_middleware_path']
+        self.remote_middleware_config_path = state['remote_middleware_config_path']
+        self.mqtt_port = state['mqtt_port']
+        self.mqtt_ssl_port = state['mqtt_ssl_port']
+        self.websocket_port = state['websocket_port']
+        self.websocket_ssl_port = state['websocket_ssl_port']
+        self.localserver_port = state['localserver_port']
+        self.middleware_cfg = state['middleware_cfg']
+        self.online = state['online']
 
-        self.middleware = None
-        self.recv_queue: Queue = Queue()
+        self.parent = None
+        self.children = None
+        self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
     def load(cls, data: dict) -> 'MXMiddleware':
         middleware = MXMiddleware(name=data['name'], level=data['level'])
@@ -405,13 +402,9 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         middleware.thing_list = [MXThing().load(thing_info) for thing_info in data['thing_list']]
         middleware.scenario_list = [MXScenario().load(scenario_info) for scenario_info in data['scenario_list']]
         middleware.children = [MXMiddleware().load(child_middleware_info) for child_middleware_info in data['children']]
-
         middleware.device = MXDevice().load(data['device'])
-
         middleware.remote_middleware_path = data['remote_middleware_path']
         middleware.remote_middleware_config_path = data['remote_middleware_config_path']
-
-        # middleware_tree가 지정되어있는 경우 하나로 정해진다.
         middleware.mqtt_port = data['mqtt_port']
         middleware.mqtt_ssl_port = data['mqtt_ssl_port']
         middleware.websocket_port = data['websocket_port']
@@ -613,7 +606,6 @@ elif thing_start_time == 1:
         service.energy = data['energy']
         service.execute_time = data['execute_time']
         service.return_value = data['return_value']
-
         service.sub_service_list = [MXService().load(service_info) for service_info in data['subfunction_list']]
 
         return service
@@ -769,6 +761,7 @@ if __name__ == '__main__':
         state['is_parallel'] = self.is_parallel
         state['alive_cycle'] = self.alive_cycle
         state['device'] = self.device
+        # state['middleware'] = self.middleware
         state['thing_file_path'] = self.thing_file_path
         state['remote_thing_file_path'] = self.remote_thing_file_path
         state['fail_rate'] = self.fail_rate
@@ -776,8 +769,8 @@ if __name__ == '__main__':
         state['registered'] = self.registered
         state['pid'] = self.pid
 
-        del state['recv_msg_table']
         del state['middleware']
+        del state['recv_msg_table']
 
         return state
 
@@ -807,12 +800,9 @@ if __name__ == '__main__':
         thing.is_super = data['is_super']
         thing.is_parallel = data['is_parallel']
         thing.alive_cycle = data['alive_cycle']
-
         thing.device = MXDevice().load(data['device'])
-
         thing.thing_file_path = data['thing_file_path']
         thing.remote_thing_file_path = data['remote_thing_file_path']
-
         thing.fail_rate = data['fail_rate']
 
         return thing
@@ -885,7 +875,6 @@ class MXScenario(MXComponent):
         self.priority = priority
         self.scenario_file_path = scenario_file_path
         self.middleware = middleware
-
         self.state: MXScenarioState = MXScenarioState.UNDEFINED
         self.add_result_arrived = False
         self.schedule_success = False
@@ -903,13 +892,14 @@ class MXScenario(MXComponent):
         state['period'] = self.period
         state['priority'] = self.priority
         state['scenario_file_path'] = self.scenario_file_path
+        # state['middleware'] = self.middleware
         state['state'] = self.state
         state['add_result_arrived'] = self.add_result_arrived
         state['schedule_success'] = self.schedule_success
         state['schedule_timeout'] = self.schedule_timeout
 
-        del state['recv_msg_table']
         del state['middleware']
+        del state['recv_msg_table']
 
         return state
 
