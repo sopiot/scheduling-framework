@@ -40,6 +40,9 @@ class MXSimulationFramework:
         else:
             config_list = ([MXSimulationConfig(config_path=config_path)]
                            if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')) else [])
+
+        if not self._result_filename:
+            self._result_filename = f'{config_list[0].name}_result'
         return config_list
 
     def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[str], List[str], List[str], List[MXService], List[MXThing]]:
@@ -186,6 +189,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
 
         simulation_env_list: List[MXSimulationEnv] = []
         for config in config_list:
+            MXTEST_LOG_DEBUG(f'Generate simulation env with config: {config.name}', MXTestLogLevel.PASS)
             loaded_tag_name_pool, loaded_service_name_pool, loaded_super_service_name_pool, loaded_service_pool, loaded_thing_pool = [], [], [], [], []
             simulation_env = MXSimulationEnv(config=config)
             service_thing_pool_path = config.service_thing_pool_path.abs_path()

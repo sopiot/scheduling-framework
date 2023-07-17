@@ -14,7 +14,7 @@
       "justMyCode": true
     },
     {
-      "name": "run experiment simulation(wide_type_W9_sub4)",
+      "name": "run experiment simulation(wide_type_width)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/sim_env_samples/run.py",
@@ -23,14 +23,14 @@
       "justMyCode": false,
       "args": [
         "-c",
-        "./sim_env_samples/paper_experiments/wide_type_W9_sub4/config.yml",
+        "./sim_env_samples/paper_experiments/wide_type_width",
         "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
+        "./scheduling_algorithm/samples",
         "-sp",
       ]
     },
     {
-      "name": "run experiment simulation(long_type_H10_sub4)",
+      "name": "run experiment simulation(wide_type_width1)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/sim_env_samples/run.py",
@@ -39,14 +39,14 @@
       "justMyCode": false,
       "args": [
         "-c",
-        "./sim_env_samples/paper_experiments/long_type_H10_sub4/config.yml",
+        "./sim_env_samples/paper_experiments/wide_type_width/config_w1.yml",
         "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
+        "./scheduling_algorithm/samples",
         "-sp",
       ]
     },
     {
-      "name": "run experiment simulation(only_bottom_binary_type_A_sub16)",
+      "name": "run experiment simulation(long_type_height)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/sim_env_samples/run.py",
@@ -55,14 +55,14 @@
       "justMyCode": false,
       "args": [
         "-c",
-        "./sim_env_samples/paper_experiments/only_bottom_binary_type_A/config_sub16.yml",
+        "./sim_env_samples/paper_experiments/long_type_height",
         "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
+        "./scheduling_algorithm/samples",
         "-sp",
       ]
     },
     {
-      "name": "run experiment simulation(binary_type_A_period5_10)",
+      "name": "run experiment simulation(binary_type_sub_service)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/sim_env_samples/run.py",
@@ -71,29 +71,14 @@
       "justMyCode": false,
       "args": [
         "-c",
-        "./sim_env_samples/paper_experiments/binary_type_A_period/config_period10_20.yml",
+        "./sim_env_samples/paper_experiments/binary_type_sub_service",
         "-po",
-        "./scheduling_algorithm/samples/policy_default.cc"
-      ]
-    },
-    {
-      "name": "run experiment simulation(binary_type_A_sub4_thing10)",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/sim_env_samples/run.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "justMyCode": false,
-      "args": [
-        "-c",
-        "./sim_env_samples/paper_experiments/binary_type_A_sub4_thing10/config.yml",
-        "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
+        "./scheduling_algorithm/samples",
         "-sp",
       ]
     },
     {
-      "name": "run experiment simulation(binary_type_A_sub4_thing50)",
+      "name": "run experiment simulation(binary_type_super_service)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/sim_env_samples/run.py",
@@ -102,14 +87,14 @@
       "justMyCode": false,
       "args": [
         "-c",
-        "./sim_env_samples/paper_experiments/binary_type_A_sub4_thing50/config.yml",
+        "./sim_env_samples/paper_experiments/binary_type_super_service",
         "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
+        "./scheduling_algorithm/samples",
         "-sp",
       ]
     },
     {
-      "name": "run experiment simulation(binary_type_A_sub4_thing50_all)",
+      "name": "run experiment simulation(binary_type_thing)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/sim_env_samples/run.py",
@@ -118,14 +103,14 @@
       "justMyCode": false,
       "args": [
         "-c",
-        "./sim_env_samples/paper_experiments/binary_type_A_sub4_thing50_all/config.yml",
+        "./sim_env_samples/paper_experiments/binary_type_thing",
         "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
+        "./scheduling_algorithm/samples",
         "-sp",
       ]
     },
     {
-      "name": "run experiment simulation(binary_type_A_sub4_thing80)",
+      "name": "run experiment simulation(binary_type_period)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/sim_env_samples/run.py",
@@ -134,76 +119,9 @@
       "justMyCode": false,
       "args": [
         "-c",
-        "./sim_env_samples/paper_experiments/binary_type_A_sub4_thing80/config.yml",
+        "./sim_env_samples/paper_experiments/binary_type_period",
         "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
-        "-sp",
-      ]
-    },
-    {
-      "name": "run experiment simulation(binary_type_A_sub4_thing100)",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/sim_env_samples/run.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "justMyCode": false,
-      "args": [
-        "-c",
-        "./sim_env_samples/paper_experiments/binary_type_A_sub4_thing100/config.yml",
-        "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
-        "-sp",
-      ]
-    },
-    {
-      "name": "run experiment simulation(config_sub4_super4_overhead) profile",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/sim_env_samples/run.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "justMyCode": false,
-      "args": [
-        "-c",
-        "./sim_env_samples/paper_experiments/overhead_profile/config_sub4_super4_overhead.yml",
-        "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
-        "-sp",
-        "-pf",
-      ]
-    },
-    {
-      "name": "run experiment simulation(config_sub4_super4_overhead) local profile",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/sim_env_samples/run.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "justMyCode": false,
-      "args": [
-        "-c",
-        "./sim_env_samples/paper_experiments/overhead_local_profile/config_sub4_super4_overhead.yml",
-        "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
-        "-sp",
-        "-pf",
-      ]
-    },
-    {
-      "name": "run experiment simulation(binary_type_A_sub4_super32)",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/sim_env_samples/run.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "justMyCode": false,
-      "args": [
-        "-c",
-        "./sim_env_samples/paper_experiments/binary_type_A_sub4_super32/config.yml",
-        "-po",
-        "./scheduling_algorithm/samples/policy_default.cc",
-        "-sp",
+        "./scheduling_algorithm/samples"
       ]
     },
     {

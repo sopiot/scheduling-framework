@@ -15,9 +15,9 @@ def arg_parse() -> argparse.Namespace:
                         required=False, help='Simulation data file path.')
     parser.add_argument('--service-parallel', '-sp', action='store_true', dest='service_parallel',
                         required=False, help='Enable Sub Service to execute in parallel.')
-    parser.add_argument('--result-filename', '-o', dest='result_filename', action='store', default='sim_result',
+    parser.add_argument('--result-filename', '-o', dest='result_filename', action='store',
                         required=False, help=('Output simulation result filename, without extension.\n'
-                                              'if filename is not given, "sim_result" will be default filename.'))
+                                              'if filename is not given, "{simulation name specify in config}_result" will be default result filename.'))
     parser.add_argument('--mqtt-debug', '-mqtt-d', action='store_true', dest='mqtt_debug',
                         required=False, help='Enable MQTT debug mode.')
     parser.add_argument('--middleware-debug', '-mid-d', action='store_true', dest='middleware_debug',

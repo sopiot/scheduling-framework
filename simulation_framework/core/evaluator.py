@@ -821,8 +821,8 @@ class MXEvaluator:
         else:
             pass
 
-        os.makedirs('sim_result', exist_ok=True)
-        with open(f'./sim_result/{file_name}.txt', 'a+') as f:
+        os.makedirs(f'{get_project_root()}/sim_result', exist_ok=True)
+        with open(f'{get_project_root()}/sim_result/{file_name}.txt', 'a+') as f:
             f.write(main_title + '\n')
             f.write(scenario_result_title + '\n')
             f.write(scenario_result_table_str)
@@ -850,8 +850,8 @@ class MXEvaluator:
         else:
             pass
 
-        os.makedirs('sim_result', exist_ok=True)
-        with open(f'./sim_result/{file_name}.csv', 'a+') as f:
+        os.makedirs(f'{get_project_root()}/sim_result', exist_ok=True)
+        with open(f'{get_project_root()}/sim_result/{file_name}.csv', 'a+') as f:
             wr = csv.writer(f)
             header = (['simulation name'] +
                       ['avg accept ratio(%) (all)', 'avg success ratio(%) (all)', 'avg latency (all)', 'avg energy (all)', 'avg execute time (all)', 'avg schedule time (all)',  'avg overhead (all)', 'total (all)', 'success (all)', 'fail (all)', 'accept (all)', 'accept fail (all)', 'timeout num (all)'] +
