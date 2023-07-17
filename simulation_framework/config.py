@@ -125,8 +125,8 @@ class MXMiddlewareConfig:
 
     def __init__(self, data: dict, config_path: str) -> None:
         self.device_pool: List[str] = data.get('device', None)
-        self.remote_middleware_path: str = data.get('remote_middleware_path', '~/middleware')
-        self.remote_middleware_config_path: str = data.get('remote_middleware_config_path', '/mnt/ramdisk/middleware_config')
+        self.remote_middleware_path: str = data.get('remote_middleware_path', '/tmp/middleware')
+        self.remote_middleware_config_path: str = data.get('remote_middleware_config_path', '/tmp/middleware_config')
 
         self.manual = MXPath(config_path=os.path.abspath(config_path),
                              path=data.get('manual', ''))
@@ -204,7 +204,7 @@ class MXThingConfig:
             self.unregister_rate: float = data['unregister_rate']
 
     def __init__(self, data: dict) -> None:
-        self.remote_thing_folder_path: str = data.get('remote_thing_folder_path', '/mnt/ramdisk/thing')
+        self.remote_thing_folder_path: str = data.get('remote_thing_folder_path', '/tmp/thing')
         self.device_pool: List[str] = data.get('device', None)
 
         self.normal = MXThingConfig.DetailConfig(data['normal'])

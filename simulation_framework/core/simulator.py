@@ -101,7 +101,7 @@ class MXSimulator:
         self._send_thing_codes()
         self._update_middleware_thing()
 
-    def _update_middleware_thing(self):
+    def _update_middleware_thing(self, ramdisk: bool = False):
 
         def get_remote_device_OS(ssh_client: MXSSHClient) -> str:
             if not ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True):
@@ -193,7 +193,8 @@ check_cpu_clock_setting'''
                 user = ssh_client.device.user
                 install_remote_middleware(ssh_client=ssh_client, user=user)
                 install_remote_thing(ssh_client=ssh_client, force_install=True)
-                init_ramdisk(ssh_client=ssh_client)
+                if ramdisk:
+                    init_ramdisk(ssh_client=ssh_client)
 
                 remote_device_os = get_remote_device_OS(ssh_client=ssh_client)
                 if 'Raspbian' in remote_device_os and ssh_client.device.name != 'localhost':

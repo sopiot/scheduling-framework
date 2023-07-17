@@ -347,11 +347,11 @@ This section provides an explanation of the format for the **Simulation Environm
 
     - **remote_middleware_path** _(optional)_: `{str}`
 
-      The path of `Middleware` on the remote device. If not specified, it defaults to `~/middleware`.
+      The path of `Middleware` on the remote device. If not specified, it defaults to `/tmp/middleware`.
 
     - **remote_middleware_config_path** _(optional)_: `{str}`
 
-      The path of the `Middleware` configuration file to be saved on the remote device. If not specified, `/mnt/ramdisk/middleware_config` is set as default.
+      The path of the `Middleware` configuration file to be saved on the remote device. If not specified, `/tmp/middleware_config` is set as default.
 
     - **device** _(optional)_: `list[string]`
 
@@ -395,7 +395,7 @@ This section provides an explanation of the format for the **Simulation Environm
 
   - **remote_thing_folder_path** _(optional)_: `{str}`
 
-    The path of the `Thing` file to be saved on the remote device. If not specified, it defaults to `/mnt/ramdisk/thing`.
+    The path of the `Thing` file to be saved on the remote device. If not specified, it defaults to `/tmp/thing`.
 
   - **device**: `{list[string]}`
 
