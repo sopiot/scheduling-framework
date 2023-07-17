@@ -114,6 +114,48 @@ class MXSimulator:
             remote_device_os = ssh_client.send_command('lsb_release -a')[1].split('\t')[1].strip()
             return remote_device_os
 
+        def install_dependency_package(ssh_client: MXSSHClient):
+            require_pkg_list = ['git', 'g++', 'mosquitto', 'mosquitto-clients', 'cgdb', 'valgrind', 'sqlite3', 'libsqlite3-dev',
+                                'openssl', 'libssl-dev', 'avahi-daemon', 'avahi-utils', 'flex', 'byacc', 'bison', 'libconfig-dev', 'pkg-config',
+                                'automake', 'autotools-dev', 'autoconf', 'autoconf-archive', 'libtool']
+            for pkg in require_pkg_list:
+                install_check_command = f'dpkg -l | grep \'^ii \' | grep -w {pkg.split("dev")[0].removesuffix("-")}'
+                if ssh_client.send_command_with_check_success(install_check_command):
+                    continue
+                install_command = f'sudo apt-get install -y {pkg}'
+                if not ssh_client.send_command_with_check_success(install_command):
+                    raise SSHCommandFailError(command=install_command, reason=f'Install {pkg} to {ssh_client.device.name} failed')
+
+        def install_jsonc(ssh_client: MXSSHClient):
+            install_command = '''\
+git clone https://github.com/json-c/json-c.git
+cd json-c
+git reset --hard 785a94
+mkdir -p build
+cd build
+cmake ..
+make -j$(nproc)
+sudo make install
+cd ../..
+rm -rf json-c'''
+            if not ssh_client.send_command_with_check_success(install_command):
+                raise SSHCommandFailError(command=install_command, reason=f'Install json-c to {ssh_client.device.name} failed')
+
+        def install_mqttc(ssh_client: MXSSHClient):
+            install_command = '''\
+git clone https://github.com/eclipse/paho.mqtt.c.git
+cd paho.mqtt.c
+git checkout v1.3.9
+mkdir -p build
+cd build
+cmake .. -DPAHO_WITH_SSL=True
+make -j$(nproc)
+sudo make install
+cd ../..
+rm -rf paho.mqtt.c'''
+            if not ssh_client.send_command_with_check_success(install_command):
+                raise SSHCommandFailError(command=install_command, reason=f'Install paho.mqtt.c to {ssh_client.device.name} failed')
+
         def install_remote_middleware(ssh_client: MXSSHClient, user: str):
             remote_device_os = get_remote_device_OS(ssh_client)
             ssh_client.send_command('pidof sopiot_middleware | xargs kill -9')
@@ -134,7 +176,15 @@ class MXSimulator:
             middleware_update_command = (f'cd {home_dir_append(remote_middleware_path, user)};'
                                          'chmod +x sopiot_middleware;'
                                          'cmake .;'
-                                         'make -j')
+                                         'make -j')  # 'cd /tmp/middleware;chmod +x sopiot_middleware;cmake .;make -j'
+            _, middleware_update_err = ssh_client.send_command(middleware_update_command, get_err=True)
+            install_dependency_package(ssh_client)
+            for line in middleware_update_err:
+                if 'json-c' in line and 'fatal error:' in line and 'No such file or directory' in line:
+                    install_jsonc(ssh_client)
+                if 'MQTTClient' in line and 'fatal error:' in line and 'No such file or directory' in line:
+                    install_mqttc(ssh_client)
+            ssh_client.send_command('sudo ldconfig')
             if not ssh_client.send_command_with_check_success(middleware_update_command):
                 raise SSHCommandFailError(command=middleware_update_command, reason=f'Install middleware to {ssh_client.device.name} failed')
 

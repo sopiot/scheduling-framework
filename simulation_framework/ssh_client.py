@@ -130,54 +130,54 @@ class MXSSHClient:
             target_pid_list = list(set(target_pid_list_ps_ef))
         return target_pid_list
 
-    def send_command(self, command: Union[List[str], str], ignore_result: bool = False, background: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
+    def _send_command(self, command: Union[List[str], str], ignore_result: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
         while self.num_command_executing > MXSSHClient.COMMAND_SEND_LIMIT:
             time.sleep(1)
 
         if isinstance(command, str):
-            command_list = [command]
+            command_list = [line.strip() for line in command.strip().split('\n')]
+        elif isinstance(command, list):
+            command_list = [line.strip() for line in flatten_list([line.strip().split('\n') for line in command])]
+        else:
+            raise TypeError(f'command type must be str or list, not {type(command)}')
 
         if not self.connected:
             self.connect()
 
-        self.num_command_executing += 1
+        integrated_command = ''
+        for command in command_list:
+            if 'sudo' in command:
+                command_without_sudo = command.split('sudo')[1].strip()
+                password = escape_special_chars(self.device.password)
+                command = f'echo {password} | sudo -S {command_without_sudo}'
+
+            integrated_command += f'{command};'
+
         try:
-            for command in command_list:
-                if self.connected:
-                    if background:
-                        transport = self._ssh_client.get_transport()
-                        channel = transport.open_session()
-                        channel.exec_command(command)
-                    else:
-                        try:
-                            stdin, stdout, stderr = self._ssh_client.exec_command(command, get_pty=get_pty)
-                        except Exception as e:
-                            MXTEST_LOG_DEBUG(f'Send_command error: {e}', MXTestLogLevel.FAIL)
-                            self.disconnect()
-                            self.connect()
-                            stdin, stdout, stderr = self._ssh_client.exec_command(command, get_pty=get_pty)
+            self.num_command_executing += 1
+            _, stdout, stderr = self._ssh_client.exec_command(integrated_command, get_pty=get_pty)
 
-                    if ignore_result:
-                        return True
-                    else:
-                        if 'sudo' in command:
-                            stdin.write(f'{self.device.password}\n')
-                            stdin.flush()
-
-                        stdout_result: List[str] = stdout.readlines()
-                        return [line.strip() for line in stdout_result]
-                else:
-                    result = os.popen(command)
-                    # MXTEST_LOG_DEBUG(f'command execute -> {item}', MXTestLogLevel.PASS)
-                    if ignore_result:
-                        return True
-                    else:
-                        return result.read().split('\n')
+            if ignore_result:
+                return True
+            else:
+                stdout_result: List[str] = stdout.readlines()
+                stderr_result: List[str] = stderr.readlines()
+                return stdout_result, stderr_result
         finally:
             self.num_command_executing -= 1
 
+    def send_command(self, command: Union[List[str], str], ignore_result: bool = False, get_pty: bool = False, get_err: bool = False) -> Union[bool, List[str], Tuple[List[str], List[str]]]:
+        if ignore_result:
+            return self._send_command(command=command, ignore_result=ignore_result, get_pty=get_pty)
+
+        stdout, stderr = self._send_command(command=command, ignore_result=ignore_result, get_pty=get_pty)
+        if get_err:
+            return stdout, stderr
+        else:
+            return stdout
+
     def send_command_with_check_success(self, command: Union[List[str], str], background: bool = False, get_pty: bool = False) -> bool:
-        result = self.send_command(command=f'{command.strip(";")}; echo $?', ignore_result=False, background=background, get_pty=get_pty)
+        result = self.send_command(command=f'{command.strip(";")}; echo $?', ignore_result=False, get_pty=get_pty)
         if not int(result[-1]):
             return True
         else:

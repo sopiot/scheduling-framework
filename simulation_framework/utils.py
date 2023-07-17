@@ -387,3 +387,11 @@ def add_files_to_zip(zip_path, file_paths):
 def unzip_file(zip_path, extract_path):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_path)
+
+
+def escape_special_chars(input: str) -> str:
+    special_chars = ["!", "\"", "#", "$", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/", ":", ";", "<", "=", ">", "?", "@", "[", "]", "^", "_", "`", "{", "}", "|", "~"]
+    for char in special_chars:
+        if char in input:
+            input = input.replace(char, "\\" + char)
+    return input
