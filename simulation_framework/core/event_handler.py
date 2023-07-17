@@ -11,12 +11,12 @@ from big_thing_py.common.thread import MXThread, Event, Empty
 
 
 class MXSimulationEnv:
-    def __init__(self, config: MXSimulationConfig, root_middleware: MXMiddleware = None,
+    def __init__(self, config: MXSimulationConfig,
                  static_event_timing_list: List['MXEvent'] = [], dynamic_event_timing_list: List['MXEvent'] = [],
                  service_pool: List[MXService] = [], thing_pool: List[MXThing] = [],
                  simulation_data_file_path: str = '') -> None:
         self.config = config
-        self.root_middleware = root_middleware
+        self.root_middleware: MXMiddleware = None
         self.static_event_timing_list = static_event_timing_list
         self.dynamic_event_timing_list = dynamic_event_timing_list
         self.service_pool = service_pool
@@ -24,12 +24,29 @@ class MXSimulationEnv:
         self.simulation_data_file_path = simulation_data_file_path
 
     def dict(self):
-        return dict(config_path=self.config.config_path,
+        return dict(config_path=os.path.abspath(self.config.config_path),
                     root_middleware=self.root_middleware.dict(),
                     static_event_timing_list=[event.dict() for event in self.static_event_timing_list],
                     dynamic_event_timing_list=[event.dict() for event in self.dynamic_event_timing_list],
                     service_pool=[service.dict() for service in self.service_pool],
                     thing_pool=[thing.dict() for thing in self.thing_pool])
+
+    def load_middleware_tree(self, data: dict) -> MXMiddleware:
+        self.root_middleware = MXMiddleware(name=data['name'],
+                                            level=data['level'],
+                                            thing_list=[MXThing().load(thing_info) for thing_info in data['thing_list']],
+                                            scenario_list=[MXScenario().load(scenario_info) for scenario_info in data['scenario_list']],
+                                            children=[MXMiddleware().load(child_middleware_info) for child_middleware_info in data['children']],
+                                            device=MXDevice().load(data['device']),
+                                            remote_middleware_path=data['remote_middleware_path'],
+                                            remote_middleware_config_path=data['remote_middleware_config_path'],
+                                            mqtt_port=data['mqtt_port'],
+                                            mqtt_ssl_port=data['mqtt_ssl_port'],
+                                            websocket_port=data['websocket_port'],
+                                            websocket_ssl_port=data['websocket_ssl_port'],
+                                            localserver_port=data['localserver_port'])
+
+        return self.root_middleware
 
 
 class MXEventType(Enum):
@@ -100,7 +117,7 @@ class MXEvent:
                  timestamp: float = 0, duration: float = None, delay: float = None,
                  error: MXErrorCode = None, return_type: MXType = None, return_value: ReturnType = None,
                  requester_middleware_name: str = None, super_thing_name: str = None, super_function_name: str = None,
-                 *args, **kwargs) -> None:
+                 args=(), kwargs={}) -> None:
         self.event_type = event_type
 
         self.component = component
@@ -108,36 +125,17 @@ class MXEvent:
         self.thing_component = thing_component
         self.service_component = service_component
         self.scenario_component = scenario_component
-
         self.timestamp = timestamp
         self.duration = duration
-
         self.delay = delay
-
         self.error = error
         self.return_type = return_type
         self.return_value = return_value
         self.requester_middleware_name = requester_middleware_name
         self.super_thing_name = super_thing_name
         self.super_function_name = super_function_name
-
         self.args = args
         self.kwargs = kwargs
-
-    def load(self, data: dict):
-        self.event_type = MXEventType.get(data['event_type']) if data['event_type'] is str else data['event_type']
-        self.component = MXComponent.load(data['component'])
-        self.middleware_component = MXComponent.load(data['middleware_component'])
-        self.thing_component = MXComponent.load(data['thing_component'])
-        self.service_component = MXComponent.load(data['service_component'])
-        self.scenario_component = MXComponent.load(data['scenario_component'])
-        self.timestamp = data['timestamp']
-        self.duration = data['duration']
-        self.delay = data['delay']
-        self.error = MXErrorCode.get(data['error']) if data['error'] is str else data['error']
-        self.return_type = MXType.get(data['return_type']) if data['return_type'] is str else data['return_type']
-        self.return_value = data['return_value']
-        self.requester_middleware_name = data['requester_middleware_name']
 
     def dict(self) -> dict:
         return dict(event_type=self.event_type.value,
@@ -152,7 +150,11 @@ class MXEvent:
                     error=self.error,
                     return_type=self.return_type,
                     return_value=self.return_value,
-                    requester_middleware_name=self.requester_middleware_name)
+                    requester_middleware_name=self.requester_middleware_name,
+                    super_thing_name=self.super_thing_name,
+                    super_function_name=self.super_function_name,
+                    args=self.args,
+                    kwargs=self.kwargs)
 
 
 class MXEventHandler:
@@ -647,7 +649,7 @@ class MXEventHandler:
             # MXTEST_LOG_DEBUG(f'All scenario Add is complete!...', MXTestLogLevel.INFO)
             return True
 
-    def scenario_state_check(self, target_state: List[MXScenarioState], check_interval: float, retry: int, timeout: float):
+    def scenario_state_check(self, target_state: Union[List[MXScenarioState], str], check_interval: float, retry: int, timeout: float):
 
         def task(middleware: MXMiddleware, timeout: float):
             scenario_check_list: List[bool] = []
@@ -676,6 +678,8 @@ class MXEventHandler:
 
         if isinstance(target_state, MXScenarioState):
             target_state = [target_state]
+        elif isinstance(target_state, str):
+            target_state = [MXScenarioState.get(target_state)]
 
         while retry:
             if all([scenario.schedule_success for scenario in self.scenario_list]):

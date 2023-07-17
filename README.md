@@ -47,7 +47,8 @@ pip3 install .
 You can run a simple simulation on your local machine by using the following command:
 
 ```bash
-python3 run.py -c sim_env_samples/simple_home_local -po scheduling_algorithm/samples
+cd sim_env_samples
+python3 run.py -c ../sim_env_samples/simple_home_local -po ../scheduling_algorithm/samples
 ```
 
 If you run the command for the first time, you will be prompted to enter the password information for the current user on `localhost`. Upon entering the password, the device information for `localhost` will be automatically saved in the `device_pool_path` specified in the **Simulation Environment file** (_default `device_pool_path` is set to **`${ROOT}/device_pool.yml`**_), as follows:
@@ -75,23 +76,26 @@ If the `Middleware` and `Thing` are distributed to remote devices instead of run
 Users can perform simulations directly from **Simulation Data file** by using the `-i` option. In this case, the simulator loads the simulation environment that has already been generated, rather than creating a new simulation environment. Users can still specify which **scheduling algorithm** to use for the simulation by using the `-po` option.
 
 ```bash
-python3 run.py -i sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -po scheduling_algorithm/samples
+cd sim_env_samples
+python3 run.py -i ../sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -po ../scheduling_algorithm/samples
 ```
 
 The `-o` option can be used to specify the name of the result file. If the `-o` option is not specified, the name of the simulation specified in the **Simulation Environment file** will be used as the default name. In addition, users can download logs from a remote device for debugging purposes using the `-dl` option.
 
 ```bash
-python3 run.py -i sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -po scheduling_algorithm/samples -o test_result -dl
+cd sim_env_samples
+python3 run.py -i ../sim_env_samples/simple_test/<simulation_data_directory>/simulation_data.json -po ../scheduling_algorithm/samples -o test_result -dl
 ```
 
 The `-c` and `-po` options allow users to specify a list of **Simulation Environment file** (`config*.yml`) and **Scheduling Algorithm file** (`*.cc`). These options can be used as shown in the following command:
 
 ```bash
-python3 run.py -c sim_env_samples/simple_home_local_multi_env/config_period5_10.yml \
-                  sim_env_samples/simple_home_local_multi_env/config_period10_20.yml \
-               -po scheduling_algorithm/samples/default.cc \
-                  scheduling_algorithm/samples/energy_saving.cc \
-                  scheduling_algorithm/samples/merge_execution.cc
+cd sim_env_samples
+python3 run.py -c ../sim_env_samples/simple_home_local_multi_env/config_period5_10.yml \
+                  ../sim_env_samples/simple_home_local_multi_env/config_period10_20.yml \
+               -po ../scheduling_algorithm/samples/default.cc \
+                  ../scheduling_algorithm/samples/energy_saving.cc \
+                  ../scheduling_algorithm/samples/merge_execution.cc
 ```
 
 ### Time synchronization for profiling
@@ -131,13 +135,15 @@ ptpd2[20090].eth0 (info)      (slv) TimingService.PTP0: acquired clock control
 When the message "`acquired clock control`" is displayed, time synchronization is complete. Profiling can be performed by giving the `-pf` option. If there is no message print "`acquired clock control`" in only one device, that device has been determined as the master time device. In this case, make sure that to the far right of the message with "`Now in state: PTP_MASTER`" is the message "`(self)`". If it exists, the corresponding device has been determined as the master time device.
 
 ```bash
-python3 run.py -c sim_env_samples/<env_samples_directory> -po scheduling_algorithm/samples -pf
+cd sim_env_samples
+python3 run.py -c ../sim_env_samples/<env_samples_directory> -po ../scheduling_algorithm/samples -pf
 ```
 
 If there is a simulation log downloaded by running the simulation with the `-dl` option, user can load the log and proceed with profiling. In this case, user can only proceed with profiling by giving the `--only_profile` option. User can profile logs for individual simulations only with the `-log` option, or all logs in remote_logs with the `-logs` option. If the `-logs` option is given, the final result is the average of the profiling results for all logs.
 
 ```bash
-python run.py -log remote_logs/<simulation_log_sample> --only_profile
+cd sim_env_samples
+python3 run.py -log ../remote_logs/<simulation_log_sample> --only_profile
 # python run.py -logs remote_logs --only_profile
 ```
 

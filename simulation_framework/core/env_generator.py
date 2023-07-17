@@ -690,7 +690,7 @@ class MXEnvGenerator:
                                     for scenario in scenario_list]
         static_event_timing_list.extend(sorted(scenario_add_timing_list, key=lambda x: x.timestamp))
         static_event_timing_list.append(MXEvent(event_type=MXEventType.SCENARIO_ADD_CHECK))
-        static_event_timing_list.append(MXEvent(event_type=MXEventType.SCENARIO_STATE_CHECK, **dict(target_state=[MXScenarioState.INITIALIZED], check_interval=3, retry=5)))
+        static_event_timing_list.append(MXEvent(event_type=MXEventType.SCENARIO_STATE_CHECK, kwargs=dict(target_state=[MXScenarioState.INITIALIZED.value], check_interval=3, retry=5)))
         static_event_timing_list.append(MXEvent(delay=5, event_type=MXEventType.DELAY))
 
         # Simulation start

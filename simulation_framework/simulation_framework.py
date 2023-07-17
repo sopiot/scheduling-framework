@@ -49,8 +49,8 @@ class MXSimulationFramework:
         tag_name_pool = service_thing_pool['tag_name_pool']
         service_name_pool = service_thing_pool['service_name_pool']
         super_service_name_pool = service_thing_pool['super_service_name_pool']
-        service_pool = [MXService.load(service_info) for service_info in service_thing_pool['service_pool']]
-        thing_pool = [MXThing.load(thing_info) for thing_info in service_thing_pool['thing_pool']]
+        service_pool: List[MXService] = [MXService.load(service_info) for service_info in service_thing_pool['service_pool']]
+        thing_pool: List[MXThing] = [MXThing.load(thing_info) for thing_info in service_thing_pool['thing_pool']]
         for thing in thing_pool:
             for service in thing.service_list:
                 service.thing = thing
@@ -58,14 +58,43 @@ class MXSimulationFramework:
         MXTEST_LOG_DEBUG(f'Load service_thing_pool from ./{os.path.relpath(service_thing_pool_path, get_project_root())}', MXTestLogLevel.INFO)
         return tag_name_pool, service_name_pool, super_service_name_pool, service_pool, thing_pool
 
+    def load_event_timing_list(self, simulation_env: MXSimulationEnv, event_timing_list: List[dict]) -> List[MXEvent]:
+        event_list: List[MXEvent] = []
+        for event in event_timing_list:
+            event_type = MXEventType.get(event['event_type'])
+            component = find_component_by_name(simulation_env.root_middleware, event['component'])
+            middleware_component = find_component_by_name(simulation_env.root_middleware, event['middleware_component'])
+            if component and component.component_type in [MXComponentType.MIDDLEWARE, MXComponentType.THING, MXComponentType.SCENARIO]:
+                component.middleware = middleware_component
+
+            event_obj = MXEvent(event_type=event_type,
+                                component=find_component_by_name(simulation_env.root_middleware, event['component']),
+                                timestamp=event['timestamp'],
+                                duration=event['duration'],
+                                delay=event['delay'],
+                                middleware_component=find_component_by_name(simulation_env.root_middleware, event['middleware_component']),
+                                args=event['args'],
+                                kwargs=event['kwargs'])
+            event_list.append(event_obj)
+
+        return event_list
+
     def load_simulation_data(self, simulation_data_path: str) -> Tuple[MXSimulationConfig, List[MXSimulationEnv]]:
         simulation_data_file = load_json(simulation_data_path)
         simulation_env_list: List[MXSimulationEnv] = []
-        for simulation_env_info in simulation_data_file['simulation_env_list']:
-            config = simulation_env_info['config']
-            root_middleware = MXMiddleware.load(simulation_env_info['root_middleware'])
-            event_timing_list = simulation_env_info['event_timing_list']
-            simulation_env = MXSimulationEnv(config=config, root_middleware=root_middleware, event_timing_list=event_timing_list)
+        for simulation_env_info in simulation_data_file['simulation_list']:
+            config = MXSimulationConfig(config_path=simulation_env_info['config_path'])
+            # root_middleware = MXMiddleware().load(simulation_env_info['root_middleware'])
+
+            service_pool = simulation_env_info['service_pool']
+            thing_pool = simulation_env_info['thing_pool']
+            simulation_env = MXSimulationEnv(config=config,
+                                             service_pool=service_pool,
+                                             thing_pool=thing_pool,
+                                             simulation_data_file_path=simulation_data_path)
+            simulation_env.load_middleware_tree(simulation_env_info['root_middleware'])
+            simulation_env.static_event_timing_list = self.load_event_timing_list(simulation_env, simulation_env_info['static_event_timing_list'])
+            simulation_env.dynamic_event_timing_list = self.load_event_timing_list(simulation_env, simulation_env_info['dynamic_event_timing_list'])
             simulation_env_list.append(simulation_env)
 
         return simulation_env_list

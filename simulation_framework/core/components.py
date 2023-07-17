@@ -38,6 +38,19 @@ def get_whole_service_list(middleware: 'MXMiddleware') -> List['MXService']:
     return service_list
 
 
+def get_whole_device_list(middleware: 'MXMiddleware') -> List['MXDevice']:
+    middleware_list = get_whole_middleware_list(middleware)
+    duplicated_device_list = [middleware.device for middleware in middleware_list]
+    device_list: List[MXDevice] = []
+
+    for device in duplicated_device_list:
+        if device in device_list:
+            continue
+        device_list.append(device)
+
+    return device_list
+
+
 def find_component(root_middleware: 'MXMiddleware', component: 'MXComponent', key: Callable = lambda x: x) -> T:
     if isinstance(component, MXMiddleware):
         middleware_list = get_whole_middleware_list(root_middleware)
@@ -61,13 +74,14 @@ def find_component(root_middleware: 'MXMiddleware', component: 'MXComponent', ke
                 return service
 
 
-def find_component_by_name(root_middleware: 'MXMiddleware', component_name: str) -> 'MXComponent':
+def find_component_by_name(root_middleware: 'MXMiddleware', component_name: str) -> Union['MXMiddleware', 'MXThing', 'MXScenario', 'MXService']:
     middleware_list = get_whole_middleware_list(root_middleware)
     thing_list = get_whole_thing_list(root_middleware)
     scenario_list = get_whole_scenario_list(root_middleware)
     service_list = get_whole_service_list(root_middleware)
+    device_list = get_whole_device_list(root_middleware)
 
-    for component in middleware_list + thing_list + scenario_list + service_list:
+    for component in middleware_list + thing_list + scenario_list + service_list + device_list:
         if component.name == component_name:
             return component
 
@@ -215,15 +229,6 @@ class MXComponent(metaclass=ABCMeta):
         self.level = state['level']
         self.component_type = state['component_type']
 
-    @classmethod
-    def load(cls, data: dict) -> 'MXComponent':
-        component = cls()
-        component.name = data['name']
-        component.level = data['level']
-        component.component_type = MXComponentType.get(data['component_type'])
-
-        return component
-
     def dict(self) -> dict:
         return dict(name=self.name,
                     level=self.level,
@@ -256,9 +261,8 @@ class MXDevice(MXComponent):
     def __eq__(self, __o: object) -> bool:
         return self.host == __o.host and self.user == __o.user and self.ssh_port == __o.ssh_port and self.password == __o.password
 
-    @classmethod
-    def load(cls, data: dict) -> 'MXDevice':
-        device: MXDevice = super().load(data=data)
+    def load(self, data: dict) -> 'MXDevice':
+        device = MXDevice(name=data['name'], level=data['level'])
 
         device.host = data['host']
         device.ssh_port = data['ssh_port']
@@ -355,7 +359,6 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
-    # TODO: complete this
     def __getstate__(self):
         state = super().__getstate__()
 
@@ -378,7 +381,6 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
 
         return state
 
-    # TODO: complete this
     def __setstate__(self, state):
         super().__setstate__(state)
 
@@ -397,15 +399,14 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.middleware = None
         self.recv_queue: Queue = Queue()
 
-    @classmethod
     def load(cls, data: dict) -> 'MXMiddleware':
-        middleware: MXMiddleware = super().load(data=data)
+        middleware = MXMiddleware(name=data['name'], level=data['level'])
 
-        middleware.thing_list = [MXThing.load(thing_info) for thing_info in data['thing_list']]
-        middleware.scenario_list = [MXScenario.load(scenario_info) for scenario_info in data['scenario_list']]
-        middleware.children = [MXMiddleware.load(child_middleware_info) for child_middleware_info in data['child_middleware_list']]
+        middleware.thing_list = [MXThing().load(thing_info) for thing_info in data['thing_list']]
+        middleware.scenario_list = [MXScenario().load(scenario_info) for scenario_info in data['scenario_list']]
+        middleware.children = [MXMiddleware().load(child_middleware_info) for child_middleware_info in data['children']]
 
-        middleware.device = MXDevice.load(data['device'])
+        middleware.device = MXDevice().load(data['device'])
 
         middleware.remote_middleware_path = data['remote_middleware_path']
         middleware.remote_middleware_config_path = data['remote_middleware_config_path']
@@ -424,7 +425,7 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         return dict(**super().dict(),
                     thing_list=[thing.dict() for thing in self.thing_list],
                     scenario_list=[scenario.dict() for scenario in self.scenario_list],
-                    child_middleware_list=[child_middleware.dict() for child_middleware in self.children],
+                    children=[child_middleware.dict() for child_middleware in self.children],
                     device=self.device.dict(),
                     remote_middleware_path=self.remote_middleware_path,
                     remote_middleware_config_path=self.remote_middleware_config_path,
@@ -604,9 +605,8 @@ elif thing_start_time == 1:
             service_code = self.SUPER_FUNCTION_TEMPLATE % (self.name, sub_service_request_code)
         return service_code
 
-    @classmethod
-    def load(cls, data: dict) -> 'MXService':
-        service: MXService = super().load(data=data)
+    def load(self, data: dict) -> 'MXService':
+        service = MXService(name=data['name'], level=data['level'])
 
         service.tag_list = data['tag_list']
         service.is_super = data['is_super']
@@ -614,7 +614,7 @@ elif thing_start_time == 1:
         service.execute_time = data['execute_time']
         service.return_value = data['return_value']
 
-        service.sub_service_list = [MXService.load(service_info) for service_info in data['subfunction_list']]
+        service.sub_service_list = [MXService().load(service_info) for service_info in data['subfunction_list']]
 
         return service
 
@@ -799,17 +799,16 @@ if __name__ == '__main__':
         self.middleware = None
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
-    @classmethod
-    def load(cls, data: dict):
-        thing: MXThing = super().load(data=data)
+    def load(self, data: dict):
+        thing: MXThing = MXThing(name=data['name'], level=data['level'])
 
-        thing.service_list = [MXService.load(service_info)
+        thing.service_list = [MXService().load(service_info)
                               for service_info in data['service_list']]
         thing.is_super = data['is_super']
         thing.is_parallel = data['is_parallel']
         thing.alive_cycle = data['alive_cycle']
 
-        thing.device = MXDevice.load(data['device'])
+        thing.device = MXDevice().load(data['device'])
 
         thing.thing_file_path = data['thing_file_path']
         thing.remote_thing_file_path = data['remote_thing_file_path']
@@ -929,11 +928,10 @@ class MXScenario(MXComponent):
         self.middleware = None
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
-    @classmethod
-    def load(cls, data: dict) -> None:
-        scenario: MXScenario = super().load(data=data)
+    def load(self, data: dict) -> None:
+        scenario = MXScenario(name=data['name'], level=data['level'])
 
-        scenario.service_list = [MXService.load(service_info)
+        scenario.service_list = [MXService().load(service_info)
                                  for service_info in data['service_list']]
         scenario.period = data['period']
         scenario.scenario_file_path = data['scenario_file_path']

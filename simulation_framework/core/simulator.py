@@ -344,18 +344,6 @@ check_cpu_clock_setting'''
     #  \__,_| \__||_||_||___/
     # =========================
 
-    # for load event_timing_list from simulation data file
-    def _load_event_timing_list(simulation_env: MXSimulationEnv, event_timing_list: List[dict]) -> List[MXEvent]:
-        event_timing_list: List[MXEvent] = [MXEvent(event_type=MXEventType.get(event['event_type']),
-                                                    component=find_component_by_name(simulation_env.root_middleware, event['component'])[0],
-                                                    timestamp=event['timestamp'],
-                                                    duration=event['duration'],
-                                                    delay=event['delay'],
-                                                    middleware_component=event['middleware_component'])
-                                            for event in event_timing_list]
-
-        return event_timing_list
-
     def get_event_log(self) -> List[MXEvent]:
         return self.event_handler.event_log
 
