@@ -101,6 +101,7 @@ class MXSimulator:
     def build_iot_system(self):
         self._send_middleware_configs()
         self._send_thing_codes()
+        self._export_scenario_codes()
         self._update_middleware_thing()
 
     def _update_middleware_thing(self):
@@ -267,8 +268,8 @@ check_cpu_clock_setting'''
     def _trigger_static_events(self) -> None:
         self.event_handler.middleware_run_task = self.event_handler.simulation_progress.add_task("Run middleware", total=len(self.event_handler.middleware_list))
         self.event_handler.thing_run_task = self.event_handler.simulation_progress.add_task("Run thing", total=len(self.event_handler.thing_list))
-        self.event_handler.scenario_add_task = self.event_handler.simulation_progress.add_task("Add scenario", total=len(self.event_handler.scenario_list))
-        self.event_handler.scenario_init_check_task = self.event_handler.simulation_progress.add_task("Check scenario init", total=len(self.event_handler.scenario_list))
+        self.event_handler.scenario_add_task = self.event_handler.simulation_progress.add_task("Add application", total=len(self.event_handler.scenario_list))
+        self.event_handler.scenario_init_check_task = self.event_handler.simulation_progress.add_task("Check application init", total=len(self.event_handler.scenario_list))
         self.event_handler.simulation_progress.update(self.event_handler.static_event_running_task, completed=0)
 
         for event in self.static_event_timing_list:
@@ -385,6 +386,12 @@ check_cpu_clock_setting'''
             task1 = progress.add_task("Send thing code", total=len(thing_list))
             pool_map(send_task, thing_list, proc=1)
 
+        return True
+
+    def _export_scenario_codes(self):
+        scenario_list: List[MXScenario] = get_whole_scenario_list(self.simulation_env.root_middleware)
+        for scenario in scenario_list:
+            write_file(scenario.scenario_file_path, scenario.scenario_code())
         return True
 
     # =========================

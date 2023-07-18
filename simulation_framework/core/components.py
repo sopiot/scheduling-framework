@@ -874,6 +874,8 @@ if __name__ == '__main__':
 
 
 class MXScenario(MXComponent):
+    # it means Application of IoT System
+
     SCENARIO_TEMPLATE = '''loop(%s) {
 %s
 }

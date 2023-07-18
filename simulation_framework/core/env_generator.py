@@ -395,7 +395,7 @@ class MXEnvGenerator:
 
         if manual_middleware_tree:
             def generate_scenario_manual(middleware: MXMiddleware, middleware_config: AnyNode) -> None:
-                scenario_per_middleware_range = middleware_config.scenario_num
+                scenario_per_middleware_range = middleware_config.application_num
                 scenario_per_middleware = random.randint(*scenario_per_middleware_range)
                 available_service_list = flatten_list([thing.service_list for thing in middleware.thing_list])
 

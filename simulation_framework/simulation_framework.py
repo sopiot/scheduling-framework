@@ -253,7 +253,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
             # Map services and things to middleware
             self.env_generator.map_thing_to_middleware(root_middleware=root_middleware, thing_pool=thing_pool)
 
-            # Generate application
+            # Generate scenario
             self.env_generator.generate_scenario(root_middleware=root_middleware)
 
             # Generate super service, super thing and super scenario

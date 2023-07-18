@@ -452,23 +452,23 @@ Users can configure a custom `Middleware` layer structure to perform simulations
 - name: middleware
   device: [localhost]
   thing_num: [0, 0]
-  scenario_num: [0, 0]
+  application_num: [0, 0]
   super_thing_num: [1, 1]
-  super_scenario_num: [2, 2]
+  super_application_num: [2, 2]
   children:
     - name: middleware
       device: [localhost]
       thing_num: [10, 10]
-      scenario_num: [10, 10]
+      application_num: [10, 10]
       super_thing_num: [0, 0]
-      super_scenario_num: [2, 2]
+      super_application_num: [2, 2]
       children: []
     - name: middleware
       device: [localhost]
       thing_num: [10, 10]
-      scenario_num: [10, 10]
+      application_num: [10, 10]
       super_thing_num: [0, 0]
-      super_scenario_num: [2, 2]
+      super_application_num: [2, 2]
       children: []
 ```
 
@@ -484,17 +484,17 @@ Users can configure a custom `Middleware` layer structure to perform simulations
 
   The number of things per `Middleware`. The two numbers in `[]` mean the minimum and maximum values.
 
-- **scenario_num**: `[{int}, {int}]`
+- **application_num**: `[{int}, {int}]`
 
-  Number of Scenarios per `Middleware`. The two numbers in `[]` mean the minimum and maximum values.
+  Number of Applications per `Middleware`. The two numbers in `[]` mean the minimum and maximum values.
 
 - **super_thing_num**: `[{int}, {int}]`
 
   The number of Super Thing per `Middleware`. The two numbers in `[]` mean the minimum and maximum values.
 
-- **super_scenario_num**: `[{int}, {int}]`
+- **super_application_num**: `[{int}, {int}]`
 
-  The number of Super Scenarios per `Middleware`. The two numbers in `[]` mean the minimum and maximum values.
+  The number of Super Applications per `Middleware`. The two numbers in `[]` mean the minimum and maximum values.
 
 - **child**: `{list}`
 
