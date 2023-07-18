@@ -131,6 +131,24 @@ class MXComponentActionType(Enum):
             return cls.UNDEFINED
 
 
+class MXThingState(Enum):
+    REGISTERED = 'REGISTERED'
+    UNREGISTERED = 'UNREGISTERED'
+    ERROR = 'ERROR'
+
+    UNDEFINED = 'UNDEFINED'
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def get(cls, name: str):
+        try:
+            return cls[name.upper()]
+        except Exception:
+            return cls.UNDEFINED
+
+
 class MXScenarioState(Enum):
     CREATED = 'CREATED'
     SCHEDULING = 'SCHEDULING'
@@ -139,6 +157,8 @@ class MXScenarioState(Enum):
     EXECUTING = 'EXECUTING'
     STUCKED = 'STUCKED'
     COMPLETED = 'COMPLETED'
+
+    ADD_RESULT_ARRIVED = 'ADD_RESULT_ARRIVED'
 
     UNDEFINED = 'UNDEFINED'
 
@@ -189,29 +209,13 @@ class MXThingFaultType(Enum):
             return cls.UNDEFINED
 
 
-class MXComponentScopeType(Enum):
-    LOCAL = 'LOCAL'
-    SUPER = 'SUPER'
-
-    UNDEFINED = 'UNDEFINED'
-
-    def __str__(self):
-        return self.value
-
-    @classmethod
-    def get(cls, name: str):
-        try:
-            return cls[name.upper()]
-        except Exception:
-            return cls.UNDEFINED
-
-
 class MXComponent(metaclass=ABCMeta):
     def __init__(self, name: str, level: int, component_type: MXComponentType) -> None:
         # basic info
         self.name = name
         self.level = level
         self.component_type = component_type
+        self.event_log = []  # type: List[MXEvent]
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -351,6 +355,8 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.localserver_port = localserver_port
         self.middleware_cfg = ''
         self.online = False
+        self.pid = 0
+        self.mosquitto_pid = 0
 
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
@@ -369,7 +375,10 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         state['localserver_port'] = self.localserver_port
         state['middleware_cfg'] = self.middleware_cfg
         state['online'] = self.online
+        state['pid'] = self.pid
+        state['mosquitto_pid'] = self.mosquitto_pid
 
+        del state['event_log']
         del state['parent']
         del state['children']
         del state['recv_msg_table']
@@ -391,7 +400,10 @@ sqlite3 $VALUE_LOG_DB < %s/ValueLogDBCreate'''
         self.localserver_port = state['localserver_port']
         self.middleware_cfg = state['middleware_cfg']
         self.online = state['online']
+        self.pid = state['pid']
+        self.mosquitto_pid = state['mosquitto_pid']
 
+        self.event_log = []  # type: List[MXEvent]
         self.parent = None
         self.children = None
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
@@ -748,8 +760,8 @@ if __name__ == '__main__':
 
         # for middleware mqtt client name (middleware.name + mac address)
         self.middleware_client_name: str = ''
-        self.registered: bool = False
-        self.pid: int = 0
+        self.state = MXThingState.UNDEFINED
+        self.pid = 0
 
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
@@ -766,9 +778,10 @@ if __name__ == '__main__':
         state['remote_thing_file_path'] = self.remote_thing_file_path
         state['fail_rate'] = self.fail_rate
         state['middleware_client_name'] = self.middleware_client_name
-        state['registered'] = self.registered
+        state['state'] = self.state
         state['pid'] = self.pid
 
+        del state['event_log']
         del state['middleware']
         del state['recv_msg_table']
 
@@ -786,9 +799,10 @@ if __name__ == '__main__':
         self.remote_thing_file_path = state['remote_thing_file_path']
         self.fail_rate = state['fail_rate']
         self.middleware_client_name = state['middleware_client_name']
-        self.registered = state['registered']
+        self.state = state['state']
         self.pid = state['pid']
 
+        self.event_log = []  # type: List[MXEvent]
         self.middleware = None
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
@@ -876,9 +890,6 @@ class MXScenario(MXComponent):
         self.scenario_file_path = scenario_file_path
         self.middleware = middleware
         self.state: MXScenarioState = MXScenarioState.UNDEFINED
-        self.add_result_arrived = False
-        self.schedule_success = False
-        self.schedule_timeout = False
 
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 
@@ -894,10 +905,8 @@ class MXScenario(MXComponent):
         state['scenario_file_path'] = self.scenario_file_path
         # state['middleware'] = self.middleware
         state['state'] = self.state
-        state['add_result_arrived'] = self.add_result_arrived
-        state['schedule_success'] = self.schedule_success
-        state['schedule_timeout'] = self.schedule_timeout
 
+        del state['event_log']
         del state['middleware']
         del state['recv_msg_table']
 
@@ -911,10 +920,8 @@ class MXScenario(MXComponent):
         self.priority = state['priority']
         self.scenario_file_path = state['scenario_file_path']
         self.state = state['state']
-        self.add_result_arrived = state['add_result_arrived']
-        self.schedule_success = state['schedule_success']
-        self.schedule_timeout = state['schedule_timeout']
 
+        self.event_log = []  # type: List[MXEvent]
         self.middleware = None
         self.recv_msg_table: Dict[str, mqtt.MQTTMessage] = {}
 

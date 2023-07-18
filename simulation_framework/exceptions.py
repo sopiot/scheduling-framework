@@ -88,7 +88,7 @@ class SSHCommandFailError(SimulationFrameworkError):
         return f'SSH command failed: {self._command}' + '\n' + self._reason
 
 
-class SSHConfigError(SimulationFailError):
+class SSHConfigError(SimulationFrameworkError):
     """SSH config error"""
 
     def __init__(self, reason: str = '') -> None:
@@ -96,3 +96,13 @@ class SSHConfigError(SimulationFailError):
 
     def __str__(self) -> str:
         return 'SSH config error.' + '\n' + self._reason
+
+
+class ThingCodeError(SimulationFrameworkError):
+    """Thing code error"""
+
+    def __init__(self, reason: str = '') -> None:
+        super().__init__(reason)
+
+    def __str__(self) -> str:
+        return 'Thing code error.' + '\n' + self._reason

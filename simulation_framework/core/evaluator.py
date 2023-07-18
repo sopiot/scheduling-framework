@@ -44,61 +44,6 @@ class MXScenarioErrorType(Enum):
             return cls.UNDEFINED
 
 
-class MXAcceptanceScore:
-    def __init__(self, middleware_list: List[MXMiddleware]) -> None:
-        whole_event_log: List[MXEvent] = []
-        for middleware in middleware_list:
-            whole_event_log += middleware.event_log
-        whole_event_log = sorted(whole_event_log, key=lambda x: x.timestamp)
-        whole_event_log = [event for event in whole_event_log if event.event_type == MXEventType.SCENARIO_ADD]
-
-        acceptance_ratio_meter = []
-        acceptance_ratio_by_section = []
-        acceptance_ratio_by_cumulative = []
-        for event_group in self.grouper(10, whole_event_log):
-            event_group: List[MXEvent]
-            accept = 0
-            not_accept = 0
-            for event in event_group:
-                if not event:
-                    continue
-                if event.scenario_component.schedule_success:
-                    accept += 1
-                else:
-                    not_accept += 1
-            acceptance_ratio_tmp = accept/(not_accept + accept)
-            if acceptance_ratio_tmp == 0:
-                acceptance_ratio_meter.append(' ')
-            elif acceptance_ratio_tmp > 0 and acceptance_ratio_tmp <= 1/8:
-                acceptance_ratio_meter.append('▁')
-            elif acceptance_ratio_tmp > 1/8 and acceptance_ratio_tmp <= 2/8:
-                acceptance_ratio_meter.append('▂')
-            elif acceptance_ratio_tmp > 2/8 and acceptance_ratio_tmp <= 3/8:
-                acceptance_ratio_meter.append('▃')
-            elif acceptance_ratio_tmp > 3/8 and acceptance_ratio_tmp <= 4/8:
-                acceptance_ratio_meter.append('▄')
-            elif acceptance_ratio_tmp > 4/8 and acceptance_ratio_tmp <= 5/8:
-                acceptance_ratio_meter.append('▅')
-            elif acceptance_ratio_tmp > 5/8 and acceptance_ratio_tmp <= 6/8:
-                acceptance_ratio_meter.append('▆')
-            elif acceptance_ratio_tmp > 6/8 and acceptance_ratio_tmp <= 7/8:
-                acceptance_ratio_meter.append('▇')
-            elif acceptance_ratio_tmp > 7/8 and acceptance_ratio_tmp <= 1:
-                acceptance_ratio_meter.append('█')
-            acceptance_ratio_by_section.append(acceptance_ratio_tmp)
-
-        for i, acceptance_ratio in enumerate(acceptance_ratio_by_section):
-            acceptance_ratio_by_cumulative.append(sum(acceptance_ratio_by_section[:i+1])/(i+1))
-
-        self.acceptance_ratio_meter = acceptance_ratio_meter
-        self.acceptance_ratio_by_section = acceptance_ratio_by_section
-        self.acceptance_ratio_by_cumulative = acceptance_ratio_by_cumulative
-
-    def grouper(self, n, iterable, fillvalue=None):
-        args = [iter(iterable)] * n
-        return zip_longest(fillvalue=fillvalue, *args)
-
-
 class MXExecuteCycleResult:
     def __init__(self, execute_cycle: List[MXEvent] = [], cycle_latency: int = 0, cycle_energy: int = 0, avg_execute_time: int = 0, overhead: float = 0, error: MXExecuteCycleErrorType = None) -> None:
         self.execute_event_cycle: List[MXEvent] = execute_cycle
@@ -494,9 +439,12 @@ class MXEvaluator:
                     service_pattern.append(sub_service)
             return service_pattern
 
-        whole_execute_event_list: List[MXEvent] = [event for event in scenario.event_log if event.event_type in [
-            MXEventType.FUNCTION_EXECUTE, MXEventType.SUPER_FUNCTION_EXECUTE, MXEventType.SUB_FUNCTION_EXECUTE]]
-        schedule_event_list: List[MXEvent] = [event for event in scenario.event_log if event.event_type == MXEventType.SUPER_SCHEDULE]
+        scenario_event_log: List[MXEvent] = scenario.event_log
+        whole_execute_event_list: List[MXEvent] = [event for event in scenario_event_log
+                                                   if event.event_type in [MXEventType.FUNCTION_EXECUTE,
+                                                                           MXEventType.SUPER_FUNCTION_EXECUTE,
+                                                                           MXEventType.SUB_FUNCTION_EXECUTE]]
+        schedule_event_list: List[MXEvent] = [event for event in scenario_event_log if event.event_type == MXEventType.SUPER_SCHEDULE]
 
         if not scenario.is_super():
             event_type_list = [event.event_type for event in whole_execute_event_list]
@@ -505,9 +453,12 @@ class MXEvaluator:
             if MXEventType.SUPER_FUNCTION_EXECUTE in event_type_list or MXEventType.SUB_FUNCTION_EXECUTE in event_type_list:
                 raise Exception(f'scenario {scenario.name} is local, but sub_service event is not found')
 
-        if scenario.schedule_timeout:
+        # if the state of the scenario remains initialized, it means scenario is timeout.
+        if scenario.state == MXScenarioState.UNDEFINED:
             return MXScenarioResult(scenario_component=scenario, error=MXScenarioErrorType.SCHEDULE_TIMEOUT)
-        elif not scenario.schedule_success:
+        # if the state of the scenario is STUCKED and there is no event related to Execution in the event_log, it means scenario schedule is failed.
+        elif scenario.state == MXScenarioState.STUCKED and len([event for event in scenario_event_log if event.event_type in [MXEventType.FUNCTION_EXECUTE,
+                                                                                                                              MXEventType.SUPER_FUNCTION_EXECUTE]]) == 0:
             return MXScenarioResult(scenario_component=scenario, error=MXScenarioErrorType.SCHEDULE_FAIL)
         elif scenario.state == MXScenarioState.STUCKED:
             return MXScenarioResult(scenario_component=scenario, error=MXScenarioErrorType.FAIL)
@@ -720,7 +671,6 @@ class MXEvaluator:
         scenario_result_header = ['', 'avg accept ratio(%)', 'avg success ratio(%)', 'avg latency', 'avg energy', 'avg execute time', 'avg schedule time', 'avg overhead']
         count_result_header = ['', 'total', 'success', 'fail', 'accept', 'accept fail', 'timeout num']
         policy_result_header = ['total execute count', 'total execute time', 'total application cycle num', 'total avg application latency']
-        acceptance_ratio_meter_header = ['acceptance_ratio_meter']
         if simulation_overhead:
             profile_result_header = ['overhead type', 'overhead']
 
@@ -776,8 +726,6 @@ class MXEvaluator:
                                 simulation_result.total_execute_time,
                                 simulation_result.total_scenario_cycle_num,
                                 f'{(simulation_result.total_execute_time / simulation_result.total_scenario_cycle_num if simulation_result.total_scenario_cycle_num != 0 else 0):0.2f}']]
-        acceptance_score = MXAcceptanceScore(middleware_list)
-        acceptance_ratio_meter_table = [[''.join(acceptance_score.acceptance_ratio_meter)]]
 
         if simulation_overhead:
             profile_result_table = []
@@ -799,7 +747,6 @@ class MXEvaluator:
         scenario_result_title = f'==== Scenario Result ===='
         count_result_title = f'==== Count Result ===='
         policy_result_title = f'==== Policy Result ===='
-        acceptance_title = f'==== Acceptance Result ===='
         if simulation_overhead:
             profile_result_title = f'==== Profile Overhead Result ===='
 
@@ -810,8 +757,6 @@ class MXEvaluator:
         count_result_table_str = print_table(count_result_table, count_result_header)
         print(policy_result_title)
         policy_result_table_str = print_table(policy_result_table, policy_result_header)
-        print(acceptance_title)
-        acceptance_result_table_str = print_table(acceptance_ratio_meter_table, acceptance_ratio_meter_header)
         if simulation_overhead:
             print(profile_result_title)
             profile_result_table_str = print_table(profile_result_table, profile_result_header)
@@ -833,18 +778,12 @@ class MXEvaluator:
             f.write(policy_result_title + '\n')
             f.write(policy_result_table_str)
             f.write('\n')
-            f.write(acceptance_title + '\n')
-            f.write(acceptance_result_table_str)
-            f.write('\n')
             if simulation_overhead:
                 f.write(profile_result_title + '\n')
                 f.write(profile_result_table_str)
                 f.write('\n')
 
     def export_csv(self, simulation_result: MXSimulationResult,  simulation_overhead: ProfileResult = None, simulation_name: str = '', file_name: str = '', config_path: str = ''):
-        # middleware_list: List[MXMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
-        # acceptance_score = MXAcceptanceScore(middleware_list)
-
         if not file_name:
             file_name = f'result_{os.path.basename(os.path.dirname(config_path))}'
         else:
