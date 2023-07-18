@@ -284,5 +284,24 @@
         "execute"
       ]
     },
+    {
+      "name": "test -c, -po option",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/sim_env_samples/run.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "-c",
+        "./sim_env_samples/simple_home_local_multi_env/config_period5_10.yml",
+        "./sim_env_samples/simple_home_local_multi_env/config_period10_20.yml",
+        "-po",
+        "./scheduling_algorithm/samples/policy_default.cc",
+        "./scheduling_algorithm/samples/policy_energy_saving.cc",
+        "./scheduling_algorithm/samples/policy_merge_execution.cc",
+        "-sp",
+      ]
+    },
   ]
 }

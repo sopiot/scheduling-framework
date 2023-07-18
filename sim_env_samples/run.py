@@ -7,9 +7,9 @@ START_LOGGER()
 
 def arg_parse() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', '-c', type=str, dest='config_path',
+    parser.add_argument('--config', '-c', type=str, dest='config_path', nargs='+',
                         required=False, help='Config file path, or directory path containing environment config files.')
-    parser.add_argument('--policy', '-po', type=str, dest='policy_path', default='./scheduling_algorithm/samples',
+    parser.add_argument('--policy', '-po', type=str, dest='policy_path', nargs='+', default='./scheduling_algorithm/samples',
                         required=False, help='Policy file path, or directory path containing policy files.')
     parser.add_argument('--simulation-data', '-i', type=str, dest='simulation_data_path',
                         required=False, help='Simulation data file path.')
@@ -63,5 +63,5 @@ if __name__ == '__main__':
     simulation_framework = MXSimulationFramework(service_parallel=args.service_parallel, result_filename=args.result_filename, download_logs=args.download_logs,
                                                  profile=args.profile, profile_type=args.profile_type, ram_disk=args.ram_disk,
                                                  mqtt_debug=args.mqtt_debug, middleware_debug=args.middleware_debug)
-    simulation_framework.load(config_path=args.config_path, simulation_data_path=args.simulation_data_path, policy_path=args.policy_path)
+    simulation_framework.load(config_path_list=args.config_path, simulation_data_path=args.simulation_data_path, policy_path_list=args.policy_path)
     simulation_framework.start()

@@ -37,6 +37,13 @@ class ConfigError(SimulationFrameworkError):
         super().__init__(reason)
 
 
+class ConfigLoadError(SimulationFrameworkError):
+    """Config load error"""
+
+    def __init__(self, reason: str = '') -> None:
+        super().__init__(reason)
+
+
 class ConfigKeyError(ConfigError):
     """Config key error"""
 
