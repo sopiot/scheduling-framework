@@ -395,3 +395,17 @@ def escape_special_chars(input: str) -> str:
         if char in input:
             input = input.replace(char, "\\" + char)
     return input
+
+
+def replace_none_children_to_empty_list(data: dict) -> dict:
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == 'children' and value is None:
+                data[key] = []
+            elif isinstance(value, list) or isinstance(value, dict):
+                replace_none_children_to_empty_list(value)
+    elif isinstance(data, list):
+        for item in data:
+            replace_none_children_to_empty_list(item)
+
+    return data
