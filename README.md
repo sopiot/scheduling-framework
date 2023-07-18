@@ -4,7 +4,9 @@
   <img src="imgs/sim_overview.png" width="500" alt="sim_overview" style="margin-right:0px" />
 </div>
 
-This is a framework that is designed to fine-tune the **scheduling algorithm** of the middleware based on an IoT environment simulator. Using this simulator, users can implement their own **scheduling algorithm** and simulate the IoT system. The framework automates running multiple simulations with multiple environments and **scheduling algorithm**, and provides not only the results of each simulation but also the rankings of each objective to pick the best one. If you want to learn more about the **Terminology** used in this repository, please refer to [here](#terminology).
+This framework allows you to evaluate and fine-tune the **Scheduling Algorithm** of the MySSIX IoT platform through simulation. Users can implement their own **Scheduling Algorithm** and simulate the IoT platform using this framework. The framework automatically runs multiple simulations using various simulation environments and **Scheduling Algorithms**, and provides not only the results of each simulation but also a ranking chart for selecting the optimal **Scheduling Algorithm**.
+
+If you want to learn more about the **Terminology** used in this repository, please refer to [here](#terminology).
 
 <!-- [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) -->
 
@@ -73,7 +75,7 @@ If the `Middleware` and `Thing` are distributed to remote devices instead of run
 <img src="imgs/sim_gen.png" width="400" alt="sim_gen" />
 </div>
 
-Users can perform simulations directly from **Simulation Data file** by using the `-i` option. In this case, the simulator loads the simulation environment that has already been generated, rather than creating a new simulation environment. Users can still specify which **scheduling algorithm** to use for the simulation by using the `-po` option.
+Users can perform simulations directly from **Simulation Data file** by using the `-i` option. In this case, the simulator loads the simulation environment that has already been generated, rather than creating a new simulation environment. Users can still specify which **Scheduling Algorithm** to use for the simulation by using the `-po` option.
 
 ```bash
 cd sim_env_samples
