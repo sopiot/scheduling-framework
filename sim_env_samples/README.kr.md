@@ -14,8 +14,6 @@
 
 ## Case 3: Simple Campus
 
-This simulation runs seven `Middleware`, with one `Middleware` at level 3, two `Middleware` at level 2, and four `Middleware` at level 1. Only the `Middleware` at level 1 registers 10 `Normal Things` and 10 `Normal Application` with the `Middleware`. It registers one `Super Thing` with the top-level `Middleware` and two `Super Application` with the top and bottom `Middleware`, respectively. It can be run with local, remote, or `local_random` settings. With `local_random`, the simulation is run with a randomly generated hierarchical structure of 3 levels and 2 widths.
-
 이 예제에서는 레벨 3에서 1개의 **Middleware**와 레벨 2에서 2개, 레벨 1에서 4개의 **Middleware**를 실행합니다. 최하위 레벨 1의 **Middleware**에만 10개의 **Normal Thing**와 10개의 **Normal Application**을 등록합니다. 최상위 **Middleware**에 1개의 **Super Thing**을 등록하고, 각각 최상단과 최하단의 **Middleware**에 2개의 **Super Application**을 등록하여 시뮬레이션을 실행합니다. 이 예제 시뮬레이션은 `local`, `remote` 설정으로 실행할 수 있습니다.
 
 ## Case 4: Paper Experiments
