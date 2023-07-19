@@ -20,29 +20,36 @@ class MXSimulationFramework:
         self._middleware_debug = middleware_debug
 
         self._config_list: List[MXSimulationConfig] = []
-        self._policy_path_list: List[str] = []
+        self._policy_file_list: List[str] = []
         self._simulation_env_list: List[MXSimulationEnv] = []
 
-    def load(self, config_path: str = '', simulation_data_path: str = '', policy_path: str = '') -> None:
-        if config_path:
-            self._config_list = self.load_config(config_path=config_path)
+    def load(self, config_path_list: List[str] = '', simulation_data_path: str = '', policy_path_list: List[str] = '') -> None:
+        if config_path_list:
+            self._config_list = self.load_config(config_path_list=config_path_list)
         elif simulation_data_path:
             self._simulation_env_list = self.load_simulation_data(simulation_data_path=simulation_data_path)
         else:
             raise ConfigPathError('Only one of config_path and simulation_data_path must be given.', path='not given')
 
-        self._policy_path_list = self.load_policy(policy_path=policy_path)
+        self._policy_file_list = self.load_policy(policy_path_list=policy_path_list)
 
-    def load_config(self, config_path: str) -> List[MXSimulationConfig]:
-        if os.path.isdir(config_path):
-            config_list = [MXSimulationConfig(config_path=os.path.join(config_path, config_file_path)) for config_file_path in os.listdir(config_path)
-                           if config_file_path.startswith('config') and config_file_path.endswith('.yml')]
-        else:
-            config_list = ([MXSimulationConfig(config_path=config_path)]
-                           if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')) else [])
+    def load_config(self, config_path_list: List[str]) -> List[MXSimulationConfig]:
+        config_list: List[MXSimulationConfig] = []
+        for config_path in config_path_list:
+            if os.path.isdir(config_path):
+                config_file_path_list = os.listdir(config_path)
+                for config_file_path in config_file_path_list:
+                    if not (config_file_path.startswith('config') and config_file_path.endswith('.yml')):
+                        continue
+                    config = MXSimulationConfig(config_path=os.path.join(config_path, config_file_path))
+                    config_list.append(config)
+            else:
+                if (os.path.basename(config_path).startswith('config') and os.path.basename(config_path).endswith('.yml')):
+                    config_list.append(MXSimulationConfig(config_path=config_path))
 
         if not self._result_filename:
             self._result_filename = f'{config_list[0].name}_result'
+
         return config_list
 
     def load_service_thing_pool(self, service_thing_pool_path: str) -> Tuple[List[str], List[str], List[str], List[MXService], List[MXThing]]:
@@ -103,12 +110,22 @@ class MXSimulationFramework:
 
         return simulation_env_list
 
-    def load_policy(self, policy_path: str) -> List[str]:
-        if os.path.isdir(policy_path):
-            policy_path_list = [os.path.join(policy_path, file) for file in os.listdir(policy_path) if file.startswith('policy') and file.endswith('.cc')]
-        else:
-            policy_path_list = [policy_path] if (os.path.basename(policy_path).startswith('policy') and os.path.basename(policy_path).endswith('.cc')) else []
-        return policy_path_list
+    def load_policy(self, policy_path_list: List[str]) -> List[str]:
+        policy_list: List[str] = []
+        for policy_path in policy_path_list:
+            if os.path.isdir(policy_path):
+                policy_file_path_list = os.listdir(policy_path)
+                for policy_file_path in policy_file_path_list:
+                    if not (policy_file_path.startswith('policy') and policy_file_path.endswith('.cc')):
+                        continue
+                    policy_file_path = os.path.join(policy_path, policy_file_path)
+                    policy_list.append(policy_file_path)
+            else:
+                policy_base_path = os.path.basename(policy_path)
+                if policy_base_path.startswith('policy') and policy_base_path.endswith('.cc'):
+                    policy_list.append(policy_path)
+
+        return policy_list
 
     def start(self):
         # Generate simulation if any root_middleware in self._simulation_env_list is None.
@@ -119,8 +136,8 @@ class MXSimulationFramework:
         # Simulation will run with count of len(simulation_env_list) * len(policy_path_list).
         simulation_result_list: List[MXSimulationResult] = []
         for index, simulation_env in enumerate(self._simulation_env_list):
-            for policy_path in self._policy_path_list:
-                simulation_result = self.run_simulation(simulation_env=simulation_env, policy_path=policy_path, index=index)
+            for policy_file in self._policy_file_list:
+                simulation_result = self.run_simulation(simulation_env=simulation_env, policy_path=policy_file, index=index)
                 simulation_result_list.append(simulation_result)
 
         self.print_ranking(simulation_result_list=simulation_result_list)
@@ -185,6 +202,9 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
         return num_service_generate, num_thing_generate
 
     def generate_simulation_env(self, config_list: List[MXSimulationConfig]) -> List[MXSimulationEnv]:
+        if len(config_list) == 0:
+            raise ConfigLoadError('No config file loaded. Check -c or -i option.')
+
         self.env_generator = MXEnvGenerator(service_parallel=self._service_parallel)
 
         simulation_env_list: List[MXSimulationEnv] = []

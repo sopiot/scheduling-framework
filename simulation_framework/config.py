@@ -135,6 +135,7 @@ class MXMiddlewareConfig:
         if self.manual.abs_path():
             importer = DictImporter()
             manual_middleware_tree_dict = load_yaml(self.manual.abs_path())
+            manual_middleware_tree_dict = replace_none_children_to_empty_list(manual_middleware_tree_dict)
             if not manual_middleware_tree_dict:
                 raise MiddlewareTreePathError(path=self.manual.abs_path())
             self.manual_middleware_tree = importer.import_(manual_middleware_tree_dict)

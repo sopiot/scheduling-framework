@@ -1,21 +1,23 @@
-# MySSIX Simulator Examples
+# 사전 정의 시뮬레이션 환경 파일 및 예제
 
-This folder contains examples using the MySSIX simulator.
+이 페이지에서는 사전 정의된 **시뮬레이션 환경 파일**을 사용하는 예제들에 대해 설명합니다.
 
-The examples are divided into folders named `simple_home_*`, `simple_building_*`, `simple_campus_*`, and `paper_experiment`. The `simple` part is divided into `local` and `remote` examples. The `*_local` examples run all simulation components directly on the local machine, while the `*_remote` examples run the `Middleware` component on a remote machine and the Thing component on the local machine. The `paper_experiment` example is for reproducing the experiments in the paper and runs the simulation with the `remote` setting.
+예제들은 `simple_home_*`, `simple_building_*`, `simple_campus_*`, 그리고 `paper_experiment`라는 이름의 폴더로 나누어져 있습니다. `simple`로 시작하는 폴더안에 있는 예제들은 `local`과 `remote`예제로 나누어져 있습니다. `local` 예제는 모든 시뮬레이션 구성 요소를 로컬 디바이스에서 직접 실행하고, `remote` 예제는 **Middleware** 구성 요소를 원격 디바이스에서 실행하고 **Thing** 구성 요소를 로컬 디바이스에서 실행합니다. `paper_experiment` 폴더에는 기반 논문에서의 실험을 재현할 수 있는 예제가 들어있습니다.
 
-## Case 1: simple home
+## Case 1: Simple Home
 
-This simulation does not create a hierarchical structure and runs one `Middleware` at level 1. It registers one `Super Thing`, two `Super Applications`, 10 `Normal Things`, and 10 `Normal Applications` with the `Middleware` to perform the simulation. It can be run with `local`, `remote`, or `multi_env` settings. With `multi_env`, the simulation is run four times for two **Simulation Environment files** and two **Scheduling Algorithms files**, and the results of comparing the two scheduling algorithms are output.
+이 예제에서는 계층 구조를 생성하지 않고 레벨 1에서 1개의 **Middleware**만을 실행합니다. **Middleware**에 1개의 **Super Thing**, 2개의 **Super Application**, 10개의 **Normal Thing**, 그리고 10개의 **Normal Application**을 등록하여 시뮬레이션을 실행합니다. 이 예제 시뮬레이션은 `local`, `remote` 설정으로 실행할 수 있습니다.
 
-## Case 2: simple building
+## Case 2: Simple Building
 
-This simulation runs five `Middleware`, with one `Middleware` at level 2 and four `Middleware` at level 1. Only the `Middleware` at level 1 registers 10 `Normal Things` and 10 `Normal Applications` with the `Middleware`. It registers one `Super Thing` with the top-level `Middleware` and two `Super Applications` with the top and bottom `Middleware`, respectively. It can be run with `local` or `remote` settings.
+이 예제에서는 레벨 2에서 1개의 **Middleware**와 레벨 1에서 4개의 **Middleware**를 실행합니다. 레벨 1의 **Middleware**만 10개의 **Normal Thing**와 10개의 **Normal Application**을 등록합니다. 최상위 **Middleware**에 1개의 **Super Thing**을 등록하고, 각각 최상단과 최하단의 **Middleware**에 2개의 **Super Application**을 등록하여 시뮬레이션을 실행합니다. 이 예제 시뮬레이션은 `local`, `remote` 설정으로 실행할 수 있습니다.
 
-## Case 3: simple campus
+## Case 3: Simple Campus
 
-This simulation runs seven `Middleware`, with one `Middleware` at level 3, two `Middleware` at level 2, and four `Middleware` at level 1. Only the `Middleware` at level 1 registers 10 `Normal Things` and 10 `Normal Applications` with the `Middleware`. It registers one `Super Thing` with the top-level `Middleware` and two `Super Applications` with the top and bottom `Middleware`, respectively. It can be run with local, remote, or `local_random` settings. With `local_random`, the simulation is run with a randomly generated hierarchical structure of 3 levels and 2 widths.
+This simulation runs seven `Middleware`, with one `Middleware` at level 3, two `Middleware` at level 2, and four `Middleware` at level 1. Only the `Middleware` at level 1 registers 10 `Normal Things` and 10 `Normal Application` with the `Middleware`. It registers one `Super Thing` with the top-level `Middleware` and two `Super Application` with the top and bottom `Middleware`, respectively. It can be run with local, remote, or `local_random` settings. With `local_random`, the simulation is run with a randomly generated hierarchical structure of 3 levels and 2 widths.
 
-## Case 4: paper experiments
+이 예제에서는 레벨 3에서 1개의 **Middleware**와 레벨 2에서 2개, 레벨 1에서 4개의 **Middleware**를 실행합니다. 최하위 레벨 1의 **Middleware**에만 10개의 **Normal Thing**와 10개의 **Normal Application**을 등록합니다. 최상위 **Middleware**에 1개의 **Super Thing**을 등록하고, 각각 최상단과 최하단의 **Middleware**에 2개의 **Super Application**을 등록하여 시뮬레이션을 실행합니다. 이 예제 시뮬레이션은 `local`, `remote` 설정으로 실행할 수 있습니다.
 
-This simulation environment can reproduce the experiments performed in the paper. It runs one `Middleware` on a remote device and runs all `Normal Things` on the local machine by default, except for the `Super Thing`, which runs on the same device as the `Middleware`. Devices specified in the **Device Pool file** in the `device_pool_path` path must be specified as information on the _local network_ and at _least 11 Raspberry Pi devices are required_.
+## Case 4: Paper Experiments
+
+이 예제에서는 논문에서 수행한 실험을 재현할 수 있습니다. 기본적으로 원격 디바이스에서 1개의 **Middleware**를 실행하고 **Super Thing**을 제외한 모든 **Normal Thing**을 로컬 디바이스에서 실행합니다. **Super Thing**은 **Middleware**와 동일한 디바이스에서 실행됩니다. `device_pool_path` 경로에 있는 **디바이스 풀 파일**에서 지정된 디바이스들은 `localhost`정보와 최소 11개의 Raspberry Pi 디바이스 정보가 명세되어있어야 합니다.
