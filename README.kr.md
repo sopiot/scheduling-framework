@@ -87,8 +87,8 @@ cd <device_pool_path>
 
 ### 고급 사용법
 
-<div align="center">
-<img src="imgs/sim_gen.png" width="400" alt="sim_gen" />
+<div align="left">
+<img src="imgs/sim_gen.png" width="500" alt="sim_gen" />
 </div>
 
 `-i` 옵션을 사용하여 **시뮬레이션 데이터 파일**에서 직접 시뮬레이션을 수행할 수 있습니다. 이 경우, 시뮬레이터는 새로운 시뮬레이션 환경을 생성하는 대신 이미 생성된 시뮬레이션 환경을 로드합니다. `-c` 옵션과 마찬가지로 `-po` 옵션을 사용하여 시뮬레이션에 사용할 **스케줄링 알고리즘 파일**을 지정할 수 있습니다.
@@ -118,6 +118,7 @@ python3 run.py -c ../sim_env_samples/simple_home_local_multi_env/config_period5_
                   ../scheduling_algorithm/samples/merge_execution.cc
 ```
 
+<TODO 자세한 내용은 docs로 옮길 것>
 ### 시뮬레이션 프로파일링을 위한 시간 동기화
 
 프레임워크는 각 시뮬레이션 단계마다 오버헤드를 측정, 평가할 수 있는 프로파일링 기능을 제공합니다. 시뮬레이션 동안 **Middleware**와 **Thing**의 로그는 각 디바이스에 저장되며, 로그의 타임스탬프를 비교하여 오버헤드를 측정합니다. 각 시뮬레이션 단계에 대한 오버헤드를 정확히 측정하기 위해서는 각 디바이스 간에 시간을 정밀하게 동기화해야 합니다. 이를 위해 **PTP 프로토콜**을 사용하여 디바이스 간의 시간을 동기화할 수 있습니다. `ptpd`를 사용하면 **PTP 프로토콜**을 사용한 정밀한 시간 동기화를 수행할 수 있습니다.
