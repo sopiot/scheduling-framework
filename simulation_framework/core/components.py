@@ -261,6 +261,7 @@ class MXDevice(MXComponent):
         self.localserver_port = localserver_port
 
         self.available_port_list: List[int] = []
+        self.valid = False
 
     def __eq__(self, __o: object) -> bool:
         return self.host == __o.host and self.user == __o.user and self.ssh_port == __o.ssh_port and self.password == __o.password

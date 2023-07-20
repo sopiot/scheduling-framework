@@ -161,8 +161,8 @@ class MXEnvGenerator:
 
         return selected_words
 
-    def generate_name_pool(self, num_tag_name_generate: int, num_service_name_generate: int, num_super_service_name_generate: int,
-                           ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
+    def _generate_name_pool(self, num_tag_name_generate: int, num_service_name_generate: int, num_super_service_name_generate: int,
+                            ban_name_list: List[str] = []) -> Tuple[List[str], List[str], List[str]]:
         ban_name_list = ban_name_list + self._PREDEFINED_KEYWORD_LIST
 
         tag_name_pool = self._generate_random_words(num_word=num_tag_name_generate, ban_word_list=ban_name_list)
@@ -170,7 +170,7 @@ class MXEnvGenerator:
         super_service_name_pool = self._generate_random_words(num_word=num_super_service_name_generate, ban_word_list=ban_name_list)
         return tag_name_pool, service_name_pool, super_service_name_pool
 
-    def generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], num_service_generate: int) -> List[MXService]:
+    def _generate_service_pool(self, tag_name_pool: List[str], service_name_pool: List[str], num_service_generate: int) -> List[MXService]:
         service_name_pool_copy = copy.deepcopy(service_name_pool)
         service_pool: List[MXService] = []
 
@@ -202,7 +202,7 @@ class MXEnvGenerator:
         MXTEST_LOG_DEBUG(f'Complete generating service pool size of {len(service_pool)}', MXTestLogLevel.INFO)
         return service_pool
 
-    def generate_thing_pool(self, service_pool: List[MXService], num_thing_generate: int) -> List[MXThing]:
+    def _generate_thing_pool(self, service_pool: List[MXService], num_thing_generate: int) -> List[MXThing]:
         thing_pool = []
         for _ in track(range(num_thing_generate), description='Generating things...'):
             device = random.choice(self._thing_device_pool)
@@ -243,14 +243,13 @@ class MXEnvGenerator:
         MXTEST_LOG_DEBUG(f'Complete Generating thing pool size of {num_thing_generate}', MXTestLogLevel.INFO)
         return thing_pool
 
-    def generate_middleware_tree(self) -> MXMiddleware:
+    def _generate_middleware_tree(self) -> MXMiddleware:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_middleware_config = self._config.middleware_config.random
         device_pool = copy.deepcopy(self._middleware_device_pool)
 
+        used_device_list: List[MXDevice] = []
         if manual_middleware_tree:
-            used_device_list: List[MXDevice] = []
-
             def generate_middleware_tree_manual(middleware: MXMiddleware, middleware_config: AnyNode, index: int) -> MXMiddleware:
                 height = middleware_config.height + 1
                 if middleware_config.is_root:
@@ -258,14 +257,23 @@ class MXEnvGenerator:
                 else:
                     middleware_name = f'{middleware.name}__MW_L{height}_{index}'
 
-                if hasattr(middleware_config, 'device'):
-                    if middleware_config.device:
-                        device_name: str = random.choice([device for device in middleware_config.device if not device in [device.name for device in used_device_list]])
-                        device = self._find_device(device_name=device_name, device_pool=device_pool)
+                while True:
+                    if len(device_pool) == 0:
+                        raise SimulationFrameworkError('Not enough valid device for middleware')
+
+                    if hasattr(middleware_config, 'device'):
+                        if middleware_config.device:
+                            device_name: str = random.choice([device for device in middleware_config.device if not device in [device.name for device in used_device_list]])
+                            device = self._find_device(device_name=device_name, device_pool=device_pool)
+                        else:
+                            device = random.choice(device_pool)
                     else:
                         device = random.choice(device_pool)
-                else:
-                    device = random.choice(device_pool)
+
+                    if self._check_device_validation(device):
+                        break
+                    else:
+                        raise SSHConfigError(f'Failed to connect to localhost. Please check ssh config')
 
                 # Do not remove localhost device
                 if device.name != 'localhost':
@@ -298,11 +306,21 @@ class MXEnvGenerator:
                 else:
                     middleware_name = f'{middleware.name}__MW_L{height}_{index}'
 
-                device = random.choice(device_pool)
+                while True:
+                    if len(device_pool) == 0:
+                        raise SimulationFrameworkError('Not enough valid device for middleware')
+
+                    device = random.choice(device_pool)
+
+                    if self._check_device_validation(device):
+                        break
+                    else:
+                        raise SSHConfigError(f'Failed to connect to localhost. Please check ssh config')
 
                 # Do not remove localhost device
                 if device.name != 'localhost':
                     device_pool.remove(device)
+                    used_device_list.append(device)
 
                 middleware = MXMiddleware(name=middleware_name,
                                           level=height,
@@ -334,7 +352,7 @@ class MXEnvGenerator:
         print_middleware_tree(root_middleware)
         return root_middleware
 
-    def map_thing_to_middleware(self, root_middleware: MXMiddleware, thing_pool: List[MXThing]) -> None:
+    def _map_thing_to_middleware(self, root_middleware: MXMiddleware, thing_pool: List[MXThing]) -> None:
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
 
@@ -388,7 +406,7 @@ class MXEnvGenerator:
 
         MXTEST_LOG_DEBUG(f'Map thing to middleware tree', MXTestLogLevel.INFO)
 
-    def generate_scenario(self, root_middleware: MXMiddleware):
+    def _generate_scenario(self, root_middleware: MXMiddleware):
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
         service_per_scenario_range = self._config.application_config.normal.service_per_application
@@ -468,7 +486,7 @@ class MXEnvGenerator:
 
         MXTEST_LOG_DEBUG(f'Generate application to middleware tree', MXTestLogLevel.INFO)
 
-    def generate_super(self, root_middleware: MXMiddleware, tag_name_pool: List[str], super_service_name_pool: List[str]) -> List[MXThing]:
+    def _generate_super_component(self, root_middleware: MXMiddleware, tag_name_pool: List[str], super_service_name_pool: List[str]) -> List[MXThing]:
         super_service_name_pool_copy = copy.deepcopy(super_service_name_pool)
         manual_middleware_tree = self._config.middleware_config.manual_middleware_tree
         random_config = self._config.middleware_config.random
@@ -626,10 +644,6 @@ class MXEnvGenerator:
         else:
             raise Exception('Unknown simulation generator error')
 
-    def validate_simulation_env(self, middleware: MXMiddleware):
-        thing_list = middleware.thing_list
-        scenario_list = middleware.scenario_list
-
     def _generate_event_timing_list(self, root_middleware: MXMiddleware) -> Tuple[List[MXEvent], List[MXEvent]]:
 
         def generate_dynamic_thing_event_timing_list(local_thing_list: List[MXThing], super_thing_list: List[MXThing],
@@ -776,6 +790,19 @@ class MXEnvGenerator:
             whole_device_pool.append(device)
         return whole_device_pool
 
+    def _check_device_validation(self, device: MXDevice) -> bool:
+        test_ssh_client = MXSSHClient(device=device)
+        if not device.valid:
+            try:
+                test_ssh_client.connect()
+            except paramiko.SSHException as e:
+                return False
+            else:
+                test_ssh_client.disconnect()
+                return True
+        else:
+            return True
+
     def _read_ssh_config(self) -> dict:
         """A method that reads sshd_config and returns it as a dict
 
@@ -826,17 +853,9 @@ class MXEnvGenerator:
                                              user=user,
                                              password=password))
 
-        test_ssh_client = MXSSHClient(device=MXDevice(name='test_localhost',
-                                                      host='localhost',
-                                                      ssh_port=ssh_port,
-                                                      user=user,
-                                                      password=password))
-        try:
-            test_ssh_client.connect()
-        except Exception as e:
-            raise Exception(f'Failed to connect to localhost. Please check ssh config. {e}')
-        else:
-            test_ssh_client.disconnect()
+        test_local_host_device = MXDevice(name='test_localhost', **localhost_info['localhost'])
+        if not self._check_device_validation(device=test_local_host_device):
+            raise SSHConfigError(f'Failed to connect to localhost. Please check ssh config')
 
         updated_device_pool = {}
         updated_device_pool.update(localhost_info)
@@ -863,33 +882,6 @@ class MXEnvGenerator:
         elif isinstance(component, MXService):
             event.thing_component = component.thing
         return event
-
-    # def generate_data(self, simulation_env: MXMiddleware):
-    #     middleware_list: List[MXMiddleware] = get_whole_middleware_list(simulation_env)
-    #     thing_list: List[MXThing] = get_whole_thing_list(simulation_env)
-    #     scenario_list: List[MXScenario] = get_whole_scenario_list(simulation_env)
-
-    #     longest_scenario = max(scenario_list, key=lambda x: x.period)
-    #     if longest_scenario.period * 1.2 > self._config.running_time:
-    #         running_time = longest_scenario.period * 1.2
-    #         MXTEST_LOG_DEBUG(
-    #             f'Longest scenario period is {longest_scenario.period} but simulation time is {self._config.running_time}. Set simulation time to {running_time}', MXTestLogLevel.WARN)
-    #     else:
-    #         running_time = self._config.running_time
-
-    #     config = dict(name=self._config.name,
-    #                   running_time=running_time,
-    #                   event_timeout=self._config.event_timeout)
-    #     component = simulation_env.dict()
-    #     event_timing_list = self._generate_event_timing_list(middleware_list=middleware_list,
-    #                                                    thing_list=thing_list,
-    #                                                    scenario_list=scenario_list,
-    #                                                    running_time=running_time,
-    #                                                    event_timeout=self._config.event_timeout)
-    #     simulation_dump = dict(config=config,
-    #                            component=component,
-    #                            event_timing_list=event_timing_list)
-    #     return simulation_dump
 
     def _export_simulation_data_file(self, simulation_env_list: List[MXSimulationEnv], simulation_data_file_path: str) -> None:
         os.makedirs(os.path.dirname(simulation_data_file_path), exist_ok=True)

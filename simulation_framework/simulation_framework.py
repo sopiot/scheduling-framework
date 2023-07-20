@@ -95,8 +95,6 @@ class MXSimulationFramework:
         simulation_env_list: List[MXSimulationEnv] = []
         for simulation_env_info in simulation_data_file['simulation_list']:
             config = MXSimulationConfig(config_path=simulation_env_info['config_path'])
-            # root_middleware = MXMiddleware().load(simulation_env_info['root_middleware'])
-
             service_pool = simulation_env_info['service_pool']
             thing_pool = simulation_env_info['thing_pool']
             simulation_env = MXSimulationEnv(config=config,
@@ -248,7 +246,7 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
                     num_thing_generate = 0
 
             # Generate services and things
-            generated_tag_name_pool, generated_service_name_pool, generated_super_service_name_pool = self.env_generator.generate_name_pool(
+            generated_tag_name_pool, generated_service_name_pool, generated_super_service_name_pool = self.env_generator._generate_name_pool(
                 num_tag_name_generate=num_tag_name_generate,
                 num_service_name_generate=num_service_name_generate,
                 num_super_service_name_generate=num_super_service_name_generate
@@ -257,9 +255,9 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
             service_name_pool = loaded_service_name_pool + generated_service_name_pool
             super_service_name_pool = loaded_super_service_name_pool + generated_super_service_name_pool
 
-            generated_service_pool = self.env_generator.generate_service_pool(tag_name_pool=tag_name_pool, service_name_pool=service_name_pool, num_service_generate=num_service_generate)
+            generated_service_pool = self.env_generator._generate_service_pool(tag_name_pool=tag_name_pool, service_name_pool=service_name_pool, num_service_generate=num_service_generate)
             service_pool = loaded_service_pool + generated_service_pool
-            generated_thing_pool = self.env_generator.generate_thing_pool(service_pool=service_pool, num_thing_generate=num_thing_generate)
+            generated_thing_pool = self.env_generator._generate_thing_pool(service_pool=service_pool, num_thing_generate=num_thing_generate)
             thing_pool = loaded_thing_pool + generated_thing_pool
 
             # Export service_thing_pool
@@ -268,16 +266,16 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
                                             service_pool=service_pool, thing_pool=thing_pool)
 
             # Generate middleware tree
-            root_middleware = self.env_generator.generate_middleware_tree()
+            root_middleware = self.env_generator._generate_middleware_tree()
 
             # Map services and things to middleware
-            self.env_generator.map_thing_to_middleware(root_middleware=root_middleware, thing_pool=thing_pool)
+            self.env_generator._map_thing_to_middleware(root_middleware=root_middleware, thing_pool=thing_pool)
 
             # Generate scenario
-            self.env_generator.generate_scenario(root_middleware=root_middleware)
+            self.env_generator._generate_scenario(root_middleware=root_middleware)
 
             # Generate super service, super thing and super scenario
-            self.env_generator.generate_super(root_middleware=root_middleware, tag_name_pool=tag_name_pool, super_service_name_pool=super_service_name_pool)
+            self.env_generator._generate_super_component(root_middleware=root_middleware, tag_name_pool=tag_name_pool, super_service_name_pool=super_service_name_pool)
 
             # Generate event timing_list
             static_event_timing_list, dynamic_event_timing_list = self.env_generator._generate_event_timing_list(root_middleware=root_middleware)

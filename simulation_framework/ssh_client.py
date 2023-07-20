@@ -352,7 +352,7 @@ class MXSSHClient:
                 # MXTEST_LOG_DEBUG(f'SSH Connect success to device {self.device.name}.', MXTestLogLevel.PASS)
                 self.connected = True
                 return self._ssh_client
-            except Exception as e:
+            except paramiko.SSHException as e:
                 retry -= 1
                 print_error()
                 time.sleep(1)
