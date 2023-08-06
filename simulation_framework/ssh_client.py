@@ -25,6 +25,42 @@ class MXSSHClient:
 
         self.device.available_port_list = []
 
+    def _send_command(self, command: Union[List[str], str], ignore_result: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
+        while self.num_command_executing > MXSSHClient.COMMAND_SEND_LIMIT:
+            time.sleep(1)
+
+        if isinstance(command, str):
+            command_list = [line.strip() for line in command.strip().split('\n')]
+        elif isinstance(command, list):
+            command_list = [line.strip() for line in flatten_list([line.strip().split('\n') for line in command])]
+        else:
+            raise TypeError(f'command type must be str or list, not {type(command)}')
+
+        if not self.connected:
+            self.connect()
+
+        integrated_command = ''
+        for command in command_list:
+            if 'sudo' in command:
+                command_without_sudo = command.split('sudo')[1].strip()
+                password = escape_special_chars(self.device.password)
+                command = f'echo {password} | sudo -S {command_without_sudo}'
+
+            integrated_command += f'{command};'
+
+        try:
+            self.num_command_executing += 1
+            _, stdout, stderr = self._ssh_client.exec_command(integrated_command, get_pty=get_pty)
+
+            if ignore_result:
+                return True
+            else:
+                stdout_result: List[str] = stdout.readlines()
+                stderr_result: List[str] = stderr.readlines()
+                return stdout_result, stderr_result
+        finally:
+            self.num_command_executing -= 1
+
     def available_port(self):
         available_ports = list(range(10000, 65535))
 
@@ -129,42 +165,6 @@ class MXSSHClient:
         else:
             target_pid_list = list(set(target_pid_list_ps_ef))
         return target_pid_list
-
-    def _send_command(self, command: Union[List[str], str], ignore_result: bool = False, get_pty: bool = False) -> Union[bool, List[str]]:
-        while self.num_command_executing > MXSSHClient.COMMAND_SEND_LIMIT:
-            time.sleep(1)
-
-        if isinstance(command, str):
-            command_list = [line.strip() for line in command.strip().split('\n')]
-        elif isinstance(command, list):
-            command_list = [line.strip() for line in flatten_list([line.strip().split('\n') for line in command])]
-        else:
-            raise TypeError(f'command type must be str or list, not {type(command)}')
-
-        if not self.connected:
-            self.connect()
-
-        integrated_command = ''
-        for command in command_list:
-            if 'sudo' in command:
-                command_without_sudo = command.split('sudo')[1].strip()
-                password = escape_special_chars(self.device.password)
-                command = f'echo {password} | sudo -S {command_without_sudo}'
-
-            integrated_command += f'{command};'
-
-        try:
-            self.num_command_executing += 1
-            _, stdout, stderr = self._ssh_client.exec_command(integrated_command, get_pty=get_pty)
-
-            if ignore_result:
-                return True
-            else:
-                stdout_result: List[str] = stdout.readlines()
-                stderr_result: List[str] = stderr.readlines()
-                return stdout_result, stderr_result
-        finally:
-            self.num_command_executing -= 1
 
     def send_command(self, command: Union[List[str], str], ignore_result: bool = False, get_pty: bool = False, get_err: bool = False) -> Union[bool, List[str], Tuple[List[str], List[str]]]:
         if ignore_result:

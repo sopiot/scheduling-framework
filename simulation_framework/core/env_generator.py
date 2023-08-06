@@ -3,7 +3,6 @@ from simulation_framework.core.simulator import *
 import random
 import copy
 import requests
-from abc import ABCMeta, abstractmethod
 from getpass import getpass
 import platform
 
@@ -23,24 +22,6 @@ def print_middleware_tree(root_middleware: MXMiddleware, show: Callable = lambda
         cprint(f'{print_string}', 'cyan')
 
 
-class MXComponentGenerateMode(Enum):
-    ALL_RANDOM = 'all_random'
-    APPEND = 'append'
-    APPEND_WITH_REMAPPING = 'append_with_remapping'
-
-    UNDEFINED = 'UNDEFINED'
-
-    def __str__(self):
-        return self.value
-
-    @classmethod
-    def get(cls, name: str):
-        try:
-            return cls[name.upper()]
-        except Exception:
-            return cls.UNDEFINED
-
-
 class MXEnvGenerator:
     _PREDEFINED_KEYWORD_LIST = ['if', 'else', 'and', 'or', 'loop', 'wait_until', 'msec', 'list', 'normal', 'super',
                                 'sec', 'min', 'hour', 'day', 'month', 'all', 'single', 'random']
@@ -54,10 +35,6 @@ class MXEnvGenerator:
 
         self._middleware_device_pool: List[MXDevice] = []
         self._thing_device_pool: List[MXDevice] = []
-
-        # self._middleware_generator: MXMiddlewareGenerator = None
-        # self._thing_generator: MXThingGenerator = None
-        # self._scenario_generator: MXServiceGenerator = None
 
     def load(self, config: MXSimulationConfig):
         """A method to load MXEvnGenerator for generate simulation environment
@@ -112,11 +89,6 @@ class MXEnvGenerator:
             if len(self._middleware_device_pool) < middleware_num:
                 raise SimulationFailError(f'Device pool is not enough for {os.path.basename(os.path.dirname(self._config.config_path))} simulation. '
                                           f'(Requires at least {middleware_num} devices)')
-
-        # self._service_generator = MXServiceGenerator(self._config)
-        # self._thing_generator = MXThingGenerator(self._config, thing_device_pool)
-        # self._middleware_generator = MXMiddlewareGenerator(self._config, middleware_device_pool)
-        # self._scenario_generator = MXScenarioGenerator(self._config)
 
     def _generate_random_words(self, num_word: int = None, user_word_dictionary_file: List[str] = [], ban_word_list: List[str] = [], max_word_length: int = 7) -> List[str]:
         selected_words: List[str] = []
@@ -210,8 +182,8 @@ class MXEnvGenerator:
             level = -1
             is_super = False
             fail_rate = self._config.thing_config.normal.fail_error_rate
-            # broken_rate = self._config.thing_config.normal.broken_rate
-            # unregister_rate = self._config.thing_config.normal.unregister_rate
+            broken_rate = self._config.thing_config.normal.broken_rate
+            unregister_rate = self._config.thing_config.normal.unregister_rate
 
             service_per_thing_range = self._config.thing_config.normal.service_per_thing
             service_per_thing = random.randint(*service_per_thing_range)
@@ -234,7 +206,9 @@ class MXEnvGenerator:
                             device=device,
                             thing_file_path=f'{self._simulation_folder_path}/thing/base_thing/{thing_name}.py',
                             remote_thing_file_path=f'{self._config.thing_config.remote_thing_folder_path}/base_thing/{thing_name}.py',
-                            fail_rate=fail_rate)
+                            fail_rate=fail_rate,
+                            broken_rate=broken_rate,
+                            unregister_rate=unregister_rate)
             for service in thing.service_list:
                 service.thing = thing
 
@@ -779,7 +753,7 @@ class MXEnvGenerator:
                 name=device_name,
                 component_type=MXComponentType.DEVICE,
                 host=device_info['host'],
-                ssh_port=device_info['ssh_port'],
+                ssh_port=device_info.get('ssh_port', 22),
                 user=device_info['user'],
                 password=device_info['password'],
                 mqtt_port=device_info.get('mqtt_port', None),

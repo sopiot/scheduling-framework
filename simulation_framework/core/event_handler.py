@@ -1,5 +1,4 @@
 
-from simulation_framework.core.components import *
 from simulation_framework.config import *
 from simulation_framework.ssh_client import *
 from simulation_framework.mqtt_client import *
@@ -23,7 +22,7 @@ class MXSimulationEnv:
         self.thing_pool = thing_pool
         self.simulation_data_file_path = simulation_data_file_path
 
-    def dict(self):
+    def dict(self) -> dict:
         return dict(config_path=os.path.abspath(self.config.config_path),
                     root_middleware=self.root_middleware.dict(),
                     static_event_timing_list=[event.dict() for event in self.static_event_timing_list],
@@ -48,7 +47,7 @@ class MXSimulationEnv:
 
         return self.root_middleware
 
-    def cleanup(self):
+    def init(self) -> None:
         whole_middleware_list = get_whole_middleware_list(self.root_middleware)
         whole_thing_list = get_whole_thing_list(self.root_middleware)
         whole_scenario_list = get_whole_scenario_list(self.root_middleware)
@@ -133,7 +132,6 @@ class MXEvent:
                  requester_middleware_name: str = None, super_thing_name: str = None, super_function_name: str = None,
                  args=(), kwargs={}) -> None:
         self.event_type = event_type
-
         self.component = component
         self.middleware_component = middleware_component
         self.thing_component = thing_component
@@ -179,10 +177,8 @@ class MXEventHandler:
         self.middleware_list: List[MXMiddleware] = get_whole_middleware_list(self.root_middleware)
         self.thing_list: List[MXThing] = get_whole_thing_list(self.root_middleware)
         self.scenario_list: List[MXScenario] = get_whole_scenario_list(self.root_middleware)
-
         self.mqtt_client_list: List[MXMQTTClient] = []
         self.ssh_client_list: List[MXSSHClient] = []
-
         self.event_listener_event = Event()
         # self.event_listener_lock = Lock()
         self.event_listener_thread = MXThread(name='event_listener', target=self._event_listener, args=(self.event_listener_event, ))
@@ -193,12 +189,9 @@ class MXEventHandler:
         self.event_log: List[MXEvent] = []
         self.timeout = timeout
         self.running_time = running_time
-
         self.mqtt_debug = mqtt_debug
         self.middleware_debug = middleware_debug
-
         self.download_logs = download_logs
-
         self.download_log_file_thread_queue = Queue()
 
         # progress bar
@@ -208,19 +201,18 @@ class MXEventHandler:
         self.thing_run_task: TaskID = None
         self.scenario_add_task: TaskID = None
         self.scenario_init_check_task: TaskID = None
-
         self.schedule_running_task: TaskID = None
         self.execute_running_task: TaskID = None
         self.super_execute_running_task_pool: Dict[str, TaskID] = {}
         self.scenario_running_task_pool: Dict[str, TaskID] = {}
 
-    def _add_mqtt_client(self, mqtt_client: MXMQTTClient):
+    def _add_mqtt_client(self, mqtt_client: MXMQTTClient) -> None:
         self.mqtt_client_list.append(mqtt_client)
 
-    def _add_ssh_client(self, ssh_client: MXSSHClient):
+    def _add_ssh_client(self, ssh_client: MXSSHClient) -> None:
         self.ssh_client_list.append(ssh_client)
 
-    def _event_listener(self, stop_event: Event):
+    def _event_listener(self, stop_event: Event) -> bool:
         recv_msg: mqtt.MQTTMessage = None
 
         try:
@@ -1097,7 +1089,7 @@ class MXEventHandler:
 
     #### on_recv_message ##########################################################################################################################
 
-    def _on_recv_message(self, msg: mqtt.MQTTMessage):
+    def _on_recv_message(self, msg: mqtt.MQTTMessage) -> None:
         topic, payload, _ = decode_MQTT_message(msg)
         timestamp = get_current_time() - self.simulation_start_time
 
@@ -1483,7 +1475,7 @@ class MXEventHandler:
     #  \__,_| \__||_||_||___/
     # =========================
 
-    def _check_result_payload(self, payload: dict = None):
+    def _check_result_payload(self, payload: dict = None) -> bool:
         if not payload:
             MXTEST_LOG_DEBUG(f'Payload is None (timeout)!!!', MXTestLogLevel.FAIL)
             return None

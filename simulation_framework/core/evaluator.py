@@ -665,7 +665,7 @@ class MXEvaluator:
     #                       str(event.return_type) if event.return_type else ''])
     #     return table, header
 
-    def export_txt(self, simulation_result: MXSimulationResult, simulation_overhead: ProfileResult = None, simulation_name: str = '', file_name: str = '', config_path: str = ''):
+    def export_txt(self, simulation_result: MXSimulationResult, simulation_overhead: ProfileResult = None, simulation_name: str = '', file_name: str = '', config_path: str = '') -> None:
         middleware_list: List[MXMiddleware] = get_whole_middleware_list(self.simulation_env.root_middleware)
 
         scenario_result_header = ['', 'avg accept ratio(%)', 'avg success ratio(%)', 'avg latency', 'avg energy', 'avg execute time', 'avg schedule time', 'avg overhead']
@@ -783,7 +783,7 @@ class MXEvaluator:
                 f.write(profile_result_table_str)
                 f.write('\n')
 
-    def export_csv(self, simulation_result: MXSimulationResult,  simulation_overhead: ProfileResult = None, simulation_name: str = '', file_name: str = '', config_path: str = ''):
+    def export_csv(self, simulation_result: MXSimulationResult,  simulation_overhead: ProfileResult = None, simulation_name: str = '', file_name: str = '', config_path: str = '') -> None:
         if not file_name:
             file_name = f'result_{os.path.basename(os.path.dirname(config_path))}'
         else:

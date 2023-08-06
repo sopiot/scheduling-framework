@@ -4,61 +4,6 @@ PREDEFINED_POLICY_FILE_NAME = 'my_scheduling_policies.cc'
 SCHEDULING_ALGORITHM_PATH = f'{get_project_root()}/scheduling_algorithm'
 
 
-def exception_wrapper(func: Callable = None,
-                      empty_case_func: Callable = None,
-                      key_error_case_func: Callable = None,
-                      else_case_func: Callable = None,
-                      final_case_func: Callable = None,):
-    def wrapper(self, *args, **kwargs):
-        try:
-            return func(self, *args, **kwargs)
-        except Empty as e:
-            print_error()
-            if empty_case_func:
-                return empty_case_func()
-        except KeyError as e:
-            print_error()
-            if key_error_case_func:
-                return key_error_case_func()
-        except KeyboardInterrupt as e:
-            print('KeyboardInterrupt')
-            if hasattr(self._simulator, 'event_handler'):
-                event_handler: MXEventHandler = self._simulator.event_handler
-                event_handler.wrapup()
-
-                try:
-                    user_input = int(input('Select exit mode[default=1].\n1. Just exit\n2. Download remote logs\n') or 1)
-                except KeyboardInterrupt:
-                    user_input = 1
-
-                if user_input == 1:
-                    cprint(f'Exit whole simulation...', 'red')
-                elif user_input == 2:
-                    cprint(f'Download remote logs...', 'yellow')
-                    event_handler.download_log_file()
-                else:
-                    cprint(f'Unknown input. Exit whole simulation...', 'red')
-
-                exit(0)
-        except Exception as e:
-            if e is Empty:
-                print_error()
-                if empty_case_func:
-                    return empty_case_func()
-            elif e in [ValueError, IndexError, TypeError, KeyError]:
-                print_error()
-            else:
-                print_error()
-                event_handler: MXEventHandler = self._simulator.event_handler
-                event_handler.wrapup()
-            print_error()
-            raise e
-        finally:
-            if final_case_func:
-                final_case_func()
-    return wrapper
-
-
 class MXSimulator:
 
     def __init__(self, simulation_env: MXSimulationEnv, policy_path: str, mqtt_debug: bool = False, middleware_debug: bool = False, download_logs: bool = False, ram_disk: bool = False) -> None:
@@ -77,34 +22,32 @@ class MXSimulator:
         self.send_thing_file_thread_queue = Queue()
         self.send_middleware_file_thread_queue = Queue()
 
-    def setup(self):
+    def setup(self) -> None:
         self.event_handler = MXEventHandler(root_middleware=self.simulation_env.root_middleware,
                                             timeout=self.simulation_env.config.event_timeout,
                                             running_time=self.simulation_env.config.running_time,
                                             download_logs=self.download_logs,
                                             mqtt_debug=self.mqtt_debug,
                                             middleware_debug=self.middleware_debug)
-        self.event_handler.remove_duplicated_device_instance()
         self.event_handler.init_ssh_client_list()
+        self.cleanup()
+
+        self.event_handler.remove_duplicated_device_instance()
         self.event_handler.init_mqtt_client_list()
         self.event_handler.start_event_listener()
 
-        # self._generate_middleware_configs(self.simulation_env.root_middleware, simulation_data_file_path=self.simulation_env.simulation_data_file_path)
-        # self._generate_thing_codes(self.simulation_env.root_middleware)
-        # self._generate_scenario_codes(self.simulation_env.root_middleware)
-
-    def cleanup(self):
+    def cleanup(self) -> None:
         self.event_handler.remove_all_remote_simulation_file()
         self.event_handler.kill_every_process()
-        self.simulation_env.cleanup()
+        self.simulation_env.init()
 
-    def build_iot_system(self):
+    def build_iot_system(self) -> None:
         self._send_middleware_configs()
         self._send_thing_codes()
         self._export_scenario_codes()
         self._update_middleware_thing()
 
-    def _update_middleware_thing(self):
+    def _update_middleware_thing(self) -> bool:
 
         def get_remote_device_OS(ssh_client: MXSSHClient) -> str:
             if not ssh_client.send_command_with_check_success('command -v lsb_release', get_pty=True):
@@ -291,13 +234,14 @@ check_cpu_clock_setting'''
             self.event_handler.event_trigger(event)
 
     def start(self) -> None:
+        self.build_iot_system()
         with self.event_handler.simulation_progress:
             self.event_handler.static_event_running_task = self.event_handler.simulation_progress.add_task("[green bold]Run Static event...",
                                                                                                            total=len(self.static_event_timing_list))
             self._trigger_static_events()
             self._trigger_dynamic_events()
 
-    def _generate_middleware_configs(self, root_middleware: MXMiddleware, simulation_data_file_path: str):
+    def _generate_middleware_configs(self, root_middleware: MXMiddleware, simulation_data_file_path: str) -> None:
         middleware_list: List[MXMiddleware] = get_whole_middleware_list(root_middleware)
         for middleware in middleware_list:
             remote_home_dir = f'/home/{middleware.device.user}'
@@ -314,18 +258,18 @@ check_cpu_clock_setting'''
             write_file(mosquitto_conf_file_path, mosquitto_conf)
             write_file(init_script_file_path, init_script)
 
-    def _generate_thing_codes(self, root_middleware: MXMiddleware):
+    def _generate_thing_codes(self, root_middleware: MXMiddleware) -> None:
         thing_list: List[MXThing] = get_whole_thing_list(root_middleware)
 
         for thing in thing_list:
             write_file(thing.thing_file_path, thing.thing_code())
 
-    def _generate_scenario_codes(self, root_middleware: MXMiddleware):
+    def _generate_scenario_codes(self, root_middleware: MXMiddleware) -> None:
         scenario_list: List[MXScenario] = get_whole_scenario_list(root_middleware)
         for scenario in scenario_list:
             write_file(scenario.scenario_file_path, scenario.scenario_code())
 
-    def _send_middleware_configs(self):
+    def _send_middleware_configs(self) -> bool:
 
         with Progress() as progress:
             def task(middleware: MXMiddleware):
@@ -388,10 +332,11 @@ check_cpu_clock_setting'''
 
         return True
 
-    def _export_scenario_codes(self):
+    def _export_scenario_codes(self) -> bool:
         scenario_list: List[MXScenario] = get_whole_scenario_list(self.simulation_env.root_middleware)
         for scenario in scenario_list:
             write_file(scenario.scenario_file_path, scenario.scenario_code())
+
         return True
 
     # =========================

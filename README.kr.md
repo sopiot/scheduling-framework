@@ -1,7 +1,10 @@
 # Simulation Framework for Hierarchical Edge-based IoT
 
 <div style="text-align:center">
-  <img src="imgs/sim_overview.png" width="500" alt="sim_overview" style="margin-right:0px" />
+  <figure>
+    <img src="imgs/sim_overview.png" width="700" alt="sim_overview" style="margin-right:0px" />
+    <figcaption> 프레임워크 구조 </figcaption>
+  </figure>
 </div>
 
 이 프레임워크는 MySSIX IoT 환경을 시뮬레이션하는 것을 목적으로 합니다.
@@ -58,7 +61,7 @@ pip3 install .
 
 ### 기본 사용법
 
-#### Localhost에서 간단한 시뮬레이션 실행하기
+#### 로컬 디바이스에서 간단한 시뮬레이션 실행하기
 
 ```bash
 cd sim_env_samples
@@ -70,11 +73,10 @@ python3 run.py -c ../sim_env_samples/simple_home_local -po ../scheduling_algorit
 #### 원격 디바이스들에서 시뮬레이션 실행하기
 
 시뮬레이션을 실행할 때 **Middleware**와 **Thing**을 로컬 디바이스 대신 원격 디바이스에 분산하여 실행할 수 있습니다. \
-원격 디바이스 정보를 **시뮬레이션 환경 파일**의 `device_pool_path`에 지정된 **디바이스 풀 파일**에 명세하여야 합니다. \
-(자세한 사항은 [**디바이스 풀 파일**](docs/config_files.md#디바이스-풀-파일)을 참고하시기 바랍니다.)
+원격 디바이스 정보를 **시뮬레이션 환경 파일**의 `device_pool_path`에 지정된 **디바이스 풀 파일**에 명세하여야 합니다.
 
 ```bash
-cd <device_pool_path>
+vi device_pool.yml
 
 # 아래의 형식대로 디바이스 정보 입력
 # ...
@@ -87,6 +89,13 @@ cd <device_pool_path>
 # ...
 ```
 
+```bash
+cd sim_env_samples
+python3 run.py -c ../sim_env_samples/simple_home_local -po ../scheduling_algorithm/samples
+```
+
+자세한 사항은 [**디바이스 풀 파일**](docs/config_files.md#디바이스-풀-파일)을 참고하시기 바랍니다.
+
 **시뮬레이션 환경 파일**의 `middleware`와 `thing`섹션에 `device`옵션을 추가함으로써 어떤 원격 디바이스를 사용할지 명세할 수 있습니다. `device`옵션은 **디바이스 풀 파일**에 명세된 디바이스의 이름의 리스트(`[device1, device2, ...]`)로 명세되어지며, `device`항목이 지정되지 않은 경우 **Middleware**의 디바이스로 `device_pool_path`에 지정된 **디바이스 풀 파일**에서 `localhost`를 제외한 모든 디바이스를, **Thing**의 디바이스는 `localhost`만을 사용합니다. 만약 **시뮬레이션 환경 파일**의 `local_mode` 옵션이 `true`인 경우 `device`항목 명세와 관련없이 **Middleware**와 **Thing**의 디바이스로 `localhost`만을 사용합니다.
 
 #### 주요 옵션들
@@ -95,22 +104,27 @@ cd <device_pool_path>
 
 #### 시뮬레이션 결과
 
-프레임워크는 **시뮬레이션 환경 파일**에 명세된 내용을 바탕으로 시뮬레이션을 생성하고 **스케줄링 알고리즘 파일**과 **스케줄링 알고리즘**의 모든 조합에 대해 따라 시뮬레이션을 실행하고 결과를 평가합니다. \
+프레임워크는 **시뮬레이션 환경 파일**에 명세된 내용을 바탕으로 시뮬레이션을 생성하고 **스케줄링 알고리즘 파일**과 **스케줄링 알고리즘**의 모든 조합에 대해 시뮬레이션을 실행하고 결과를 평가, 출력합니다.
+
+<div style="text-align:center">
+  <figure>
+    <img src="imgs/sim_result_example.png" width="700" alt="sim_result_example" style="margin-right:0px" />
+    <figcaption> 각 시뮬레이션에 대한 결과 </figcaption>
+  </figure>
+</div>
+
 생성된 시뮬레이션에 대한 정보는 **시뮬레이션 데이터 파일**에 저장되어 언제든 똑같은 시뮬레이션을 다시 재현할 수 있습니다. \
 ([고급 사용법](#고급-사용법) 참고)
 
-<div align="center">
-<img src="imgs/sim_result_example.png" width="700" alt="sim_result_example" />
-</div>
-
-모든 시뮬레이션이 완료되면 시뮬레이션의 **스케줄링 알고리즘**의 순위 결과가 출력됩니다. \
-순위 결과는 QoS, 에너지, 안정성을 기반으로 **스케줄링 알고리즘**의 순위를 매기고 순위표를 출력합니다. \
-각 테이블 항목에서는 사용된 **시뮬레이션 환경 파일**, **스케줄링 알고리즘 파일**에 대한 정보, 시뮬레이션 결과를 출력합니다.
+모든 시뮬레이션이 완료되면 QoS, 에너지, 안정성에 대해 **스케줄링 알고리즘**의 순위 결과가 출력됩니다.
 
 ### 고급 사용법
 
-<div align="center">
-<img src="imgs/sim_gen.png" width="500" alt="sim_gen" />
+<div style="text-align:center">
+  <figure>
+    <img src="imgs/sim_gen.png" width="600" alt="sim_gen" style="margin-right:0px" />
+    <figcaption> 시뮬레이션 생성 구조 </figcaption>
+  </figure>
 </div>
 
 `-i` 옵션을 사용하여 **시뮬레이션 데이터 파일**에서 직접 시뮬레이션을 수행할 수 있습니다. 이 경우, 시뮬레이터는 새로운 시뮬레이션 환경을 생성하는 대신 이미 생성된 시뮬레이션 환경을 로드합니다. `-c` 옵션과 마찬가지로 `-po` 옵션을 사용하여 시뮬레이션에 사용할 **스케줄링 알고리즘 파일**을 지정할 수 있습니다.
@@ -140,15 +154,7 @@ python3 run.py -c ../sim_env_samples/simple_home_local_multi_env/config_period5_
                   ../scheduling_algorithm/samples/merge_execution.cc
 ```
 
-### 시뮬레이션 프로파일링을 위한 시간 동기화
+### 시뮬레이션 프로파일
 
-프레임워크는 각 시뮬레이션 단계마다 오버헤드를 측정, 평가할 수 있는 프로파일링 기능을 제공합니다. \
-(자세한 사항은 [**프로파일링 기능**](docs/profiling.md)을 참고하시기 바랍니다.)
-
-## 트러블슈팅
-
-### PTP 프로토콜을 사용한 시간 동기화가 너무 오래 걸리는 경우
-
-만약 `"acquired clock control`" 메시지가 출력되지 않고 시간 동기화가 끝나지 않는 경우, 해당 디바이스가 마스터 시간 디바이스인지 확인해주세요. `"Now in state: PTP_MASTER"`라는 메시지의 가장 오른쪽에 "`(self)"`가 있다면, 해당 디바이스가 마스터 시간 디바이스로 선택된 것이므로 나머지 슬레이브 디바이스들의 동기화 상태만 확인하면 됩니다.
-
-위의 경우에 해당하지 않는다면, 아직 시간 동기화가 완료되지 않은 것이므로 잠시 기다려 주세요. 아무리 기다려도 시간 동기화가 진행되지 않는다면, `ptpd`를 종료하고 다시 실행해보세요.
+프레임워크는 각 시뮬레이션 단계마다 오버헤드를 측정, 평가할 수 있는 프로파일 기능을 제공합니다. \
+(자세한 사항은 [**프로파일 기능**](docs/profile.md)을 참고하시기 바랍니다.)

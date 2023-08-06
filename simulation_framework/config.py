@@ -12,7 +12,7 @@ class MXPath:
     def __str__(self) -> str:
         return self.abs_path()
 
-    def abs_path(self):
+    def abs_path(self) -> str:
         path = ''
         if not self.path:
             return None

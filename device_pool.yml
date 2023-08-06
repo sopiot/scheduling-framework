@@ -1,0 +1,5 @@
+# host_name:
+#   host: 192.168.xxx.xxx
+#   ssh_port: 22
+#   user: xxx
+#   password: xxx

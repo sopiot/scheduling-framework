@@ -46,37 +46,28 @@ def decode_MQTT_message(msg: mqtt.MQTTMessage, mode=dict) -> Tuple[str, dict]:
 class MXMQTTClient:
     def __init__(self, middleware: MXMiddleware, debug: bool = False):
         self._mqtt_client: mqtt.Client = mqtt.Client(client_id=middleware.name, clean_session=True)
+        self._pub_message = None
+        self._recv_message = None
+        self._pub_message_queue: Queue = Queue()
+        self._recv_message_queue: Queue = Queue()
+        self._subscribe_list = set()
+        self._debug = debug
 
         self.middleware = middleware
         self.host = middleware.device.host
         self.port = middleware.mqtt_port
 
-        self._pub_message = None
-        self._recv_message = None
-        self._pub_message_queue: Queue = Queue()
-        self._recv_message_queue: Queue = Queue()
-
-        self._subscribe_list = set()
-        self._debug = debug
-
         self.is_run = False
 
         self.set_callback()
 
-    def connect(self):
-        try:
-            self._mqtt_client.connect(self.middleware.device.host, self.middleware.mqtt_port)
-        except Exception as e:
-            MXLOG_DEBUG(f'Connect to broker failed...', 'red')
-            return False
-
-    def set_debug(self, debug: bool):
+    def set_debug(self, debug: bool) -> None:
         self._debug = debug
 
-    def get_client_id(self):
+    def get_client_id(self) -> str:
         return self._mqtt_client._client_id.decode()
 
-    def set_callback(self):
+    def set_callback(self) -> None:
         self._mqtt_client.on_connect = self._on_connect
         self._mqtt_client.on_disconnect = self._on_disconnect
         self._mqtt_client.on_publish = self._on_publish
@@ -84,7 +75,14 @@ class MXMQTTClient:
         self._mqtt_client.on_unsubscribe = self._on_unsubscribe
         self._mqtt_client.on_message = self._on_message
 
-    def publish(self, topic, payload, qos=0, retain=False):
+    def connect(self) -> bool:
+        try:
+            self._mqtt_client.connect(self.middleware.device.host, self.middleware.mqtt_port)
+        except Exception as e:
+            MXLOG_DEBUG(f'Connect to broker failed...', 'red')
+            return False
+
+    def publish(self, topic, payload, qos=0, retain=False) -> None:
         self._pub_message = encode_MQTT_message(
             topic, payload, get_current_time())
         ret = self._mqtt_client.publish(topic, payload, qos, retain)
@@ -98,7 +96,7 @@ class MXMQTTClient:
                 pass
                 MXLOG_DEBUG(f'Publish failed...', 'red')
 
-    def subscribe(self, topic: Union[List, str], qos=0):
+    def subscribe(self, topic: Union[List, str], qos=0) -> None:
         if type(topic) is not list:
             self._mqtt_client.subscribe(topic, qos)
             self._subscribe_list.add(topic)
@@ -115,7 +113,7 @@ class MXMQTTClient:
                         f'{f"✅ Subscribed by {self.get_client_id()}":>16}(qos={qos}): {item:<80}, '
                         f'on {self.middleware.device.name} - {self.middleware.device.host}:{self.middleware.mqtt_port}', 'yellow')
 
-    def unsubscribe(self, topic, properties=None):
+    def unsubscribe(self, topic, properties=None) -> None:
         if type(topic) is not list:
             self._mqtt_client.unsubscribe(topic, properties)
             if topic in self._subscribe_list:
@@ -139,21 +137,15 @@ class MXMQTTClient:
             return self
         else:
             self.connect()
-            self.loop_start()
+            self._mqtt_client.loop_start()
             self.is_run = True
             # self.subscribe_predefine_topics()
             return self
 
     def stop(self):
-        self.loop_stop()
-
-    def loop_start(self):
-        self._mqtt_client.loop_start()
-
-    def loop_stop(self):
         self._mqtt_client.loop_stop()
 
-    ####################################################################################################
+    ##### callback method #########################################################################################
 
     def _on_connect(self, client: mqtt.Client, userdata, flags, rc):
         pass

@@ -1,4 +1,3 @@
-from simulation_framework.core.simulator import *
 from simulation_framework.core.env_generator import *
 from simulation_framework.core.evaluator import *
 from simulation_framework.profiler import *
@@ -18,7 +17,6 @@ class MXSimulationFramework:
         self._ram_disk = ram_disk
         self._mqtt_debug = mqtt_debug
         self._middleware_debug = middleware_debug
-
         self._config_list: List[MXSimulationConfig] = []
         self._policy_file_list: List[str] = []
         self._simulation_env_list: List[MXSimulationEnv] = []
@@ -125,7 +123,7 @@ class MXSimulationFramework:
 
         return policy_list
 
-    def start(self):
+    def start(self) -> None:
         # Generate simulation if any root_middleware in self._simulation_env_list is None.
         if self._config_list:
             self._simulation_env_list = self.generate_simulation_env(self._config_list)
@@ -140,7 +138,7 @@ class MXSimulationFramework:
 
         self.print_ranking(simulation_result_list=simulation_result_list)
 
-    def print_ranking(self, simulation_result_list: List[MXSimulationResult]):
+    def print_ranking(self, simulation_result_list: List[MXSimulationResult]) -> bool:
         if not simulation_result_list:
             MXTEST_LOG_DEBUG(f'No simulation result', MXTestLogLevel.WARN)
             return False
@@ -292,41 +290,62 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
         self.env_generator._export_simulation_data_file(simulation_env_list=simulation_env_list, simulation_data_file_path=simulation_env_list[0].simulation_data_file_path)
         return simulation_env_list
 
-    @exception_wrapper
-    def run_simulation(self, simulation_env: MXSimulationEnv, policy_path: str, index: int):
-        MXTEST_LOG_DEBUG(f'==== Start simulation {simulation_env.config.name}, iter: {index}, policy: {os.path.basename(policy_path)} ====', MXTestLogLevel.INFO)
-        self._simulator = MXSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug,
-                                      middleware_debug=self._middleware_debug, download_logs=self._download_logs)
-        self._simulator.setup()
-        self._simulator.cleanup()
-        self._simulator.build_iot_system()
-        self._simulator.start()
+    def run_simulation(self, simulation_env: MXSimulationEnv, policy_path: str, index: int) -> MXSimulationResult:
+        try:
+            MXTEST_LOG_DEBUG(f'==== Start simulation {simulation_env.config.name}, iter: {index}, policy: {os.path.basename(policy_path)} ====', MXTestLogLevel.INFO)
+            self._simulator = MXSimulator(simulation_env=simulation_env, policy_path=policy_path, mqtt_debug=self._mqtt_debug,
+                                          middleware_debug=self._middleware_debug, download_logs=self._download_logs)
+            self._simulator.setup()
+            self._simulator.start()
 
-        evaluator = MXEvaluator(simulation_env=simulation_env, event_log=self._simulator.get_event_log()).classify_event_log()
-        simulation_result = evaluator.evaluate_simulation()
+            evaluator = MXEvaluator(simulation_env=simulation_env, event_log=self._simulator.get_event_log()).classify_event_log()
+            simulation_result = evaluator.evaluate_simulation()
 
-        simulation_result.config_path = simulation_env.config.config_path
-        simulation_result.policy_path = policy_path
+            simulation_result.config_path = simulation_env.config.config_path
+            simulation_result.policy_path = policy_path
 
-        profiler = None
-        if self._download_logs:
-            self._simulator.event_handler.download_log_file()
-        if self._profile:
-            log_root_path = self._simulator.event_handler.download_log_file()
-            profiler = Profiler()
-            profiler.load(log_root_path=log_root_path)
-            simulation_overhead = profiler.profile(self._profile_type, export=True)
-        else:
-            simulation_overhead = None
+            profiler = None
+            if self._download_logs:
+                self._simulator.event_handler.download_log_file()
+            if self._profile:
+                log_root_path = self._simulator.event_handler.download_log_file()
+                profiler = Profiler()
+                profiler.load(log_root_path=log_root_path)
+                simulation_overhead = profiler.profile(self._profile_type, export=True)
+            else:
+                simulation_overhead = None
 
-        simulation_name = f'{simulation_env.config.name}_{index}'
-        evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, simulation_name=simulation_name, file_name=self._result_filename,
-                             config_path=simulation_env.config.config_path)
-        evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, simulation_name=simulation_name, file_name=self._result_filename,
-                             config_path=simulation_env.config.config_path)
+            simulation_name = f'{simulation_env.config.name}_{index}'
+            evaluator.export_txt(simulation_result=simulation_result, simulation_overhead=simulation_overhead, simulation_name=simulation_name, file_name=self._result_filename,
+                                 config_path=simulation_env.config.config_path)
+            evaluator.export_csv(simulation_result=simulation_result, simulation_overhead=simulation_overhead, simulation_name=simulation_name, file_name=self._result_filename,
+                                 config_path=simulation_env.config.config_path)
 
-        self._simulator.event_handler.wrapup()
-        return simulation_result
+            self._simulator.event_handler.wrapup()
+            return simulation_result
+        except KeyboardInterrupt:
+            MXTEST_LOG_DEBUG('KeyboardInterrupt')
+            event_handler: MXEventHandler = self._simulator.event_handler
+            event_handler.wrapup()
+
+            try:
+                user_input = int(input('Select exit mode[default=1].\n1. Just exit\n2. Download remote logs\n') or 1)
+            except KeyboardInterrupt:
+                user_input = 1
+
+            if user_input == 1:
+                cprint(f'\rExit whole simulation...', 'red')
+            elif user_input == 2:
+                cprint(f'Download remote logs...', 'yellow')
+                event_handler.download_log_file()
+            else:
+                cprint(f'Unknown input. Exit whole simulation...', 'red')
+
+            exit(0)
+        except Exception as e:
+            print_error()
+            event_handler: MXEventHandler = self._simulator.event_handler
+            event_handler.wrapup()
 
     # =========================
     #         _    _  _
@@ -337,7 +356,8 @@ policy: {simulation_result_list_sort_by_success_ratio[i].policy_path}'''] for i 
     #  \__,_| \__||_||_||___/
     # =========================
 
-    def _export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], super_service_name_pool: List[str], service_pool: List[MXService], thing_pool: List[MXThing]):
+    def _export_service_thing_pool(self, service_thing_pool_path: str, tag_name_pool: List[str], service_name_pool: List[str], super_service_name_pool: List[str],
+                                   service_pool: List[MXService], thing_pool: List[MXThing]) -> None:
         service_pool_dict = [service.dict() for service in service_pool]
         thing_pool_dict = [thing.dict() for thing in thing_pool]
         service_thing_pool = {'tag_name_pool': tag_name_pool,

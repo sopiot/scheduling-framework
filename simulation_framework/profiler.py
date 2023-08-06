@@ -128,7 +128,7 @@ class ProfileResult:
         result.request_overhead_list = self.request_overhead_list + other.request_overhead_list
         return result
 
-    def add(self, request_overhead: 'RequestOverhead'):
+    def add(self, request_overhead: 'RequestOverhead') -> None:
         self.request_overhead_list.append(request_overhead)
 
     def avg_overhead(self, filter: dict) -> timedelta:
@@ -537,11 +537,9 @@ class LogLine:
         self.level: int = level
         self.topic: str = topic
         self.payload: str = payload
-
         self.timestamp: timedelta = timestamp
         self.direction: Direction = direction
         self.protocol: MXProtocolType = protocol
-
         self.scenario: str = ''
         self.super_service: str = ''
         self.super_thing: str = ''
@@ -550,11 +548,10 @@ class LogLine:
         self.target_thing: str = ''
         self.target_middleware: str = ''
         self.requester_middleware: str = ''
-
         self.request_key: str = ''    # request_key = scenario@super_service@super_thing@requester_middleware
         self.target_key: str = ''     # target_key = target_service@target_thing@target_middleware
 
-    def topic_slice(self, index: int):
+    def topic_slice(self, index: int) -> str:
         if not self.topic:
             return False
 
@@ -636,9 +633,7 @@ class ComponentLog(metaclass=ABCMeta):
         self.level: int = level
         self.component_name: str = component_name
         self.device: str = device
-
         self.component_type: MXComponentType = None
-
         self.timestamp_regex: str = TIMESTAMP_REGEX
         self.log_line_list: List[LogLine] = []
 
@@ -723,7 +718,6 @@ class ThingLog(ComponentLog):
     def __init__(self, level: int, component_name: str, device: str, is_super: bool) -> None:
         super().__init__(level, component_name, device)
         self.component_type = MXComponentType.THING
-
         self.is_super = is_super
 
     def get_topic_func(self, log_data: str) -> str:
@@ -755,7 +749,6 @@ class Profiler:
         self.middleware_log_list: List[MiddlewareLog] = []
         self.thing_log_list: List[ThingLog] = []
         self.profile_result = ProfileResult()
-
         self.integrated_mqtt_log: List[LogLine] = []
 
     def load(self, log_root_path: str = '') -> 'Profiler':
@@ -953,14 +946,7 @@ class Profiler:
         log_line_string = f'({duration.total_seconds()*1e3:8.3f} ms)[{timestamp}][{direction:<8}] {component_name} {topic} {payload}\n'
         return log_line_string
 
-    def make_log_string(self):
-        for log_line in self.log_line_list:
-            duration = (log_line.timestamp - self.log_line_list[0].timestamp) if log_line == self.log_line_list[0] else (log_line.timestamp -
-                                                                                                                         self.log_line_list[self.log_line_list.index(log_line)-1].timestamp)
-            log_line_string = self.make_log_line_string(duration, log_line)
-            self.log_string += log_line_string
-
-    def export_to_file(self, log_file_name: str, request_log_line_list: List[LogLine]):
+    def export_to_file(self, log_file_name: str, request_log_line_list: List[LogLine]) -> None:
         os.makedirs(os.path.dirname(log_file_name), exist_ok=True)
         with open(log_file_name, 'w') as f:
             for i, log_line in enumerate(request_log_line_list):
